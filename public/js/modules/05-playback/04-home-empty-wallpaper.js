@@ -15,7 +15,6 @@ function shouldShowEmptyHomeCore(ignoreSplash) {
   if (homeSuppressed) return false;
   if (shelfPinnedOpen) return false;
   if (shelfManager && shelfManager.hasOpenContent && shelfManager.hasOpenContent()) return false;
-  if (typeof shouldUseNextShellPlaybackSurface === 'function' && shouldUseNextShellPlaybackSurface()) return true;
   if (shouldShowHomeForPausedStartupRestore()) return true;
   if (hasRestoredPlaybackCandidate()) return false;
   if (playQueue && playQueue.length) return false;
@@ -134,10 +133,7 @@ function updateEmptyHomeVisibility(opts) {
   emptyHomeActive = show;
   document.body.classList.toggle('empty-home-active', show);
   if (!show) setHomeControlsLocked(false);
-  var keepPlaybackSurface = show
-    && typeof shouldUseNextShellPlaybackSurface === 'function'
-    && shouldUseNextShellPlaybackSurface();
-  if (show && !keepPlaybackSurface) activateHomeWallpaperPreview();
+  if (show) activateHomeWallpaperPreview();
   else deactivateHomeWallpaperPreview(false);
   if (show) {
     setPeek(document.getElementById('search-area'), true, 'search');

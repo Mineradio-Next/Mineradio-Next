@@ -14,7 +14,6 @@
   <script src="vendor/gsap.min.js"></script>
   <script src="js/preload-mode.js"></script>
   <link rel="stylesheet" href="css/index.css?v=20260716-we-continuity-vsync">
-  <link rel="stylesheet" href="css/next-shell.css?v=20260810-album-focus">
 </head>
 
 <body>
@@ -163,41 +162,6 @@
     <!-- 音乐 Home：只承载当前 Mineradio 数据，不引入外部仓库的服务端接口。 -->
     <section id="empty-home" aria-label="Mineradio 音乐首页">
       <div class="empty-home-shell">
-        <nav id="next-shell-rail" class="next-shell-rail" aria-label="主导航">
-          <button class="is-active" type="button" onclick="nextShellShowAlbum()" title="首页" aria-label="首页">⌂</button>
-          <button type="button" onclick="nextShellOpenLibrary()" title="音乐库" aria-label="音乐库">♫</button>
-          <button type="button" onclick="nextShellToggleQueue()" title="当前队列" aria-label="当前队列">☷</button>
-          <button type="button" onclick="openHomePlayerConsole()" title="播放器控制" aria-label="播放器控制">◉</button>
-          <button class="next-shell-rail-settings" type="button" onclick="toggleFxPanel()" title="设置与效果" aria-label="设置与效果">⋯</button>
-        </nav>
-
-        <section id="next-album-stage" class="next-album-stage" aria-live="polite">
-          <button id="next-stage-cover" class="next-stage-cover" type="button" onclick="openTrackDetailModal('album')" aria-label="打开当前专辑详情"></button>
-          <div class="next-stage-copy">
-            <div id="next-stage-kicker" class="next-stage-kicker">ALBUM FOCUS · READY</div>
-            <h1 id="next-stage-title" class="next-stage-title">从一首歌开始</h1>
-            <p id="next-stage-artist" class="next-stage-artist">搜索、导入本地音乐，或从音乐库开始</p>
-            <div id="next-stage-actions" class="next-stage-actions">
-              <button type="button" onclick="runHomeSearch('')">搜索音乐</button>
-              <button type="button" onclick="nextShellOpenLibrary()">打开音乐库</button>
-            </div>
-            <div id="next-stage-track-list" class="next-stage-track-list" aria-label="当前专辑和队列曲目"></div>
-          </div>
-        </section>
-
-        <section id="next-collection-desk" class="next-collection-desk" aria-label="音乐库与收藏桌面" hidden>
-          <header class="next-collection-head"><div><span>COLLECTION DESK</span><h1>你的音乐</h1></div><div id="next-collection-clock" class="next-collection-clock">--:--</div></header>
-          <div class="next-collection-actions"><button type="button" onclick="nextShellOpenFullLibrary()">打开完整音乐库</button><button type="button" onclick="openUploadPanel()">导入本地音乐</button><button type="button" onclick="runHomeSearch('')">搜索音乐</button></div>
-          <section><div class="next-collection-label">专辑与队列</div><div id="next-collection-ribbon" class="next-collection-ribbon"></div></section>
-          <section class="next-collection-lower"><div><div class="next-collection-label">当前队列</div><div id="next-collection-recent" class="next-collection-recent"></div></div><aside><div class="next-collection-label">来源状态</div><div id="next-collection-sources" class="next-collection-sources"></div></aside></section>
-        </section>
-
-        <button id="next-shell-queue-handle" class="next-shell-queue-handle" type="button" onclick="nextShellToggleQueue()" aria-expanded="false">NEXT <span id="next-shell-queue-handle-count">0</span></button>
-        <aside id="next-shell-queue-drawer" class="next-shell-queue-drawer" aria-label="当前队列" aria-hidden="true">
-          <div class="next-shell-queue-head"><span>当前队列</span><strong id="next-shell-queue-count">0 首</strong><button type="button" onclick="nextShellToggleQueue(false)" aria-label="关闭队列">×</button></div>
-          <div id="next-shell-queue-list" class="next-shell-queue-list"></div>
-        </aside>
-
         <div class="home-hero" aria-live="polite">
           <div class="daily-review-card">
             <div id="daily-review-date" class="daily-review-date"></div>
@@ -1176,11 +1140,6 @@
 
     <!-- 舞台歌词 (大字 3D, 由 JS 动态填充) -->
     <div id="stage-lyrics"></div>
-    <section id="next-lyric-stage" class="next-lyric-stage" aria-label="沉浸歌词控制">
-      <button class="next-lyric-back" type="button" onclick="toggleImmersiveMode()" aria-label="退出沉浸模式">‹</button>
-      <div class="next-lyric-track"><span>LYRIC STAGE</span><strong id="next-lyric-title">未选择歌曲</strong><small id="next-lyric-artist">Mineradio</small></div>
-      <div class="next-lyric-actions"><button type="button" onclick="toggleMiniQueue(event)">队列</button><button type="button" onclick="toggleLyricsPanel()">歌词设置</button></div>
-    </section>
 
     <!-- 手势 HUD + 手骨架 -->
     <div id="gesture-hud" class="gesture-hud">
