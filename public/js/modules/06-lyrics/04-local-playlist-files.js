@@ -131,6 +131,71 @@ function openLocalPlaylistImport() {
   input.click();
 }
 
+function closeLocalPlaylistLinkImport() {
+  var mask = document.getElementById('local-playlist-link-import-mask');
+  if (mask) mask.remove();
+}
+
+function openLocalPlaylistLinkImport() {
+  closeLocalPlaylistLinkImport();
+  var mask = document.createElement('div');
+  mask.id = 'local-playlist-link-import-mask';
+  mask.className = 'modal-mask show';
+  mask.innerHTML =
+    '<div class="modal" style="width:min(520px,calc(100vw - 32px))">' +
+      '<h2>导入歌单链接</h2>' +
+      '<div class="collect-create" style="margin:14px 0 10px">' +
+        '<button class="fx-mini-btn active" type="button" data-link-provider="netease">网易云</button>' +
+        '<button class="fx-mini-btn ghost" type="button" data-link-provider="qq">QQ 音乐</button>' +
+        '<button class="fx-mini-btn ghost" type="button" data-link-provider="kugou">酷狗</button>' +
+      '</div>' +
+      '<textarea id="local-playlist-link-input" class="playlist-import-input" style="min-height:116px" placeholder="粘贴歌单分享链接，或输入数字歌单 ID" spellcheck="false"></textarea>' +
+      '<div id="local-playlist-link-hint" class="playlist-import-hint">导入后会保存在本地歌单文件分组，可直接播放或导出。</div>' +
+      '<div class="btn-row"><button class="modal-btn" type="button" data-link-close="1">取消</button><button class="modal-btn primary" type="button" data-link-submit="1">开始导入</button></div>' +
+    '</div>';
+  document.body.appendChild(mask);
+  var provider = 'netease';
+  var input = mask.querySelector('#local-playlist-link-input');
+  var hint = mask.querySelector('#local-playlist-link-hint');
+  var submit = mask.querySelector('[data-link-submit]');
+  mask.addEventListener('click', function (event) {
+    if (event.target === mask || event.target.closest('[data-link-close]')) { closeLocalPlaylistLinkImport(); return; }
+    var button = event.target.closest('[data-link-provider]');
+    if (button) {
+      provider = button.getAttribute('data-link-provider') || 'netease';
+      mask.querySelectorAll('[data-link-provider]').forEach(function (item) {
+        var active = item === button;
+        item.classList.toggle('active', active);
+        item.classList.toggle('ghost', !active);
+      });
+      if (hint) hint.textContent = provider === 'netease' ? '支持歌单链接或数字 ID。' : (provider === 'qq' ? '粘贴 QQ 音乐歌单分享链接或数字 ID。' : '粘贴酷狗歌单分享链接或数字 ID。');
+      return;
+    }
+    if (!event.target.closest('[data-link-submit]')) return;
+    var value = String(input && input.value || '').trim();
+    if (!value) { if (hint) hint.textContent = '请先粘贴歌单链接或输入数字 ID。'; input.focus(); return; }
+    submit.disabled = true;
+    if (hint) hint.textContent = '正在读取歌单，请稍候...';
+    apiJson('/api/local-playlists/import-link', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: value, provider: provider }), timeoutMs: 30000
+    }).then(function (result) {
+      if (!result || !result.ok || !result.playlist) throw new Error(result && result.error || 'PLAYLIST_LINK_IMPORT_FAILED');
+      var imported = result.playlist;
+      var found = localFilePlaylists.findIndex(function (item) { return String(item.id) === String(imported.id); });
+      if (found >= 0) localFilePlaylists.splice(found, 1, imported);
+      else localFilePlaylists.unshift(imported);
+      if (!saveLocalFilePlaylists()) return;
+      rebuildUserPlaylistsFromCatalog({ animate: true, preserveScroll: true, reason: 'local-playlist-link-import' });
+      closeLocalPlaylistLinkImport();
+      showToast('已导入歌单：' + imported.name + ' · ' + imported.songs.length + ' 首');
+    }).catch(function (error) {
+      if (hint) hint.textContent = '导入失败：' + String(error && error.message || '链接不可用');
+    }).finally(function () { submit.disabled = false; });
+  });
+  input.focus();
+}
+
 function localPlaylistById(id) {
   return localFilePlaylists.find(function (item) { return String(item.id) === String(id); }) || null;
 }

@@ -63,6 +63,7 @@ const tls = require('tls');
 const { fileURLToPath } = require('url');
 const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
 const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
+const { importPlaylistLink } = require('./platform-playlist-link-import');
 const {
   normalizeQQVipPayload: normalizeQQVipPayloadStrict,
   resolveQQVipFromProbes,
@@ -4679,6 +4680,20 @@ const server = http.createServer(async (req, res) => {
         manifestOverride: !!UPDATE_CONFIG.manifest,
       },
     });
+    return;
+  }
+
+  if (pn === '/api/local-playlists/import-link') {
+    if (req.method !== 'POST') {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+      return;
+    }
+    try {
+      const body = await readRequestBody(req);
+      sendJSON(res, await importPlaylistLink(body.input, body.provider));
+    } catch (err) {
+      sendJSON(res, { ok: false, error: err.message || 'PLAYLIST_LINK_IMPORT_FAILED' }, 400);
+    }
     return;
   }
 
