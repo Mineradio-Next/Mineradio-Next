@@ -647,10 +647,13 @@ function renderUserPlaylistsList(opts) {
     var key = playlistPanelKey(provider, pl.id);
     var isExpanded = playlistPanelDetailState.key === key;
     var expanded = isExpanded ? ' expanded' : '';
+    var localExport = provider === 'local'
+      ? '<button class="fx-mini-btn ghost" type="button" data-local-playlist-export="' + escHtml(String(pl.id || '')) + '" title="导出歌单文件" style="height:24px;padding:0 8px;font-size:10px">导出</button>'
+      : '';
     return '<div class="pl-card' + expanded + '" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" data-playlist-provider="' + provider + '" data-playlist-id="' + escHtml(String(pl.id || '')) + '" data-playlist-title="' + escHtml(pl.name || '') + '" data-playlist-index="' + sourceIndex + '">' +
       imgTag +
       '<div style="flex:1;min-width:0"><div class="pl-name">' + escHtml(pl.name) + '<span class="tag-source ' + provider + '" style="margin-left:6px;vertical-align:1px">' + providerLabel + '</span></div><div class="pl-sub">' + pl.trackCount + ' 首 · ' + escHtml(pl.creator || '') + '</div></div>' +
-      '</div>';
+      localExport + '</div>';
   }
   var cache = playlistPanelBuildVirtualEntries();
   var listRect = $pl.getBoundingClientRect();
@@ -703,6 +706,13 @@ function renderMyPodcastCollections(opts) {
   if (opts.animate) animateVisiblePanelList($pod, '.pl-card', document.getElementById('playlist-panel'));
 }
 document.getElementById('pl-list').addEventListener('click', function (e) {
+  var exportLocalPlaylist = e.target && e.target.closest ? e.target.closest('[data-local-playlist-export]') : null;
+  if (exportLocalPlaylist) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof exportLocalPlaylistFile === 'function') exportLocalPlaylistFile(exportLocalPlaylist.getAttribute('data-local-playlist-export'));
+    return;
+  }
   var loadMore = e.target && e.target.closest ? e.target.closest('[data-pl-load-more]') : null;
   if (loadMore) {
     e.preventDefault();

@@ -167,12 +167,22 @@ function localPlaylistExportPayload(playlist) {
 async function exportLocalPlaylistFile(id) {
   var playlist = localPlaylistById(id);
   if (!playlist) return;
+  var name = String(playlist.name || 'Mineradio歌单').replace(/[\\/:*?"<>|]+/g, '-') + '.lxmc';
+  var payload = localPlaylistExportPayload(playlist);
+  var bridge = window.desktopWindow;
+  if (bridge && typeof bridge.exportPlaylistFile === 'function') {
+    var result = await bridge.exportPlaylistFile({ defaultName: name, data: payload });
+    if (!result || result.canceled) return;
+    if (!result.ok) { showToast('歌单文件导出失败'); return; }
+    showToast('歌单文件已导出');
+    return;
+  }
   if (typeof CompressionStream !== 'function') { showToast('当前环境不支持歌单文件导出'); return; }
-  var stream = new Blob([JSON.stringify(localPlaylistExportPayload(playlist))], { type: 'application/json' }).stream().pipeThrough(new CompressionStream('gzip'));
+  var stream = new Blob([JSON.stringify(payload)], { type: 'application/json' }).stream().pipeThrough(new CompressionStream('gzip'));
   var blob = await new Response(stream).blob();
   var url = URL.createObjectURL(blob), anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = String(playlist.name || 'Mineradio歌单').replace(/[\\/:*?"<>|]+/g, '-') + '.lxmc';
+  anchor.download = name;
   document.body.appendChild(anchor); anchor.click(); anchor.remove();
   setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
   showToast('歌单文件已导出');

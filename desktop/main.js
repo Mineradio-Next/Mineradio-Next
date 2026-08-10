@@ -3,6 +3,7 @@ const net = require('net');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const zlib = require('zlib');
 const crypto = require('crypto');
 const { execFile, spawn } = require('child_process');
 const systemMemory = require('./system-memory');
@@ -4531,6 +4532,27 @@ ipcMain.handle('mineradio-export-json-file', async (event, payload = {}) => {
     return { ok: true, filePath: result.filePath };
   } catch (e) {
     return { ok: false, error: e.message || 'EXPORT_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-export-playlist-file', async (event, payload = {}) => {
+  try {
+    const owner = getSenderWindow(event);
+    const requestedName = String(payload.defaultName || 'Mineradio歌单.lxmc').replace(/[\\/:*?"<>|]+/g, '-');
+    const defaultName = requestedName.toLowerCase().endsWith('.lxmc') ? requestedName : `${requestedName}.lxmc`;
+    const text = JSON.stringify(payload.data || {});
+    const compressed = zlib.gzipSync(Buffer.from(text, 'utf8'));
+    if (compressed.length > 50 * 1024 * 1024) return { ok: false, error: 'PLAYLIST_FILE_TOO_LARGE' };
+    const result = await dialog.showSaveDialog(owner, {
+      title: '导出歌单文件',
+      defaultPath: defaultName,
+      filters: [{ name: '歌单文件', extensions: ['lxmc'] }],
+    });
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    fs.writeFileSync(result.filePath, compressed);
+    return { ok: true, filePath: result.filePath };
+  } catch (e) {
+    return { ok: false, error: e.message || 'PLAYLIST_FILE_EXPORT_FAILED' };
   }
 });
 
