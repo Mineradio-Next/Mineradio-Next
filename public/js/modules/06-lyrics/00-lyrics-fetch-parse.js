@@ -101,7 +101,7 @@ async function runQueueLyricPrefetch(fromIndex, token) {
     var cached = await readPersistentLyricCache(candidate.song);
     if (token !== lyricQueuePrefetchToken) return false;
     if (cached) return true;
-    var response = await apiJson(lyricEndpointForSong(candidate.song));
+    var response = await lyricResponseForSong(candidate.song);
     if (token !== lyricQueuePrefetchToken) return false;
     var merged = mergeInlineLyricResponseForSong(candidate.song, response || {});
     var state = parseLyricResponseToOriginalState(candidate.song, merged);
@@ -113,6 +113,14 @@ async function runQueueLyricPrefetch(fromIndex, token) {
   } finally {
     lyricQueuePrefetchBusy = false;
   }
+}
+
+async function lyricResponseForSong(song) {
+  if (song && song.additionalSourceCode) {
+    if (typeof resolveAdditionalSourceLyrics !== 'function') return {};
+    return await resolveAdditionalSourceLyrics(song) || {};
+  }
+  return apiJson(lyricEndpointForSong(song));
 }
 
 function applyFetchedLyricResponse(song, token, response, options) {
@@ -129,7 +137,7 @@ function applyFetchedLyricResponse(song, token, response, options) {
 }
 
 function refreshPersistentLyricCache(song) {
-  apiJson(lyricEndpointForSong(song)).then(function (response) {
+  lyricResponseForSong(song).then(function (response) {
     var mergedResponse = mergeInlineLyricResponseForSong(song, response || {});
     var state = parseLyricResponseToOriginalState(song, mergedResponse);
     if (state && state.usableLyric) writePersistentLyricCache(song, mergedResponse);
@@ -346,9 +354,10 @@ async function fetchLyric(songOrId, token, attempt) {
         return;
       }
     }
-    var r = await apiJson(lyricEndpointForSong(song || songOrId));
+    var directAdditional = !!(song && song.additionalSourceCode);
+    var r = await lyricResponseForSong(song || songOrId);
     var state = applyFetchedLyricResponse(song, token, r);
-    if (!state || !state.usableLyric) {
+    if ((!state || !state.usableLyric) && !directAdditional) {
       try {
         var additional = typeof resolveAdditionalSourceLyrics === 'function'
           ? await resolveAdditionalSourceLyrics(song)

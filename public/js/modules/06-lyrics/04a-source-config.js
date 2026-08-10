@@ -2,6 +2,8 @@
 var ADDITIONAL_SOURCE_ENABLED_KEY = 'mineradio-additional-source-enabled-v1';
 var additionalSourcePanelRequest = 0;
 var additionalSourceInstalledCount = 0;
+var additionalSourceSearchCapabilities = { kw: false, mg: false };
+var additionalSourceEnabledSyncQueue = Promise.resolve(null);
 
 function additionalSourceEnabled() {
   return localStorage.getItem(ADDITIONAL_SOURCE_ENABLED_KEY) === '1';
@@ -9,14 +11,75 @@ function additionalSourceEnabled() {
 
 function setAdditionalSourceEnabled(enabled) {
   localStorage.setItem(ADDITIONAL_SOURCE_ENABLED_KEY, enabled ? '1' : '0');
+  if (!enabled) updateAdditionalSourceSearchModes(additionalSourceSearchCapabilities);
+  syncAdditionalSourceEnabledState().then(function (result) {
+    if (result && result.ok) updateAdditionalSourceSearchModes(additionalSourceSearchCapabilities);
+    else if (enabled) updateAdditionalSourceSearchModes({});
+  });
+}
+
+function syncAdditionalSourceEnabledState() {
+  var enabled = additionalSourceEnabled();
+  additionalSourceEnabledSyncQueue = additionalSourceEnabledSyncQueue.then(function () {
+    return apiJson('/api/source-config/enabled', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled }),
+      timeoutMs: 5000
+    });
+  }, function () {
+    return null;
+  }).catch(function (error) {
+    console.warn('[AdditionalSourceEnabled]', error);
+    return null;
+  });
+  return additionalSourceEnabledSyncQueue;
 }
 
 function additionalSourceCodeForSong(song) {
+  var directSource = String(song && song.additionalSourceCode || '').toLowerCase();
+  if (/^(kw|mg|kg|tx|wy)$/.test(directSource)) return directSource;
   var provider = typeof songProviderKey === 'function' ? songProviderKey(song) : String(song && (song.source || song.provider) || '');
   if (provider === 'qq') return 'tx';
   if (provider === 'kugou') return 'kg';
   if (provider === 'netease') return 'wy';
   return '';
+}
+
+function additionalSourceSearchModeAvailable(provider) {
+  var source = provider === 'kuwo' ? 'kw' : (provider === 'migu' ? 'mg' : '');
+  return !!(source && additionalSourceEnabled() && additionalSourceSearchCapabilities[source]);
+}
+
+function updateAdditionalSourceSearchModes(sources) {
+  sources = sources && typeof sources === 'object' ? sources : {};
+  additionalSourceSearchCapabilities = { kw: !!sources.kw, mg: !!sources.mg };
+  var modes = [{ mode: 'kuwo', source: 'kw' }, { mode: 'migu', source: 'mg' }];
+  modes.forEach(function (entry) {
+    var button = document.getElementById('search-mode-' + entry.mode);
+    var visible = additionalSourceEnabled() && additionalSourceSearchCapabilities[entry.source];
+    if (!button) return;
+    button.hidden = !visible;
+    button.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  });
+  if ((searchMode === 'kuwo' && !additionalSourceSearchModeAvailable('kuwo')) ||
+      (searchMode === 'migu' && !additionalSourceSearchModeAvailable('migu'))) {
+    setSearchMode('song');
+  } else if (typeof updateSearchModeTabs === 'function') {
+    updateSearchModeTabs();
+  }
+}
+
+async function refreshAdditionalSourceSearchModes() {
+  await syncAdditionalSourceEnabledState();
+  try {
+    var result = await apiJson('/api/source-config/status', { timeoutMs: 5000 });
+    updateAdditionalSourceSearchModes(result && result.sources);
+    return result;
+  } catch (error) {
+    updateAdditionalSourceSearchModes({});
+    return null;
+  }
 }
 
 function additionalSourceMusicInfo(song) {
@@ -151,11 +214,13 @@ async function refreshSourceConfigPanel() {
     if (request !== additionalSourcePanelRequest) return;
     renderSourceConfigList(result || {});
     renderSourceConfigToggle(additionalSourceEnabled());
+    updateAdditionalSourceSearchModes(result && result.sources);
     var sourceNames = result && result.sources ? Object.keys(result.sources) : [];
     sourceConfigSetHint(sourceNames.length ? ('当前音源支持：' + sourceNames.join(' / ')) : '内置平台优先 · 备用音源未配置');
   } catch (error) {
     if (request !== additionalSourcePanelRequest) return;
     renderSourceConfigList({ installed: [] });
+    updateAdditionalSourceSearchModes({});
     sourceConfigSetHint(sourceConfigErrorText(error && error.message), true);
   }
 }
@@ -266,3 +331,5 @@ function openSourceConfigPanel() {
   openGsapModal(mask);
   refreshSourceConfigPanel();
 }
+
+refreshAdditionalSourceSearchModes();

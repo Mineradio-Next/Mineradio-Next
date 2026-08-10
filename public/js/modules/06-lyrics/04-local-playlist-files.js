@@ -4,12 +4,16 @@ var localFilePlaylists = readLocalFilePlaylists();
 
 function localPlaylistSource(value) {
   var key = String(value || '').toLowerCase();
-  return ({ tx: 'qq', qq: 'qq', wy: 'netease', netease: 'netease', kg: 'kugou', kugou: 'kugou' })[key] || '';
+  return ({
+    tx: 'qq', qq: 'qq', wy: 'netease', netease: 'netease', kg: 'kugou', kugou: 'kugou',
+    kw: 'backup-source', kuwo: 'backup-source', mg: 'backup-source', migu: 'backup-source',
+    'backup-source': 'backup-source'
+  })[key] || '';
 }
 
 function localPlaylistSongKey(song) {
   song = song || {};
-  return [song.source || '', song.id || song.songmid || '', song.name || '', song.singer || ''].join('|').toLowerCase();
+  return [song.additionalSourceCode || song.source || '', song.id || song.songmid || '', song.name || '', song.singer || ''].join('|').toLowerCase();
 }
 
 function normalizeLocalPlaylistSong(song) {
@@ -38,6 +42,14 @@ function normalizeLocalPlaylistSong(song) {
     importedFrom: String(song.source || song.provider || '').trim(),
     importedMeta: meta
   };
+  if (source === 'backup-source') {
+    var additionalSourceCode = String(song.additionalSourceCode || song.source || song.provider || '').toLowerCase();
+    if (additionalSourceCode === 'kuwo') additionalSourceCode = 'kw';
+    if (additionalSourceCode === 'migu') additionalSourceCode = 'mg';
+    if (!/^(kw|mg)$/.test(additionalSourceCode)) return null;
+    normalized.additionalSourceCode = additionalSourceCode;
+    normalized.type = 'backup-source';
+  }
   ['hash', 'FileHash', 'fileHash', 'strMediaMid', 'albumMid', 'copyrightId', 'lrcUrl', 'trcUrl', 'mrcUrl'].forEach(function (key) {
     if (song[key] != null && song[key] !== '') normalized[key] = song[key];
     else if (meta[key] != null && meta[key] !== '') normalized[key] = meta[key];
@@ -200,6 +212,43 @@ function localPlaylistById(id) {
   return localFilePlaylists.find(function (item) { return String(item.id) === String(id); }) || null;
 }
 
+function createLocalFilePlaylist(name) {
+  name = String(name || '').trim();
+  if (!name) return null;
+  var playlist = {
+    id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    provider: 'local', source: 'local', name: name, creator: '本地歌单',
+    cover: '', songs: [], trackCount: 0, importedAt: Date.now()
+  };
+  localFilePlaylists.unshift(playlist);
+  if (!saveLocalFilePlaylists()) {
+    localFilePlaylists.shift();
+    return null;
+  }
+  rebuildUserPlaylistsFromCatalog({ animate: true, preserveScroll: true, reason: 'local-playlist-create' });
+  return playlist;
+}
+
+function addSongToLocalFilePlaylist(id, song) {
+  var playlist = localPlaylistById(id);
+  var normalized = normalizeLocalPlaylistSong(song);
+  if (!playlist || !normalized) return { ok: false, error: 'LOCAL_PLAYLIST_SONG_INVALID' };
+  var key = localPlaylistSongKey(normalized);
+  if (playlist.songs.some(function (item) { return localPlaylistSongKey(item) === key; })) {
+    return { ok: true, duplicate: true };
+  }
+  playlist.songs.push(normalized);
+  playlist.trackCount = playlist.songs.length;
+  if (!playlist.cover) playlist.cover = normalized.picUrl || '';
+  if (!saveLocalFilePlaylists()) {
+    playlist.songs.pop();
+    playlist.trackCount = playlist.songs.length;
+    return { ok: false, error: 'LOCAL_PLAYLIST_SAVE_FAILED' };
+  }
+  rebuildUserPlaylistsFromCatalog({ animate: true, preserveScroll: true, reason: 'local-playlist-add-song' });
+  return { ok: true, duplicate: false };
+}
+
 function playLocalPlaylistFile(id) {
   var playlist = localPlaylistById(id);
   if (!playlist || !playlist.songs.length) { showToast('这个歌单没有可播放歌曲'); return false; }
@@ -222,10 +271,31 @@ function localPlaylistExportPayload(playlist) {
       name: String(playlist.name || 'Mineradio 歌单'),
       source: 'mineradio',
       sourceListId: String(playlist.id || ''),
-      list: (playlist.songs || []).map(function (song) {
-        return { id: song.id || song.songmid || '', name: song.name || '', singer: song.singer || song.artist || '', source: song.source === 'qq' ? 'tx' : (song.source === 'netease' ? 'wy' : (song.source === 'kugou' ? 'kg' : '')), interval: song.interval || '', meta: song.importedMeta || {} };
-      }).filter(function (song) { return song.source && song.name && song.id; })
+      list: (playlist.songs || []).map(localPlaylistExportSong).filter(function (song) { return song.source && song.name && song.id; })
     }
+  };
+}
+
+function localPlaylistExportSong(song) {
+  song = song || {};
+  var source = song.additionalSourceCode || (song.source === 'qq' ? 'tx' : (song.source === 'netease' ? 'wy' : (song.source === 'kugou' ? 'kg' : '')));
+  var meta = Object.assign({}, song.importedMeta || {});
+  [
+    ['picUrl', song.picUrl || song.cover], ['albumName', song.albumName || song.album],
+    ['albumId', song.albumId], ['copyrightId', song.copyrightId],
+    ['lrcUrl', song.lrcUrl], ['mrcUrl', song.mrcUrl], ['trcUrl', song.trcUrl],
+    ['hash', song.hash], ['strMediaMid', song.strMediaMid]
+  ].forEach(function (entry) {
+    if (entry[1] != null && entry[1] !== '') meta[entry[0]] = entry[1];
+  });
+  return {
+    id: song.id || song.songmid || '',
+    songmid: song.songmid || song.mid || song.id || '',
+    name: song.name || '',
+    singer: song.singer || song.artist || '',
+    source: source,
+    interval: song.interval || song.duration || '',
+    meta: meta
   };
 }
 

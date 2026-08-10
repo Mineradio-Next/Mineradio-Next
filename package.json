@@ -28,6 +28,7 @@
       "cuefield/**/*",
       "server.js",
       "source-host.js",
+      "backup-catalog-search.js",
       "platform-playlist-link-import.js",
       "*-api.js",
       "qishui-auth-v6.js",

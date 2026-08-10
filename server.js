@@ -65,6 +65,8 @@ const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer
 const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
 const { importPlaylistLink } = require('./platform-playlist-link-import');
 const sourceHost = require('./source-host');
+const { searchBackupCatalog } = require('./backup-catalog-search');
+let backupCatalogEnabled = false;
 const {
   normalizeQQVipPayload: normalizeQQVipPayloadStrict,
   resolveQQVipFromProbes,
@@ -4702,9 +4704,55 @@ const server = http.createServer(async (req, res) => {
   // flow and are used only when a user explicitly installs a source script.
   if (pn === '/api/source-config/status') {
     try {
-      sendJSON(res, await sourceHost.status());
+      sendJSON(res, { ...(await sourceHost.status()), enabled: backupCatalogEnabled });
     } catch (err) {
       sendJSON(res, { ok: true, configured: false, installed: [], sources: {}, error: err.message || 'SOURCE_NOT_CONFIGURED' });
+    }
+    return;
+  }
+
+  if (pn === '/api/source-config/enabled') {
+    if (req.method !== 'POST') {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+      return;
+    }
+    try {
+      const body = await readRequestBody(req);
+      backupCatalogEnabled = body.enabled === true;
+      sendJSON(res, { ok: true, enabled: backupCatalogEnabled });
+    } catch (err) {
+      sendJSON(res, { ok: false, error: err.message || 'SOURCE_ENABLED_STATE_FAILED' }, 400);
+    }
+    return;
+  }
+
+  if (pn === '/api/backup-catalog/search') {
+    if (req.method !== 'GET') {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED', songs: [] }, 405);
+      return;
+    }
+    const provider = String(url.searchParams.get('provider') || '').toLowerCase();
+    try {
+      if (!['kw', 'mg'].includes(provider)) {
+        sendJSON(res, { ok: false, provider, error: 'BACKUP_CATALOG_PROVIDER_UNSUPPORTED', songs: [] }, 400);
+        return;
+      }
+      if (!backupCatalogEnabled) {
+        sendJSON(res, { ok: false, provider, error: 'BACKUP_CATALOG_DISABLED', songs: [] }, 409);
+        return;
+      }
+      const sourceStatus = await sourceHost.status();
+      if (!sourceStatus.sources || !sourceStatus.sources[provider]) {
+        sendJSON(res, { ok: false, provider, error: 'BACKUP_CATALOG_SOURCE_UNAVAILABLE', songs: [] }, 409);
+        return;
+      }
+      const keywords = url.searchParams.get('keywords') || '';
+      const limit = Math.max(1, Math.min(30, parseInt(url.searchParams.get('limit') || '12', 10) || 12));
+      const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+      sendJSON(res, await searchBackupCatalog(provider, keywords, { limit, offset }));
+    } catch (err) {
+      console.warn('[BackupCatalogSearch]', provider, err.message);
+      sendJSON(res, { ok: false, provider, error: err.message || 'BACKUP_CATALOG_SEARCH_FAILED', songs: [] }, 502);
     }
     return;
   }

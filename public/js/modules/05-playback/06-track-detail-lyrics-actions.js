@@ -10,6 +10,8 @@ function songDurationLabel(song) {
 }
 function songSourceLabel(song) {
   if (!song) return '未知';
+  if (song.additionalSourceCode === 'kw') return '酷我音乐';
+  if (song.additionalSourceCode === 'mg') return '咪咕音乐';
   if (song.provider === 'spotify' || song.source === 'spotify' || song.type === 'spotify' || song.spotifyId || song.spotifyUri) return 'Spotify';
   if (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq') return 'QQ 音乐';
   if (song.provider === 'qishui' || song.source === 'qishui' || song.type === 'qishui') return '汽水音乐';
@@ -1186,6 +1188,20 @@ var SONG_ACCOUNT_ACTION_ADAPTERS = {
     readOnly: true
   }
 };
+var BACKUP_SOURCE_LIKES_KEY = 'mineradio-backup-source-likes-v1';
+var backupSourceLikedSongMap = {};
+try {
+  var savedBackupSourceLikes = JSON.parse(localStorage.getItem(BACKUP_SOURCE_LIKES_KEY) || '{}');
+  Object.keys(savedBackupSourceLikes || {}).forEach(function (key) {
+    if (/^(kuwo|migu):/.test(key) && savedBackupSourceLikes[key]) backupSourceLikedSongMap[key] = true;
+  });
+} catch (_) { }
+function isBackupSourceSong(song) {
+  return !!(song && /^(kw|mg)$/.test(String(song.additionalSourceCode || '').toLowerCase()));
+}
+function saveBackupSourceLikes() {
+  try { localStorage.setItem(BACKUP_SOURCE_LIKES_KEY, JSON.stringify(backupSourceLikedSongMap)); } catch (_) { }
+}
 function songAccountProvider(song) {
   if (!song || song.type === 'local' || song.type === 'podcast' || song.source === 'podcast') return 'local';
   if (typeof songProviderKey === 'function') return songProviderKey(song);
@@ -1261,6 +1277,7 @@ function isCloudSong(song) {
 }
 function isSongLiked(song) {
   var key = songAccountStateKey(song);
+  if (isBackupSourceSong(song)) return !!(key && backupSourceLikedSongMap[key]);
   return !!(key && likedSongMap[key]);
 }
 function ensureLoggedInForAction(provider) {
@@ -1389,6 +1406,18 @@ function refreshSearchResultActionStates() {
 }
 async function toggleLikeSong(song) {
   var provider = songAccountProvider(song);
+  if (isBackupSourceSong(song)) {
+    var backupStateKey = songAccountStateKey(song);
+    if (!backupStateKey) { showToast('当前歌曲缺少来源标识'); return; }
+    backupSourceLikedSongMap[backupStateKey] = !backupSourceLikedSongMap[backupStateKey];
+    if (!backupSourceLikedSongMap[backupStateKey]) delete backupSourceLikedSongMap[backupStateKey];
+    saveBackupSourceLikes();
+    updateLikeButtons(song);
+    safeRenderQueuePanel('backup-like-toggle', { scrollCurrent: miniQueueOpen });
+    refreshSearchResultActionStates();
+    showToast(backupSourceLikedSongMap[backupStateKey] ? '已加入本地红心' : '已取消本地红心');
+    return;
+  }
   var adapter = songAccountAdapter(provider);
   if (!adapter || !adapter.like || !adapter.likeUrl) {
     showToast(songAccountUnsupportedMessage(provider, 'like'));
@@ -1441,6 +1470,12 @@ function toggleLikeDetailSong(song) { toggleLikeSong(song); }
 function openCollectModal(song) {
   var provider = songAccountProvider(song);
   var adapter = songAccountAdapter(provider);
+  if (isBackupSourceSong(song)) {
+    collectTargetSong = song;
+    renderCollectModal();
+    openGsapModal(document.getElementById('collect-modal'));
+    return;
+  }
   if (!adapter || !adapter.collect || !adapter.playlistAddUrl) {
     showToast(songAccountUnsupportedMessage(provider, 'collect'));
     return;
@@ -1472,6 +1507,22 @@ function renderCollectModal() {
     '<div style="min-width:0"><div class="collect-title">' + escHtml(song.name || '当前歌曲') + '</div><div class="collect-sub">' + escHtml(song.artist || '') + '</div></div>';
   var provider = songAccountProvider(song);
   var adapter = songAccountAdapter(provider);
+  if (isBackupSourceSong(song)) {
+    var localLists = typeof localFilePlaylists !== 'undefined' && Array.isArray(localFilePlaylists) ? localFilePlaylists : [];
+    if (!localLists.length) {
+      list.innerHTML = '<div class="collect-empty">还没有本地歌单，可以先新建一个</div>';
+      return;
+    }
+    list.innerHTML = localLists.map(function (pl) {
+      var thumb = pl.cover ? coverUrlWithSize(pl.cover, 80) : '';
+      return '<div class="collect-item" data-collect-pid="' + escHtml(String(pl.id || '')) + '" onclick="addCollectTargetToPlaylist(this.getAttribute(\'data-collect-pid\'))">' +
+        (thumb ? '<img src="' + thumb + '" alt="">' : '<div class="cover-placeholder"></div>') +
+        '<div style="min-width:0"><div class="collect-title">' + escHtml(pl.name || '') + '</div><div class="collect-sub">' + (pl.trackCount || (pl.songs && pl.songs.length) || 0) + ' 首 · 本地</div></div>' +
+        '</div>';
+    }).join('');
+    if (window.gsap) animateListItems(list, '.collect-item', { x: 0, y: 6, stagger: 0.012, duration: 0.18, limit: 18 });
+    return;
+  }
   if (!adapter || !adapter.collect) {
     list.innerHTML = '<div class="collect-empty">' + escHtml(songAccountUnsupportedMessage(provider, 'collect')) + '</div>';
     return;
@@ -1510,6 +1561,17 @@ function setCollectBusyPid(pid, busy) {
 async function createPlaylistFromCollect() {
   var provider = songAccountProvider(collectTargetSong);
   var adapter = songAccountAdapter(provider);
+  if (isBackupSourceSong(collectTargetSong)) {
+    var localInput = document.getElementById('collect-new-name');
+    var localName = localInput ? localInput.value.trim() : '';
+    if (!localName) { showToast('先输入歌单名称'); return; }
+    var localPlaylist = typeof createLocalFilePlaylist === 'function' ? createLocalFilePlaylist(localName) : null;
+    if (!localPlaylist) { showToast('本地歌单创建失败'); return; }
+    if (localInput) localInput.value = '';
+    renderCollectModal();
+    addCollectTargetToPlaylist(localPlaylist.id);
+    return;
+  }
   if (!adapter || !adapter.createPlaylist || !adapter.playlistCreateUrl) {
     showToast((adapter && adapter.label || '当前平台') + '暂不支持在 Mineradio 内新建歌单');
     return;
@@ -1589,6 +1651,15 @@ async function addCollectTargetToPlaylist(pid) {
   var targetSong = collectTargetSong;
   var provider = songAccountProvider(targetSong);
   var adapter = songAccountAdapter(provider);
+  if (isBackupSourceSong(targetSong)) {
+    var localResult = typeof addSongToLocalFilePlaylist === 'function'
+      ? addSongToLocalFilePlaylist(pid, targetSong)
+      : { ok: false };
+    if (!localResult.ok) { showToast('收藏到本地歌单失败'); return; }
+    showToast(localResult.duplicate ? '歌曲已在本地歌单中' : '已收藏到本地歌单');
+    closeCollectModal();
+    return;
+  }
   if (!adapter || !adapter.collect || !adapter.playlistAddUrl) {
     showToast(songAccountUnsupportedMessage(provider, 'collect'));
     return;
