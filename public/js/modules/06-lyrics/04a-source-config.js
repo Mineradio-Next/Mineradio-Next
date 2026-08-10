@@ -1,6 +1,7 @@
 /* Optional source scripts. Built-in providers remain the default playback path. */
 var ADDITIONAL_SOURCE_ENABLED_KEY = 'mineradio-additional-source-enabled-v1';
 var additionalSourcePanelRequest = 0;
+var additionalSourceInstalledCount = 0;
 
 function additionalSourceEnabled() {
   return localStorage.getItem(ADDITIONAL_SOURCE_ENABLED_KEY) === '1';
@@ -105,21 +106,38 @@ function sourceConfigSetHint(text, isError) {
   hint.style.color = isError ? 'rgba(255, 157, 157, .92)' : '';
 }
 
+function renderSourceConfigToggle(enabled) {
+  var toggle = document.getElementById('source-config-enabled');
+  if (!toggle) return;
+  var available = additionalSourceInstalledCount > 0;
+  var active = available && !!enabled;
+  toggle.disabled = !available;
+  toggle.classList.toggle('on', active);
+  toggle.classList.toggle('unavailable', !available);
+  toggle.setAttribute('aria-checked', active ? 'true' : 'false');
+  toggle.setAttribute('aria-disabled', available ? 'false' : 'true');
+  var state = toggle.querySelector('[data-source-enabled-state]');
+  if (state) state.textContent = available ? (active ? '已开启' : '已关闭') : '未配置';
+}
+
 function renderSourceConfigList(payload) {
   var list = document.getElementById('source-config-list');
   if (!list) return;
   var records = Array.isArray(payload && payload.installed) ? payload.installed : [];
+  additionalSourceInstalledCount = records.length;
+  var count = document.getElementById('source-config-count');
+  if (count) count.textContent = records.length + ' 个';
   if (!records.length) {
-    list.innerHTML = '<div class="playlist-import-hint">尚未安装来源配置。导入后仍需手动启用。</div>';
+    list.innerHTML = '<div class="source-config-empty">暂无备用音源</div>';
     return;
   }
   list.innerHTML = records.map(function (record) {
     var active = !!record.active;
     return '<div class="source-config-row' + (active ? ' active' : '') + '" data-source-config-id="' + escHtml(record.id) + '">' +
-      '<div><strong>' + escHtml(record.name || '未命名来源') + '</strong><small>' + escHtml([record.version, record.author].filter(Boolean).join(' · ') || '来源脚本') + '</small></div>' +
+      '<div class="source-config-copy"><strong>' + escHtml(record.name || '未命名来源') + '</strong><small>' + escHtml([record.version, record.author].filter(Boolean).join(' · ') || '来源脚本') + '</small></div>' +
       '<div class="source-config-row-actions">' +
-        (active ? '<span class="tag-source netease">当前</span>' : '<button class="fx-mini-btn ghost" type="button" data-source-action="select">启用</button>') +
-        '<button class="fx-mini-btn ghost" type="button" data-source-action="delete" title="移除">移除</button>' +
+        (active ? '<span class="source-config-current"><i></i>当前</span>' : '<button class="modal-btn source-config-row-btn" type="button" data-source-action="select">启用</button>') +
+        '<button class="modal-btn source-config-row-btn" type="button" data-source-action="delete" title="移除">移除</button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -132,10 +150,9 @@ async function refreshSourceConfigPanel() {
     var result = await apiJson('/api/source-config/status', { timeoutMs: 5000 });
     if (request !== additionalSourcePanelRequest) return;
     renderSourceConfigList(result || {});
-    var enabled = document.getElementById('source-config-enabled');
-    if (enabled) enabled.checked = additionalSourceEnabled();
+    renderSourceConfigToggle(additionalSourceEnabled());
     var sourceNames = result && result.sources ? Object.keys(result.sources) : [];
-    sourceConfigSetHint(sourceNames.length ? ('已启用脚本支持：' + sourceNames.join(' / ')) : '内置平台优先；附加来源只在原平台无法播放时尝试。');
+    sourceConfigSetHint(sourceNames.length ? ('当前音源支持：' + sourceNames.join(' / ')) : '内置平台优先 · 备用音源未配置');
   } catch (error) {
     if (request !== additionalSourcePanelRequest) return;
     renderSourceConfigList({ installed: [] });
@@ -185,14 +202,21 @@ function openSourceConfigPanel() {
   mask.id = 'source-config-modal';
   mask.className = 'modal-mask';
   mask.innerHTML =
-    '<div class="modal source-config-modal" style="width:min(560px,calc(100vw - 32px))">' +
-      '<h2>来源配置</h2>' +
-      '<div class="source-config-switch"><div><strong>使用附加来源</strong><small>原平台和原有自动换源始终优先</small></div><label class="switch"><input id="source-config-enabled" type="checkbox"><span></span></label></div>' +
+    '<div class="modal source-config-modal">' +
+      '<h2>备用音源</h2>' +
+      '<div class="source-config-section-head"><span>备用播放</span><small>内置平台始终优先</small></div>' +
+      '<button id="source-config-enabled" class="fx-toggle source-config-toggle" type="button" role="switch" aria-checked="false" data-source-action="toggle">' +
+        '<span class="source-config-toggle-copy"><strong>自动尝试备用音源</strong><small data-source-enabled-state>未配置</small></span><span class="dot"></span>' +
+      '</button>' +
+      '<div class="source-config-section-head"><span>添加音源</span><small>脚本文件或链接</small></div>' +
       '<div class="source-config-import">' +
-        '<button class="fx-mini-btn ghost" type="button" data-source-action="file">导入脚本文件</button>' +
-        '<input id="source-config-url" class="playlist-import-input" type="url" placeholder="来源脚本链接" spellcheck="false">' +
-        '<button class="fx-mini-btn ghost" type="button" data-source-action="url">从链接导入</button>' +
+        '<button class="modal-btn source-config-file-btn" type="button" data-source-action="file">选择脚本文件</button>' +
+        '<div class="collect-create source-config-url-import">' +
+          '<input id="source-config-url" type="url" placeholder="粘贴来源脚本链接" spellcheck="false">' +
+          '<button class="modal-btn primary" type="button" data-source-action="url">导入</button>' +
+        '</div>' +
       '</div>' +
+      '<div class="source-config-section-head source-config-list-head"><span>已安装</span><small id="source-config-count">0 个</small></div>' +
       '<div id="source-config-list" class="source-config-list"></div>' +
       '<div id="source-config-hint" class="playlist-import-hint"></div>' +
       '<div class="btn-row"><button class="modal-btn" type="button" data-source-action="close">关闭</button></div>' +
@@ -204,6 +228,13 @@ function openSourceConfigPanel() {
     if (!action) return;
     var type = action.getAttribute('data-source-action');
     if (type === 'file') { openSourceConfigFilePicker(); return; }
+    if (type === 'toggle') {
+      var enabled = !additionalSourceEnabled();
+      setAdditionalSourceEnabled(enabled);
+      renderSourceConfigToggle(enabled);
+      sourceConfigSetHint(enabled ? '附加来源已开启 · 内置平台仍然优先' : '附加来源已关闭');
+      return;
+    }
     if (type === 'url') {
       var input = document.getElementById('source-config-url');
       var sourceUrl = String(input && input.value || '').trim();
@@ -231,10 +262,6 @@ function openSourceConfigPanel() {
           return refreshSourceConfigPanel();
         }).catch(function (error) { sourceConfigSetHint(sourceConfigErrorText(error && error.message), true); });
     }
-  });
-  mask.querySelector('#source-config-enabled').addEventListener('change', function (event) {
-    setAdditionalSourceEnabled(!!event.target.checked);
-    sourceConfigSetHint(event.target.checked ? '附加来源已启用，会在原平台播放失败时尝试。' : '附加来源已停用。');
   });
   openGsapModal(mask);
   refreshSourceConfigPanel();

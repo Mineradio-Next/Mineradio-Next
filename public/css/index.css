@@ -9415,63 +9415,125 @@ body.login-guide-active #login-guide-canvas {
 }
 
 .source-config-modal {
+  width: min(500px, calc(100vw - 32px));
+  max-width: min(500px, calc(100vw - 32px));
+  padding: 28px;
   text-align: left;
 }
 
-.source-config-switch,
-.source-config-row,
-.source-config-import {
+.source-config-modal h2 {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.source-config-section-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.source-config-switch {
   justify-content: space-between;
-  margin: 14px 0 12px;
-  padding: 11px 12px;
-  border: 1px solid rgba(255, 255, 255, .10);
-  background: rgba(255, 255, 255, .035);
+  gap: 12px;
+  margin: 13px 1px 7px;
+  color: rgba(255, 255, 255, .62);
+  font-size: 10.5px;
+  letter-spacing: .45px;
 }
 
-.source-config-switch strong,
+.source-config-section-head small {
+  color: rgba(255, 255, 255, .30);
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.fx-toggle.source-config-toggle {
+  width: 100%;
+  min-height: 48px;
+  margin: 0 0 17px;
+  padding: 9px 12px;
+  font-family: inherit;
+  text-align: left;
+}
+
+.fx-toggle.source-config-toggle .source-config-toggle-copy:first-child {
+  display: block;
+  padding-right: 12px;
+  overflow: visible;
+  white-space: normal;
+}
+
+.source-config-toggle strong,
 .source-config-row strong {
   display: block;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
-.source-config-switch small,
+.source-config-toggle small,
 .source-config-row small {
   display: block;
   margin-top: 3px;
-  color: rgba(255, 255, 255, .50);
-  font-size: 11px;
+  color: rgba(255, 255, 255, .38);
+  font-size: 10.5px;
+  font-weight: 400;
+}
+
+.fx-toggle.source-config-toggle.on {
+  color: var(--champagne);
+  border-color: rgba(244, 210, 138, .34);
+  background: rgba(244, 210, 138, .07);
+}
+
+.fx-toggle.source-config-toggle.on .dot {
+  background: var(--champagne);
+  box-shadow: 0 0 10px rgba(244, 210, 138, .42);
+}
+
+.fx-toggle.source-config-toggle.unavailable,
+.fx-toggle.source-config-toggle:disabled {
+  cursor: default;
+  color: rgba(255, 255, 255, .38);
+  border-color: rgba(255, 255, 255, .055);
+  background: rgba(255, 255, 255, .018);
+}
+
+.fx-toggle.source-config-toggle.unavailable:hover,
+.fx-toggle.source-config-toggle:disabled:hover {
+  border-color: rgba(255, 255, 255, .055);
+  background: rgba(255, 255, 255, .018);
 }
 
 .source-config-import {
-  margin: 10px 0;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 17px;
 }
 
-.source-config-import .playlist-import-input {
+.source-config-file-btn {
+  width: 100%;
+}
+
+.source-config-url-import {
+  margin: 0;
+}
+
+.source-config-url-import input {
   min-width: 0;
-  flex: 1;
-  min-height: 30px;
-  padding: 6px 9px;
 }
 
 .source-config-list {
   display: grid;
   gap: 7px;
-  max-height: 230px;
+  max-height: min(210px, 30vh);
   overflow: auto;
-  margin: 12px 0;
+  margin: 0 0 10px;
 }
 
 .source-config-row {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 10px;
   min-height: 52px;
   padding: 9px 10px;
+  border-radius: 11px;
   border: 1px solid rgba(255, 255, 255, .09);
   background: rgba(255, 255, 255, .025);
 }
@@ -9479,6 +9541,17 @@ body.login-guide-active #login-guide-canvas {
 .source-config-row.active {
   border-color: rgba(244, 210, 138, .36);
   background: rgba(244, 210, 138, .07);
+}
+
+.source-config-copy {
+  min-width: 0;
+}
+
+.source-config-copy strong,
+.source-config-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .source-config-row-actions {
@@ -9489,14 +9562,61 @@ body.login-guide-active #login-guide-canvas {
   flex-shrink: 0;
 }
 
+.source-config-row-btn {
+  min-width: 0;
+  padding: 5px 9px;
+  font-size: 10.5px;
+}
+
+.source-config-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--champagne);
+  font-size: 10.5px;
+}
+
+.source-config-current i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--champagne);
+  box-shadow: 0 0 8px rgba(244, 210, 138, .45);
+}
+
+.source-config-empty {
+  padding: 17px 10px;
+  border-top: 1px solid rgba(255, 255, 255, .055);
+  border-bottom: 1px solid rgba(255, 255, 255, .055);
+  color: rgba(255, 255, 255, .32);
+  font-size: 11px;
+  text-align: center;
+}
+
+.source-config-modal .playlist-import-hint {
+  min-height: 16px;
+  text-align: center;
+}
+
+.source-config-modal .btn-row {
+  margin-top: 13px;
+}
+
 @media (max-width: 520px) {
-  .source-config-import {
+  .source-config-modal {
+    padding: 24px 20px;
+  }
+
+  .source-config-url-import {
     flex-wrap: wrap;
   }
 
-  .source-config-import .playlist-import-input {
-    order: 3;
+  .source-config-url-import input {
     flex-basis: 100%;
+  }
+
+  .source-config-url-import button {
+    width: 100%;
   }
 }
 
