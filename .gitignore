@@ -49,6 +49,7 @@ backups/
 .env.*
 
 # Local development noise
+.superpowers/
 .DS_Store
 Thumbs.db
 desktop.ini
