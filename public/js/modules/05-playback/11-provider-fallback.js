@@ -509,6 +509,43 @@ async function searchAlternatePlatformSong(song, requestedTarget, recovery) {
   }
   return null;
 }
+async function tryConfiguredSourceFallback(song, idx, token, opts, recovery) {
+  if (typeof resolveAdditionalSourcePlayback !== 'function') return false;
+  if (!sourceFallbackRecoveryCanContinue(recovery)) return false;
+  var provider = normalizePlaybackProvider(songProviderKey(song));
+  if (provider !== 'netease' && provider !== 'qq' && provider !== 'kugou') return false;
+  try {
+    var requestedQuality = typeof getProviderPlaybackQuality === 'function'
+      ? getProviderPlaybackQuality(provider)
+      : 'standard';
+    var data = await awaitSourceFallbackBudget(resolveAdditionalSourcePlayback(song, requestedQuality), recovery);
+    if (data === sourceFallbackBudgetTimeoutResult || !data || !data.url || token !== trackSwitchToken) return false;
+    if (!sourceFallbackRecoveryCanContinue(recovery)) return false;
+    var fallbackOpts = {
+      fallbackDepth: 1,
+      startupAutoplay: !!opts.startupAutoplay,
+      preserveHomeState: !!opts.preserveHomeState,
+      suppressPlayFailureNotice: true,
+      preResolvedPlaybackData: data,
+      preloadedProxyAudioUrl: data.proxyUrl || '',
+      sourceFallbackRecovery: recovery,
+      additionalSourceFallback: true
+    };
+    if (opts.resumeAt != null) fallbackOpts.resumeAt = opts.resumeAt;
+    var startedPromise = playQueueAt(idx, fallbackOpts);
+    var fallbackToken = trackSwitchToken;
+    var started = await startedPromise;
+    if (fallbackToken !== trackSwitchToken) return false;
+    if (started === true) {
+      completeSourceFallbackRecovery(recovery);
+      if (!opts.startupAutoplay) showSourceFallbackNotice('附加来源已接入', (song.name || '当前歌曲') + ' 已继续播放。');
+      return true;
+    }
+  } catch (error) {
+    console.warn('[AdditionalSourceFallback]', error && (error.message || error));
+  }
+  return false;
+}
 function sourceFallbackSongKey(song) {
   if (!song) return '';
   if (typeof queueItemKey === 'function') return queueItemKey(song);
@@ -672,7 +709,7 @@ async function tryAutoPlaybackFallback(song, data, idx, token, opts) {
   if (!sourceFallbackRecoveryCanContinue(recovery)) {
     return settleSourceFallbackTerminal(idx, token, '自动恢复已达到时间上限，请稍后手动重试。', skipOpts);
   }
-  if (!alternateProviders.length) {
+  if (!alternateProviders.length && typeof resolveAdditionalSourcePlayback !== 'function') {
     return await skipFailedQueueItem(idx, token, '当前歌曲不可播放，且没有其它已登录、已授权的音乐平台可接管。', skipOpts);
   }
   if (!opts.startupAutoplay) {
@@ -742,6 +779,7 @@ async function tryAutoPlaybackFallback(song, data, idx, token, opts) {
       console.warn('[SourceFallback]', alternateProvider, e && (e.message || e));
     }
   }
+  if (await tryConfiguredSourceFallback(song, idx, token, opts, recovery)) return true;
   return await skipFailedQueueItem(idx, token, '没有找到可播放的已登录平台版本，正在播放下一首。', skipOpts);
 }
 function handlePlaybackUnavailable(song, data) {

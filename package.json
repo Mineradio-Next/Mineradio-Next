@@ -21,15 +21,14 @@
       "buildResources": "build"
     },
     "afterPack": "build/after-pack.js",
-    "toolsets": {
-      "winCodeSign": "1.1.0"
-    },
     "files": [
       "desktop/**/*",
       "public/**/*",
       "build/**/*",
       "cuefield/**/*",
       "server.js",
+      "source-host.js",
+      "platform-playlist-link-import.js",
       "*-api.js",
       "qishui-auth-v6.js",
       "qishui-qr-login.js",

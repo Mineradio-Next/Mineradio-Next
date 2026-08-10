@@ -64,6 +64,7 @@ const { fileURLToPath } = require('url');
 const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
 const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
 const { importPlaylistLink } = require('./platform-playlist-link-import');
+const sourceHost = require('./source-host');
 const {
   normalizeQQVipPayload: normalizeQQVipPayloadStrict,
   resolveQQVipFromProbes,
@@ -4693,6 +4694,106 @@ const server = http.createServer(async (req, res) => {
       sendJSON(res, await importPlaylistLink(body.input, body.provider));
     } catch (err) {
       sendJSON(res, { ok: false, error: err.message || 'PLAYLIST_LINK_IMPORT_FAILED' }, 400);
+    }
+    return;
+  }
+
+  // Additional sources are opt-in. They stay outside the built-in provider
+  // flow and are used only when a user explicitly installs a source script.
+  if (pn === '/api/source-config/status') {
+    try {
+      sendJSON(res, await sourceHost.status());
+    } catch (err) {
+      sendJSON(res, { ok: true, configured: false, installed: [], sources: {}, error: err.message || 'SOURCE_NOT_CONFIGURED' });
+    }
+    return;
+  }
+
+  if (pn === '/api/source-config/import') {
+    if (req.method !== 'POST') {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+      return;
+    }
+    try {
+      const body = await readRequestBody(req);
+      const script = String(body.script || '');
+      const result = script.trim()
+        ? await sourceHost.importSource(script, String(body.fileName || 'source.js'))
+        : await sourceHost.importSourceUrl(String(body.url || ''));
+      sendJSON(res, { ...result, configured: true });
+    } catch (err) {
+      sendJSON(res, { ok: false, error: err.message || 'SOURCE_IMPORT_FAILED' }, 400);
+    }
+    return;
+  }
+
+  if (pn === '/api/source-config/select') {
+    if (req.method !== 'POST') {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+      return;
+    }
+    try {
+      const body = await readRequestBody(req);
+      sendJSON(res, await sourceHost.selectSource(String(body.id || '')));
+    } catch (err) {
+      sendJSON(res, { ok: false, error: err.message || 'SOURCE_SELECT_FAILED' }, 400);
+    }
+    return;
+  }
+
+  if (pn === '/api/source-config/delete') {
+    if (req.method !== 'POST') {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+      return;
+    }
+    try {
+      const body = await readRequestBody(req);
+      const ids = Array.isArray(body.ids) ? body.ids : [body.id];
+      sendJSON(res, await sourceHost.deleteSources(ids));
+    } catch (err) {
+      sendJSON(res, { ok: false, error: err.message || 'SOURCE_DELETE_FAILED' }, 400);
+    }
+    return;
+  }
+
+  if (pn === '/api/source-config/resolve') {
+    if (req.method !== 'POST') {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+      return;
+    }
+    try {
+      const body = await readRequestBody(req);
+      const source = String(body.source || '').toLowerCase();
+      const musicInfo = body.musicInfo && typeof body.musicInfo === 'object' ? body.musicInfo : {};
+      const result = await sourceHost.resolveMusicUrl(source, musicInfo, String(body.quality || ''), {
+        maxResolvers: 1,
+      });
+      sendJSON(res, {
+        ok: true,
+        source,
+        ...result,
+        proxyUrl: '/api/audio?url=' + encodeURIComponent(result.url || ''),
+      });
+    } catch (err) {
+      console.warn('[AdditionalSourceResolve]', err.message);
+      sendJSON(res, { ok: false, error: err.message || 'SOURCE_RESOLVE_FAILED' }, 502);
+    }
+    return;
+  }
+
+  if (pn === '/api/source-config/lyric') {
+    if (req.method !== 'POST') {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+      return;
+    }
+    try {
+      const body = await readRequestBody(req);
+      const source = String(body.source || '').toLowerCase();
+      const musicInfo = body.musicInfo && typeof body.musicInfo === 'object' ? body.musicInfo : {};
+      sendJSON(res, { ok: true, source, ...(await sourceHost.resolveLyrics(source, musicInfo)) });
+    } catch (err) {
+      console.warn('[AdditionalSourceLyric]', err.message);
+      sendJSON(res, { ok: false, error: err.message || 'SOURCE_LYRIC_FAILED' }, 502);
     }
     return;
   }

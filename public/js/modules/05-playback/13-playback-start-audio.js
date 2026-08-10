@@ -1206,7 +1206,7 @@ async function playQueueAt(idx, opts) {
         document.getElementById('trial-banner').classList.add('show');
       }
       markPlayPhase('audio-element');
-      var proxyAudioUrl = opts.preloadedProxyAudioUrl || '/api/audio?url=' + encodeURIComponent(data.url);
+      var proxyAudioUrl = opts.preloadedProxyAudioUrl || data.proxyUrl || '/api/audio?url=' + encodeURIComponent(data.url);
       if (albumGaplessHandoff) {
         audioFadeSerial++;
         clearAudioFadeTimers();

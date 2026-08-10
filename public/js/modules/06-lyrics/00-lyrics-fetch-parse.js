@@ -348,6 +348,16 @@ async function fetchLyric(songOrId, token, attempt) {
     }
     var r = await apiJson(lyricEndpointForSong(song || songOrId));
     var state = applyFetchedLyricResponse(song, token, r);
+    if (!state || !state.usableLyric) {
+      try {
+        var additional = typeof resolveAdditionalSourceLyrics === 'function'
+          ? await resolveAdditionalSourceLyrics(song)
+          : null;
+        if (additional && token === trackSwitchToken) state = applyFetchedLyricResponse(song, token, additional);
+      } catch (additionalError) {
+        console.warn('[AdditionalSourceLyric]', additionalError);
+      }
+    }
     if (!state) return;
     if (!state.usableLyric && shouldRetryStartupLyricFetch(song, token, attempt)) scheduleStartupLyricFetchRetry(song, token, attempt);
   } catch (e) {

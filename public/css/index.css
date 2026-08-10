@@ -9414,6 +9414,92 @@ body.login-guide-active #login-guide-canvas {
   background: rgba(244, 210, 138, 0.24)
 }
 
+.source-config-modal {
+  text-align: left;
+}
+
+.source-config-switch,
+.source-config-row,
+.source-config-import {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.source-config-switch {
+  justify-content: space-between;
+  margin: 14px 0 12px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  background: rgba(255, 255, 255, .035);
+}
+
+.source-config-switch strong,
+.source-config-row strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.source-config-switch small,
+.source-config-row small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(255, 255, 255, .50);
+  font-size: 11px;
+}
+
+.source-config-import {
+  margin: 10px 0;
+}
+
+.source-config-import .playlist-import-input {
+  min-width: 0;
+  flex: 1;
+  min-height: 30px;
+  padding: 6px 9px;
+}
+
+.source-config-list {
+  display: grid;
+  gap: 7px;
+  max-height: 230px;
+  overflow: auto;
+  margin: 12px 0;
+}
+
+.source-config-row {
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, .09);
+  background: rgba(255, 255, 255, .025);
+}
+
+.source-config-row.active {
+  border-color: rgba(244, 210, 138, .36);
+  background: rgba(244, 210, 138, .07);
+}
+
+.source-config-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 520px) {
+  .source-config-import {
+    flex-wrap: wrap;
+  }
+
+  .source-config-import .playlist-import-input {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
 .cover-crop-modal {
   width: min(720px, 92vw);
   max-width: min(720px, 92vw);

@@ -6,9 +6,6 @@
     "buildResources": "build"
   },
   "afterPack": "build/after-pack.js",
-  "toolsets": {
-    "winCodeSign": "1.1.0"
-  },
   "extraMetadata": {
     "name": "mineradio-beat-internal",
     "productName": "Mineradio_Beat",
@@ -32,6 +29,8 @@
     "build/**/*",
     "cuefield/**/*",
     "server.js",
+    "source-host.js",
+    "platform-playlist-link-import.js",
     "*-api.js",
     "qishui-audio-decryptor/**/*",
     "dj-analyzer.js",

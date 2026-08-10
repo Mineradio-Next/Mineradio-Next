@@ -77,6 +77,7 @@
     'js/modules/06-lyrics/02-playlist-detail.js',
     'js/modules/06-lyrics/03-podcast-playlist-loaders.js',
     'js/modules/06-lyrics/04-local-playlist-files.js',
+    'js/modules/06-lyrics/04a-source-config.js',
     'js/modules/06-lyrics/04-progress-seek.js',
     'js/modules/06-lyrics/05-upload-dragdrop.js',
     'js/modules/06-lyrics/06-lyric-timing-offset.js',
