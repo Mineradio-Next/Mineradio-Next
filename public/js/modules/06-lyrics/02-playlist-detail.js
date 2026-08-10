@@ -115,7 +115,7 @@ function bindMiniQueueLazyRender() {
   }, { passive: true });
 }
 function normalizePlaylistProvider(provider) {
-  if (provider === 'qq' || provider === 'kugou' || provider === 'qishui' || provider === 'spotify') return provider;
+  if (provider === 'qq' || provider === 'kugou' || provider === 'qishui' || provider === 'spotify' || provider === 'local') return provider;
   return 'netease';
 }
 function playlistProviderLabel(provider) {
@@ -541,8 +541,9 @@ function playlistPanelBuildVirtualEntries() {
       playlistPanelVirtualCache.detailKey === playlistPanelDetailState.key &&
       playlistPanelVirtualCache.detailSig === detailSig) return playlistPanelVirtualCache;
   var labels = { netease: '网易云歌单', qq: 'QQ 音乐歌单', kugou: '酷狗音乐歌单', qishui: '汽水音乐歌单', spotify: 'Spotify 歌单' };
-  var order = ['netease', 'qq', 'kugou', 'qishui', 'spotify'];
-  var groups = { netease: [], qq: [], kugou: [], qishui: [], spotify: [] };
+  labels.local = '本地歌单文件';
+  var order = ['netease', 'qq', 'kugou', 'qishui', 'spotify', 'local'];
+  var groups = { netease: [], qq: [], kugou: [], qishui: [], spotify: [], local: [] };
   userPlaylists.forEach(function (pl, sourceIndex) {
     var key = playlistPanelGroupKey(pl);
     if (!groups[key]) groups[key] = [];
@@ -755,5 +756,9 @@ document.getElementById('pl-list').addEventListener('click', function (e) {
   if (!card) return;
   var provider = card.getAttribute('data-playlist-provider') || 'netease';
   var pid = card.getAttribute('data-playlist-id') || '';
+  if (provider === 'local' && typeof playLocalPlaylistFile === 'function') {
+    playLocalPlaylistFile(pid);
+    return;
+  }
   openPlaylistPanelDetail(provider, pid, card.getAttribute('data-playlist-title') || '');
 });

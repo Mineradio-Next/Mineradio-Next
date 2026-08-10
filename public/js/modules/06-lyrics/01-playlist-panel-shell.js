@@ -528,6 +528,7 @@ function mergePlaylistCatalogRows(existing, incoming, provider) {
 function rebuildUserPlaylistsFromCatalog(opts) {
   opts = opts || {};
   userPlaylists = neteasePlaylists.concat(qqPlaylists, kugouPlaylists, qishuiPlaylists, spotifyPlaylists);
+  if (typeof localFilePlaylists !== 'undefined' && localFilePlaylists.length) userPlaylists = userPlaylists.concat(localFilePlaylists);
   if (typeof applyUserPlaylistOrder === 'function') applyUserPlaylistOrder();
   playlistCatalogRevision += 1;
   renderUserPlaylistsList({ animate: !!opts.animate, reset: !!opts.reset, preserveScroll: opts.preserveScroll !== false });
@@ -582,7 +583,7 @@ function playlistCatalogHasPendingPages() {
 function requestNextPlaylistCatalogPage(reason) {
   var root = playlistCatalogSyncState;
   if (!root || !root.providers) return false;
-  var order = ['netease', 'spotify', 'qq', 'kugou', 'qishui'];
+  var order = ['netease', 'spotify', 'qq', 'kugou', 'qishui', 'local'];
   var provider = order.find(function (key) {
     var state = root.providers[key];
     return state && state.hasMore && !state.loading;
@@ -606,7 +607,17 @@ function requestNextPlaylistCatalogPage(reason) {
   return true;
 }
 async function refreshUserPlaylists(force) {
+  var hasLocalPlaylists = typeof localFilePlaylists !== 'undefined' && localFilePlaylists.length > 0;
+  if (typeof localFilePlaylists !== 'undefined' && localFilePlaylists.length) {
+    userPlaylists = neteasePlaylists.concat(qqPlaylists, kugouPlaylists, qishuiPlaylists, spotifyPlaylists);
+    userPlaylists = userPlaylists.concat(localFilePlaylists);
+  }
   if (!loginStatus.loggedIn && !qqLoginStatus.loggedIn && !kugouLoginStatus.loggedIn && !qishuiLoginStatus.loggedIn && !spotifyLoginStatus.loggedIn) {
+    if (hasLocalPlaylists) {
+      playlistCatalogRevision += 1;
+      renderUserPlaylistsList({ animate: isPlaylistPanelVisibleForRender(), preserveScroll: true });
+      return;
+    }
     resetPlaylistPanelRenderLimit();
     document.getElementById('pl-list').innerHTML = '<div style="text-align:center;padding:24px 0;color:rgba(255,255,255,.32);font-size:11.5px">登录后显示个人歌单</div>';
     var podcastListLoggedOut = document.getElementById('podcast-list');
