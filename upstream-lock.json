@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-08-10T00:00:00+08:00",
+  "original": {
+    "repository": "https://github.com/XxHuberrr/Mineradio.git",
+    "branch": "main",
+    "commit": "89c0d230c3f1f792e5d9639781ebbf724c4efbfe"
+  },
+  "lx": {
+    "repository": "https://github.com/ww085213/Mineradio-LX-Music.git",
+    "branch": "main",
+    "commit": "82751d5907fb580bc31da42afde5a4e806636400"
+  }
+}
