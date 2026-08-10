@@ -3741,12 +3741,14 @@ app.whenReady().then(async () => {
           }
           const translationRows = rows.filter(row => row && row.isTranslation);
           const primaryRows = rows.filter(row => row && row.isPrimary);
-          const runawayRows = translationRows.filter(row => row && row.mesh && Math.abs(row.mesh.position.y) > 3.2);
           function rowOpacity(row) {
             const mat = row && row.mat;
             if (mat && mat.uniforms && mat.uniforms.uOpacity) return Number(mat.uniforms.uOpacity.value) || 0;
             return Number(mat && mat.opacity) || 0;
           }
+          // Off-window context rows may retain their virtual position while fully transparent.
+          // Only a visible translation outside the presentation corridor is a rendering failure.
+          const runawayRows = translationRows.filter(row => row && row.mesh && Math.abs(row.mesh.position.y) > 3.2 && rowOpacity(row) > 0.001);
           const currentTranslationRows = translationRows.filter(row => row && Number(row.parentIndex) === qaTargetLine);
           const nextTranslationRows = translationRows.filter(row => row && Number(row.parentIndex) === qaTargetLine + 1);
           const currentTranslationOpacity = currentTranslationRows.reduce((max, row) => Math.max(max, rowOpacity(row)), 0);
