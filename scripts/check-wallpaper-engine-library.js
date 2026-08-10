@@ -9,6 +9,17 @@ const {
   parseByteRange,
 } = require('../desktop/wallpaper-engine-library');
 
+function canonicalPath(value) {
+  const resolved = fs.realpathSync.native
+    ? fs.realpathSync.native(value)
+    : fs.realpathSync(value);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function assertSamePath(actual, expected) {
+  assert.strictEqual(canonicalPath(actual), canonicalPath(expected));
+}
+
 function writeProject(root, name, manifest, files) {
   const dir = path.join(root, name);
   fs.mkdirSync(dir, { recursive: true });
@@ -126,8 +137,8 @@ async function main() {
     assert(!JSON.stringify(snapshot.projects).includes(temp), 'renderer metadata must not expose absolute paths');
     assert.strictEqual(snapshot.enginePlayableCount, 2, 'valid .pkg and PKGV .pak Scene packages should be engine playable');
     const sceneTarget = await instance.getNativeSceneTarget(scene.id);
-    assert.strictEqual(sceneTarget.scenePackage, path.join(libraryRoot, 'scene-project', 'scene.pkg'));
-    assert.strictEqual(sceneTarget.projectFile, path.join(libraryRoot, 'scene-project', 'project.json'));
+    assertSamePath(sceneTarget.scenePackage, path.join(libraryRoot, 'scene-project', 'scene.pkg'));
+    assertSamePath(sceneTarget.projectFile, path.join(libraryRoot, 'scene-project', 'project.json'));
     assert.deepStrictEqual(sceneTarget.muteProperties, {
       volume: 0,
       dbVolume: -60,
@@ -143,14 +154,14 @@ async function main() {
     assert.strictEqual(sceneDetails.properties.find((property) => property.key === 'music').autoMuted, true);
     assert(!JSON.stringify(sceneDetails).includes(temp), 'on-demand property details must not expose absolute paths');
     const pakTarget = await instance.getNativeSceneTarget(pakScene.id);
-    assert.strictEqual(pakTarget.scenePackage, path.join(libraryRoot, 'pak-project', 'scene.pak'));
-    assert.strictEqual(pakTarget.projectFile, path.join(libraryRoot, 'pak-project', 'project.json'));
+    assertSamePath(pakTarget.scenePackage, path.join(libraryRoot, 'pak-project', 'scene.pak'));
+    assertSamePath(pakTarget.projectFile, path.join(libraryRoot, 'pak-project', 'project.json'));
 
     snapshot = await instance.addManualProjectFile(path.join(customPakProject, 'custom-name.pak'));
     const customPakScene = snapshot.projects.find((item) => item.title === 'Custom PAK Scene Fixture');
     assert(customPakScene && customPakScene.enginePlayable, 'a selected custom-name PKGV .pak should become the project package override');
     const customPakTarget = await instance.getNativeSceneTarget(customPakScene.id);
-    assert.strictEqual(customPakTarget.scenePackage, path.join(customPakProject, 'custom-name.pak'));
+    assertSamePath(customPakTarget.scenePackage, path.join(customPakProject, 'custom-name.pak'));
     await assert.rejects(
       () => instance.addManualProjectFile(path.join(invalidPakProject, 'resources.pak')),
       /不是有效的 Wallpaper Engine PKGV 场景包/
@@ -187,7 +198,9 @@ async function main() {
     assert(fs.existsSync(configFile), 'manual root config should persist in userData');
     const savedConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
     assert.strictEqual(savedConfig.version, 2);
-    assert(savedConfig.manualProjectFiles.includes(path.join(customPakProject, 'custom-name.pak')));
+    assert(savedConfig.manualProjectFiles.some((item) => (
+      canonicalPath(item) === canonicalPath(path.join(customPakProject, 'custom-name.pak'))
+    )));
     console.log(JSON.stringify({ ok: true, count: snapshot.count, dynamic: snapshot.dynamicCount, previewOnly: snapshot.previewOnlyCount }));
   } finally {
     instance.dispose();
