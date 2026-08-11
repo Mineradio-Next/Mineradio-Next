@@ -23,6 +23,8 @@ var HOME_PLATFORM_DAILY_OVERSCAN_ROWS = 3;
 var HOME_PLATFORM_DAILY_MAX_RENDERED_CARDS = 24;
 var homePlatformRecommendationState = {
   open: false,
+  view: 'recommendations',
+  nextView: '',
   source: 'netease',
   previousFocus: null,
   neteaseLoading: false,
@@ -853,6 +855,7 @@ function openHomeDashboardLibrary() {
 }
 
 function openHomeDashboardCharts() {
+  homePlatformRecommendationState.nextView = 'rankings';
   openHomePlatformRecommendations('netease');
 }
 
@@ -1201,6 +1204,7 @@ function closeHomePlatformRecommendations() {
   mask.classList.remove('show');
   mask.setAttribute('aria-hidden', 'true');
   homePlatformRecommendationState.open = false;
+  if (typeof invalidateHomePlatformRankingRequest === 'function') invalidateHomePlatformRankingRequest();
   var focusTarget = homePlatformRecommendationState.previousFocus;
   homePlatformRecommendationState.previousFocus = null;
   if (focusTarget && typeof focusTarget.focus === 'function') {
@@ -1243,6 +1247,10 @@ function bindHomePlatformRecommendationControls() {
   if (close) close.addEventListener('click', closeHomePlatformRecommendations);
   if (done) done.addEventListener('click', closeHomePlatformRecommendations);
   if (refresh) refresh.addEventListener('click', function () {
+    if (homePlatformRecommendationState.view === 'rankings' && typeof refreshHomePlatformRankings === 'function') {
+      refreshHomePlatformRankings();
+      return;
+    }
     loadHomePlatformRecommendations(homePlatformRecommendationState.source, true);
   });
   if (mask) mask.addEventListener('click', function (event) {
@@ -1253,7 +1261,7 @@ function bindHomePlatformRecommendationControls() {
   });
 }
 
-function openHomePlatformRecommendations(preferredSource) {
+function openHomePlatformRecommendations(preferredSource, preferredView) {
   bindHomePlatformRecommendationControls();
   var mask = document.getElementById('home-platform-recommend-mask');
   if (!mask) return;
@@ -1269,9 +1277,17 @@ function openHomePlatformRecommendations(preferredSource) {
         ? 'kugou'
         : (spotifyLoginStatus && (spotifyLoginStatus.loggedIn || spotifyLoginStatus.configured) ? 'spotify' : 'netease')));
   var source = /^(netease|qishui|qq|kugou|spotify)$/.test(String(preferredSource || '')) ? preferredSource : defaultSource;
-  loadHomePlatformRecommendations(source, false);
+  var view = preferredView === 'rankings' || homePlatformRecommendationState.nextView === 'rankings'
+    ? 'rankings'
+    : 'recommendations';
+  homePlatformRecommendationState.nextView = '';
+  if (typeof setHomeDiscoveryView === 'function') setHomeDiscoveryView(view, { source: source, provider: 'all' });
+  else loadHomePlatformRecommendations(source, false);
   setTimeout(function () {
-    var activeTab = mask.querySelector('[data-home-recommend-source="' + source + '"]');
+    var selector = view === 'rankings'
+      ? '[data-home-ranking-provider="all"]'
+      : '[data-home-recommend-source="' + source + '"]';
+    var activeTab = mask.querySelector(selector);
     if (activeTab) activeTab.focus();
   }, 0);
 }

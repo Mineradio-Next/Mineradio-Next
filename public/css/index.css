@@ -18549,12 +18549,75 @@ body.panel-reordering .mini-queue-item.is-reordering {
   cursor: pointer
 }
 
+.home-platform-view-switch {
+  width: fit-content;
+  margin-top: 18px;
+  padding: 3px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(66px, 1fr));
+  gap: 3px;
+  border: 1px solid rgba(255, 255, 255, .085);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .18)
+}
+
+.home-platform-view-switch button {
+  min-height: 29px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, .46);
+  font: 760 10.5px inherit;
+  cursor: pointer;
+  transition: color .18s ease, background .18s ease, box-shadow .18s ease
+}
+
+.home-platform-view-switch button.active,
+.home-platform-view-switch button[aria-selected="true"] {
+  background: rgba(255, 255, 255, .09);
+  color: rgba(255, 255, 255, .94);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .06), 0 4px 12px rgba(0, 0, 0, .16)
+}
+
+.home-platform-view-switch button:focus-visible,
+.home-platform-ranking-row button:focus-visible {
+  outline: 2px solid rgba(var(--fc-accent-rgb), .72);
+  outline-offset: 2px
+}
+
 .home-platform-recommend-tabs {
+  flex: 0 0 auto;
+  min-height: 32px;
   display: flex;
+  align-items: center;
   gap: 7px;
   margin-top: 18px;
   overflow-x: auto;
   scrollbar-width: none
+}
+
+.home-platform-recommend-tabs[hidden],
+.home-platform-recommend-status[hidden],
+.home-platform-recommend-list[hidden],
+.home-platform-ranking-play-all[hidden] {
+  display: none
+}
+
+.home-platform-ranking-tabs {
+  animation: home-ranking-tabs-in .22s ease both
+}
+
+@keyframes home-ranking-tabs-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px)
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0)
+  }
 }
 
 .home-platform-recommend-tabs::-webkit-scrollbar {
@@ -18602,6 +18665,286 @@ body.panel-reordering .mini-queue-item.is-reordering {
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, .18) transparent
+}
+
+.home-platform-ranking-status {
+  margin-bottom: 0
+}
+
+.home-platform-ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: min(57vh, 520px);
+  padding: 2px 5px 4px 0
+}
+
+.home-platform-ranking-row {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .018);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(5px);
+  animation: home-ranking-row-in .28s cubic-bezier(.22, .8, .25, 1) both;
+  animation-delay: calc(var(--ranking-row, 0) * 18ms);
+  transition: border-color .18s ease, background .18s ease, transform .18s ease
+}
+
+@keyframes home-ranking-row-in {
+  to {
+    opacity: 1;
+    transform: translateY(0)
+  }
+}
+
+.home-platform-ranking-row:hover {
+  border-color: rgba(var(--fc-accent-rgb), .18);
+  background: rgba(var(--fc-accent-rgb), .042);
+  transform: translateX(2px)
+}
+
+.home-platform-ranking-main {
+  min-width: 0;
+  height: 56px;
+  padding: 5px 6px 5px 12px;
+  display: grid;
+  grid-template-columns: 34px 44px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer
+}
+
+.home-platform-ranking-number {
+  color: rgba(255, 255, 255, .27);
+  font-size: 11px;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .08em
+}
+
+.home-platform-ranking-number.is-top {
+  color: rgba(var(--fc-accent-rgb), .9)
+}
+
+.home-platform-ranking-cover {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: linear-gradient(145deg, rgba(var(--fc-accent-rgb), .18), rgba(255, 255, 255, .035));
+  overflow: hidden;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .18)
+}
+
+.home-platform-ranking-cover img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: opacity .18s ease, transform .22s ease
+}
+
+.home-platform-ranking-cover img.is-broken {
+  opacity: 0
+}
+
+.home-platform-ranking-cover-empty {
+  color: rgba(255, 255, 255, .48);
+  font-size: 9px;
+  font-weight: 800
+}
+
+.home-platform-ranking-cover-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 7, 11, .54);
+  color: #fff;
+  opacity: 0;
+  transition: opacity .18s ease
+}
+
+.home-platform-ranking-cover-play svg {
+  width: 17px;
+  height: 17px
+}
+
+.home-platform-ranking-main:hover .home-platform-ranking-cover-play,
+.home-platform-ranking-main:focus-visible .home-platform-ranking-cover-play {
+  opacity: 1
+}
+
+.home-platform-ranking-main:hover .home-platform-ranking-cover img {
+  transform: scale(1.035)
+}
+
+.home-platform-ranking-copy {
+  min-width: 0
+}
+
+.home-platform-ranking-copy strong,
+.home-platform-ranking-copy small {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis
+}
+
+.home-platform-ranking-copy strong {
+  color: rgba(255, 255, 255, .91);
+  font-size: 11.5px;
+  font-weight: 720
+}
+
+.home-platform-ranking-copy small {
+  margin-top: 5px;
+  color: rgba(255, 255, 255, .39);
+  font-size: 9.5px
+}
+
+.home-platform-ranking-source {
+  justify-self: end;
+  min-width: 28px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .09);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, .028);
+  color: rgba(255, 255, 255, .42);
+  font-size: 8px;
+  font-weight: 840
+}
+
+.home-platform-ranking-source.netease {
+  color: rgba(255, 142, 151, .78)
+}
+
+.home-platform-ranking-source.qq {
+  color: rgba(210, 232, 117, .82)
+}
+
+.home-platform-ranking-source.kugou {
+  color: rgba(105, 210, 255, .82)
+}
+
+.home-platform-ranking-source.kuwo {
+  color: rgba(255, 210, 101, .84)
+}
+
+.home-platform-ranking-source.migu {
+  color: rgba(255, 123, 181, .82)
+}
+
+.home-platform-ranking-row-actions {
+  padding-right: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px
+}
+
+.home-platform-ranking-row-actions button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(255, 255, 255, .34);
+  cursor: pointer;
+  transition: color .16s ease, border-color .16s ease, background .16s ease, transform .16s ease
+}
+
+.home-platform-ranking-row-actions button:hover {
+  border-color: rgba(255, 255, 255, .1);
+  background: rgba(255, 255, 255, .05);
+  color: rgba(255, 255, 255, .86);
+  transform: translateY(-1px)
+}
+
+.home-platform-ranking-row-actions button:active {
+  transform: translateY(0) scale(.94)
+}
+
+.home-platform-ranking-row-actions svg {
+  width: 15px;
+  height: 15px
+}
+
+.home-platform-ranking-row.is-skeleton {
+  grid-template-columns: 34px 44px minmax(0, 1fr);
+  gap: 10px;
+  padding: 7px 12px;
+  pointer-events: none
+}
+
+.home-platform-ranking-row.is-skeleton>* {
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, .025), rgba(255, 255, 255, .075), rgba(255, 255, 255, .025));
+  background-size: 220% 100%;
+  animation: home-ranking-skeleton 1.15s linear infinite
+}
+
+.home-platform-ranking-row.is-skeleton .home-platform-ranking-number {
+  width: 22px;
+  height: 9px
+}
+
+.home-platform-ranking-row.is-skeleton .home-platform-ranking-cover {
+  width: 42px;
+  height: 42px
+}
+
+.home-platform-ranking-row.is-skeleton .home-platform-ranking-copy {
+  background: transparent;
+  animation: none
+}
+
+.home-platform-ranking-row.is-skeleton strong,
+.home-platform-ranking-row.is-skeleton small {
+  width: min(220px, 70%);
+  height: 9px;
+  background: rgba(255, 255, 255, .055)
+}
+
+.home-platform-ranking-row.is-skeleton small {
+  width: min(150px, 48%)
+}
+
+@keyframes home-ranking-skeleton {
+  from {
+    background-position: 100% 0
+  }
+
+  to {
+    background-position: -120% 0
+  }
+}
+
+.home-platform-ranking-play-all {
+  margin-right: auto;
+  border-color: rgba(var(--fc-accent-rgb), .3) !important;
+  background: rgba(var(--fc-accent-rgb), .08) !important;
+  color: rgba(255, 255, 255, .88) !important
+}
+
+.home-platform-ranking-play-all:disabled {
+  opacity: .38;
+  cursor: default
 }
 
 .home-platform-recommend-list section+section {
@@ -18764,6 +19107,48 @@ body.panel-reordering .mini-queue-item.is-reordering {
 
   .home-platform-recommend-list {
     max-height: 58vh
+  }
+
+  .home-platform-view-switch {
+    width: 100%
+  }
+
+  .home-platform-ranking-list {
+    max-height: 57vh
+  }
+
+  .home-platform-ranking-row {
+    grid-template-columns: minmax(0, 1fr) 66px
+  }
+
+  .home-platform-ranking-main {
+    padding-left: 8px;
+    grid-template-columns: 27px 42px minmax(0, 1fr) 30px;
+    gap: 8px
+  }
+
+  .home-platform-ranking-row-actions {
+    padding-right: 5px;
+    gap: 2px
+  }
+
+  .home-platform-ranking-row-actions button {
+    width: 28px;
+    height: 32px
+  }
+
+  .home-platform-recommend-actions {
+    flex-wrap: wrap
+  }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .home-platform-ranking-row,
+  .home-platform-ranking-tabs,
+  .home-platform-ranking-row.is-skeleton>* {
+    animation: none;
+    opacity: 1;
+    transform: none
   }
 }
 

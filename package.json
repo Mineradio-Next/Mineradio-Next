@@ -30,6 +30,7 @@
       "source-host.js",
       "backup-catalog-search.js",
       "platform-playlist-link-import.js",
+      "platform-rankings.js",
       "*-api.js",
       "qishui-auth-v6.js",
       "qishui-qr-login.js",

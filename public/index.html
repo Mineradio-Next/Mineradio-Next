@@ -255,7 +255,7 @@
               <span class="home-ranking-entry-copy">
                 <span class="home-insight-kicker">DISCOVER · 音乐发现</span>
                 <span class="home-ranking-entry-title">平台热歌与个人偏好</span>
-                <span class="home-ranking-entry-sub">打开平台推荐中心；没有可信推荐接口时会明确留空</span>
+                <span class="home-ranking-entry-sub">浏览公开榜单，也保留各平台可信推荐</span>
               </span>
               <span class="home-ranking-entry-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
               <span class="home-next-arrow" aria-hidden="true">›</span>
@@ -287,11 +287,15 @@
       <div class="modal home-platform-recommend-modal">
         <div class="home-platform-recommend-head">
           <div>
-            <h2 id="home-platform-recommend-title">平台推荐</h2>
-            <p>只读取平台可验证的推荐数据，不用关键词搜索替代。</p>
+            <h2 id="home-platform-recommend-title">音乐发现</h2>
+            <p id="home-platform-recommend-subtitle">只读取平台可验证的推荐数据，不用关键词搜索替代。</p>
           </div>
           <button id="home-platform-recommend-close" class="home-platform-recommend-close" type="button"
-            aria-label="关闭平台推荐">×</button>
+            aria-label="关闭音乐发现">×</button>
+        </div>
+        <div id="home-platform-view-switch" class="home-platform-view-switch" role="tablist" aria-label="发现视图">
+          <button type="button" role="tab" data-home-discovery-view="recommendations" aria-selected="true">推荐</button>
+          <button type="button" role="tab" data-home-discovery-view="rankings" aria-selected="false">榜单</button>
         </div>
         <div id="home-platform-recommend-tabs" class="home-platform-recommend-tabs" role="tablist"
           aria-label="推荐平台">
@@ -301,10 +305,26 @@
           <button type="button" role="tab" data-home-recommend-source="kugou" aria-selected="false">酷狗</button>
           <button type="button" role="tab" data-home-recommend-source="spotify" aria-selected="false">Spotify</button>
         </div>
+        <div id="home-platform-ranking-tabs" class="home-platform-recommend-tabs home-platform-ranking-tabs"
+          role="tablist" aria-label="榜单平台" hidden>
+          <button type="button" role="tab" data-home-ranking-provider="all" aria-selected="true">综合</button>
+          <button type="button" role="tab" data-home-ranking-provider="netease" aria-selected="false">网易云</button>
+          <button type="button" role="tab" data-home-ranking-provider="qq" aria-selected="false">QQ</button>
+          <button type="button" role="tab" data-home-ranking-provider="kugou" aria-selected="false">酷狗</button>
+          <button type="button" role="tab" data-home-ranking-provider="kuwo" aria-selected="false">酷我</button>
+          <button type="button" role="tab" data-home-ranking-provider="migu" aria-selected="false">咪咕</button>
+        </div>
         <div id="home-platform-recommend-status" class="home-platform-recommend-status" role="status"
           aria-live="polite"></div>
         <div id="home-platform-recommend-list" class="home-platform-recommend-list"></div>
+        <div id="home-platform-ranking-status" class="home-platform-recommend-status home-platform-ranking-status"
+          role="status" aria-live="polite" hidden></div>
+        <div id="home-platform-ranking-list" class="home-platform-recommend-list home-platform-ranking-list"
+          role="list" aria-label="平台榜单歌曲" hidden></div>
         <div class="home-platform-recommend-actions">
+          <button id="home-platform-ranking-play-all" class="home-platform-ranking-play-all" type="button" hidden>
+            播放全部
+          </button>
           <button id="home-platform-recommend-refresh" type="button">刷新当前平台</button>
           <button id="home-platform-recommend-done" type="button">完成</button>
         </div>

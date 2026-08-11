@@ -66,6 +66,7 @@ const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
 const { importPlaylistLink } = require('./platform-playlist-link-import');
 const sourceHost = require('./source-host');
 const { searchBackupCatalog } = require('./backup-catalog-search');
+const { getPlatformRankings } = require('./platform-rankings');
 let backupCatalogEnabled = false;
 const {
   normalizeQQVipPayload: normalizeQQVipPayloadStrict,
@@ -5099,6 +5100,26 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[WeatherIpLocation]', err);
       sendJSON(res, { ok: false, error: err.message, location: null }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/platform-rankings') {
+    try {
+      sendJSON(res, await getPlatformRankings(
+        url.searchParams.get('provider'),
+        url.searchParams.get('limit'),
+        url.searchParams.get('refresh') === '1'
+      ));
+    } catch (err) {
+      console.error('[PlatformRankings]', err);
+      sendJSON(res, {
+        ok: false,
+        provider: String(url.searchParams.get('provider') || 'all'),
+        songs: [],
+        providers: err.providers || [],
+        error: err.message || 'PLATFORM_RANKINGS_FAILED',
+      }, 502);
     }
     return;
   }
