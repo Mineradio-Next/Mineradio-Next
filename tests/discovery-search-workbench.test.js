@@ -72,4 +72,6 @@ test('top search adds context and working local filters without another search e
   assert.match(search, /playlist = searchMusicRenderState\.songs/);
   assert.match(search, /searchMusicRenderState\.allSongs/);
   assert.match(css, /\.search-content-tabs button\.active/);
+  assert.match(search, /function searchBackdropNeedsDepth/);
+  assert.match(css, /#search-area\.search-backdrop-deep #search-results\.show/);
 });

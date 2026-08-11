@@ -91,12 +91,25 @@ function setSearchContentFilter(filter) {
   renderVisibleSearchSongs();
   updateSearchContext();
 }
+function searchBackdropNeedsDepth() {
+  var body = document.body;
+  if (body && body.classList && body.classList.contains('empty-home-active')) return true;
+  if (typeof stageLyrics !== 'undefined' && stageLyrics) {
+    if (stageLyrics.current || stageLyrics.currentText || (stageLyrics.outgoing && stageLyrics.outgoing.length)) return true;
+  }
+  return false;
+}
+function syncSearchBackdropMode() {
+  var searchArea = document.getElementById('search-area');
+  if (searchArea) searchArea.classList.toggle('search-backdrop-deep', searchBackdropNeedsDepth());
+}
 function setSearchHistorySurface(on) {
   if ($results) $results.classList.toggle('search-history-surface', !!on);
 }
 function syncSearchAreaResultState() {
   var searchArea = document.getElementById('search-area');
   if (!searchArea || !$results) return;
+  syncSearchBackdropMode();
   var hasVisibleResults = $results.classList.contains('show') && $results.children.length > 0;
   var hasIntent = !!($input && String($input.value || '').trim()) || searchMode === 'podcast';
   searchArea.classList.toggle('has-results', hasVisibleResults && hasIntent);

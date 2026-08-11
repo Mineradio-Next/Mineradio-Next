@@ -21139,3 +21139,16 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
   .home-platform-recommend-card { grid-template-columns: 52px minmax(0, 1fr) 14px; }
   .home-platform-recommend-action { display: none; }
 }
+
+/* Keep the glass treatment on animation-only backgrounds, but protect text-heavy surfaces. */
+#search-area.search-backdrop-deep #search-results.show:not(.search-history-surface),
+html.control-glass-svg-ok #search-area.search-backdrop-deep #search-results.show:not(.search-history-surface) {
+  background: linear-gradient(145deg, rgba(16, 21, 28, .90), rgba(10, 14, 20, .92) 46%, rgba(6, 9, 14, .94)) !important;
+  box-shadow: 0 20px 58px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .12), inset 0 0 34px rgba(255, 255, 255, .025) !important;
+  backdrop-filter: blur(30px) saturate(1.18) brightness(.96) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(1.18) brightness(.96) !important;
+}
+
+#search-area.search-backdrop-deep #search-results.show:not(.search-history-surface)::before {
+  opacity: .18;
+}
