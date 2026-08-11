@@ -241,15 +241,6 @@
               <span class="home-next-arrow" aria-hidden="true">›</span>
             </button>
 
-            <section class="home-discovery-strip" aria-label="为你挑选">
-              <div class="home-discovery-copy">
-                <span class="home-insight-kicker">FOR YOU · 为你挑选</span>
-                <span class="home-discovery-title">换一首，也许正合心意</span>
-                <span class="home-discovery-sub">从每日推荐、歌单与本地音乐中挑选</span>
-              </div>
-              <div id="home-discovery-list" class="home-discovery-list" aria-live="polite"></div>
-            </section>
-
             <button class="home-insight-card home-ranking-entry" type="button" onclick="openHomeDashboardCharts()"
               aria-label="打开音乐发现">
               <span class="home-ranking-entry-copy">
@@ -271,6 +262,15 @@
               <span class="home-radio-entry-art" aria-hidden="true"><i></i><i></i></span>
               <span class="home-next-arrow" aria-hidden="true">›</span>
             </button>
+
+            <section class="home-discovery-strip" aria-label="为你挑选">
+              <div class="home-discovery-copy">
+                <span class="home-insight-kicker">FOR YOU · 为你挑选</span>
+                <span class="home-discovery-title">换一首，也许正合心意</span>
+                <span class="home-discovery-sub">从每日推荐、歌单与本地音乐中挑选</span>
+              </div>
+              <div id="home-discovery-list" class="home-discovery-list" aria-live="polite"></div>
+            </section>
           </div>
 
           <div class="home-legacy-rail" aria-hidden="true">
@@ -1173,7 +1173,7 @@
         <div id="queue-list" class="queue-list"></div>
       </div>
       <div id="pl-pane" style="display:none">
-        <div class="queue-toolbar">
+        <div class="queue-toolbar playlist-import-toolbar">
           <div class="queue-chip">登录歌单与本地歌单文件</div>
           <button class="fx-mini-btn ghost" type="button" onclick="openLocalPlaylistImport()"
             style="height:26px;padding:0 10px;font-size:11px">导入歌单文件</button>

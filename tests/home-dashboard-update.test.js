@@ -93,6 +93,34 @@ test('new home discovery strip is present in the homepage DOM', () => {
   );
 });
 
+test('music discovery entry stays ahead of the recommendation strip in the first viewport', () => {
+  const rankingEntry = indexHtml.indexOf('class="home-insight-card home-ranking-entry"');
+  const radioEntry = indexHtml.indexOf('class="home-insight-card home-ranking-entry home-radio-entry"');
+  const recommendationStrip = indexHtml.indexOf('class="home-discovery-strip"');
+
+  assert.ok(rankingEntry >= 0, 'expected the music discovery entry');
+  assert.ok(radioEntry > rankingEntry, 'expected music radio beside music discovery');
+  assert.ok(
+    recommendationStrip > radioEntry,
+    'music discovery and music radio must render before the taller recommendation strip',
+  );
+});
+
+test('playlist import actions use a two-column toolbar instead of shrinking text vertically', () => {
+  assert.match(
+    indexHtml,
+    /id="pl-pane"[\s\S]{0,180}?class="queue-toolbar playlist-import-toolbar"/,
+  );
+  assert.match(
+    indexCss,
+    /#playlist-panel \.playlist-import-toolbar\s*\{[\s\S]{0,180}?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
+  );
+  assert.match(
+    indexCss,
+    /#playlist-panel \.playlist-import-toolbar \.fx-mini-btn\s*\{[\s\S]{0,260}?word-break:\s*keep-all/,
+  );
+});
+
 test('dashboard selects local discovery candidates and keeps cover swaps stable', () => {
   const candidateSelector = namedFunctionSource(dashboardScript, 'homeDashboardDiscoverySongs');
   assert.ok(candidateSelector, 'expected homeDashboardDiscoverySongs()');

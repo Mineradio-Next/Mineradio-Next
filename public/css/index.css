@@ -15127,6 +15127,30 @@ html:fullscreen body.desktop-shell #playlist-panel {
   line-height: 1
 }
 
+#playlist-panel .playlist-import-toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch
+}
+
+#playlist-panel .playlist-import-toolbar .queue-chip {
+  grid-column: 1 / -1;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis
+}
+
+#playlist-panel .playlist-import-toolbar .fx-mini-btn {
+  width: 100%;
+  min-width: 0;
+  padding-right: 8px !important;
+  padding-left: 8px !important;
+  white-space: nowrap;
+  word-break: keep-all
+}
+
 .pl-card {
   display: flex;
   align-items: center;
