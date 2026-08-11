@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080b0c">
+  <title>Mineradio · 随身控制</title>
+  <link rel="stylesheet" href="/remote.css">
+</head>
+<body>
+  <main class="remote-shell">
+    <header class="remote-head">
+      <div class="remote-brand"><span>MINERADIO</span><small>随身控制</small></div>
+      <div id="connection-state" class="connection-state"><i></i><span>正在连接</span></div>
+    </header>
+
+    <section class="now-playing" aria-labelledby="track-title">
+      <div id="artwork" class="artwork" aria-hidden="true">
+        <div class="artwork-fallback"><span>MR</span><i></i></div>
+      </div>
+      <div class="track-copy">
+        <div class="track-index">NOW PLAYING <span id="queue-count">0 TRACKS</span></div>
+        <h1 id="track-title">等待播放</h1>
+        <p id="track-artist">Mineradio</p>
+        <p id="track-album" class="track-album"></p>
+      </div>
+    </section>
+
+    <section class="timeline" aria-label="播放进度">
+      <div class="time-row"><span id="current-time">0:00</span><span id="duration">0:00</span></div>
+      <div class="progress-track"><i id="progress-fill"></i><b id="progress-knob"></b></div>
+    </section>
+
+    <section class="transport" aria-label="播放控制">
+      <button id="previous-button" class="transport-side" type="button" aria-label="上一首" title="上一首"><span>‹</span><i></i></button>
+      <button id="play-button" class="transport-main" type="button" aria-label="播放" title="播放"><span>▶</span></button>
+      <button id="next-button" class="transport-side" type="button" aria-label="下一首" title="下一首"><i></i><span>›</span></button>
+    </section>
+
+    <section class="volume" aria-label="音量">
+      <div class="volume-head"><span>VOLUME</span><output id="volume-value">80</output></div>
+      <input id="volume-slider" type="range" min="0" max="100" step="1" value="80" aria-label="音量">
+    </section>
+
+    <section class="up-next" aria-labelledby="up-next-title">
+      <div class="section-head"><h2 id="up-next-title">接下来播放</h2><span>UP NEXT</span></div>
+      <ol id="up-next-list"><li class="empty">队列里还没有下一首</li></ol>
+    </section>
+
+    <footer><span id="session-note">MINERADIO ON THIS WI-FI</span><time id="last-update">--:--</time></footer>
+  </main>
+  <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+  <script src="/remote.js"></script>
+</body>
+</html>

@@ -3,6 +3,7 @@ function bindFxPanel() {
   relabelFxPanelControls();
   organizeFxPanel();
   bindHotkeySettings();
+  if (typeof bindLanRemoteControl === 'function') bindLanRemoteControl();
   bindCloseBehaviorControls();
   bindStartupResumeModeControls();
   bindAudioOutputControls();

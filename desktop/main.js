@@ -17,6 +17,7 @@ const {
 } = require('./local-music-library');
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
+const { createLanRemoteServer } = require('./lan-remote-server');
 const {
   LoginEasterEggGate,
   LOGIN_EASTER_EGG_GATE_VERSION,
@@ -88,6 +89,14 @@ let fullDesktopEscapeExitPending = false;
 let fullDesktopEscapeSuspendedBinding = null;
 let fullDesktopEnableOperation = 0;
 let fullDesktopEnablePending = false;
+const lanRemoteServer = createLanRemoteServer({
+  onCommand(command) {
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || mainWindow.webContents.isDestroyed()) {
+      throw new Error('REMOTE_RENDERER_UNAVAILABLE');
+    }
+    mainWindow.webContents.send('mineradio-lan-remote-command', command);
+  },
+});
 
 const WINDOWED_ASPECT = 16 / 9;
 const WINDOWED_SCALE = 3 / 4;
@@ -4486,6 +4495,26 @@ ipcMain.handle('mineradio-hotkeys-configure-global', (_event, bindings) => {
   return configureMineradioGlobalHotkeys(bindings);
 });
 
+ipcMain.handle('mineradio-lan-remote-start', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, enabled: false, error: 'REMOTE_UNTRUSTED_SENDER' };
+  return lanRemoteServer.start();
+});
+
+ipcMain.handle('mineradio-lan-remote-stop', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, enabled: false, error: 'REMOTE_UNTRUSTED_SENDER' };
+  return lanRemoteServer.stop();
+});
+
+ipcMain.handle('mineradio-lan-remote-status', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, enabled: false, error: 'REMOTE_UNTRUSTED_SENDER' };
+  return lanRemoteServer.status();
+});
+
+ipcMain.on('mineradio-lan-remote-state', (event, payload) => {
+  if (!isTrustedMainWindowIpc(event)) return;
+  lanRemoteServer.updateState(payload || {});
+});
+
 function loginCookieExportMeta(provider) {
   const key = String(provider || '').toLowerCase();
   const userData = app.getPath('userData');
@@ -5357,6 +5386,7 @@ async function createWindowOnce() {
     closeWallpaperWindow('main-frame-navigation').catch(() => {});
   });
   win.webContents.once('destroyed', () => {
+    lanRemoteServer.stop().catch(() => {});
     stopWallpaperEngineRuntimeForRenderer('webcontents-destroyed');
     closeWallpaperWindow('webcontents-destroyed').catch(() => {});
   });
@@ -5667,6 +5697,7 @@ if (!gotSingleInstanceLock) {
     stopMemoryAutoTimer();
     unregisterFullDesktopEscapeShortcut();
     unregisterMineradioGlobalHotkeys();
+    lanRemoteServer.stop().catch(() => {});
     closeDesktopLyricsWindow();
     if (localServer && localServer.close) localServer.close();
     if (tray) {

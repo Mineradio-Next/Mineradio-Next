@@ -79,6 +79,16 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   openUpdatePage: (url) => ipcRenderer.invoke('mineradio-open-update-page', String(url || '')),
   restartApp: () => ipcRenderer.invoke('mineradio-restart-app'),
   configureGlobalHotkeys: (bindings) => ipcRenderer.invoke('mineradio-hotkeys-configure-global', bindings || []),
+  startLanRemote: () => ipcRenderer.invoke('mineradio-lan-remote-start'),
+  stopLanRemote: () => ipcRenderer.invoke('mineradio-lan-remote-stop'),
+  getLanRemoteStatus: () => ipcRenderer.invoke('mineradio-lan-remote-status'),
+  updateLanRemoteState: (payload) => ipcRenderer.send('mineradio-lan-remote-state', payload || {}),
+  onLanRemoteCommand: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('mineradio-lan-remote-command', listener);
+    return () => ipcRenderer.removeListener('mineradio-lan-remote-command', listener);
+  },
   copyText: (text) => {
     clipboard.writeText(String(text || ''));
     return { ok: true };

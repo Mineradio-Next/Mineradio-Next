@@ -1,0 +1,172 @@
+:root {
+  color-scheme: dark;
+  --ink: #080b0c;
+  --paper: #eef4f1;
+  --muted: rgba(226, 236, 231, 0.52);
+  --line: rgba(223, 237, 230, 0.14);
+  --mint: #65f4bf;
+  --warm: #f3b58b;
+  --fill: 0%;
+}
+
+* { box-sizing: border-box; }
+
+html { min-height: 100%; background: var(--ink); }
+
+body {
+  min-height: 100vh;
+  min-height: 100svh;
+  margin: 0;
+  overflow-x: hidden;
+  color: var(--paper);
+  background:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+    #080b0c;
+  background-size: 42px 42px;
+  font-family: "Segoe UI Variable Text", "Microsoft YaHei UI", sans-serif;
+  letter-spacing: 0;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(101,244,191,.055), transparent 34%, rgba(243,181,139,.035));
+}
+
+button, input { font: inherit; }
+
+button {
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.remote-shell {
+  position: relative;
+  width: min(100%, 520px);
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: calc(22px + env(safe-area-inset-top)) 24px calc(20px + env(safe-area-inset-bottom));
+}
+
+.remote-head,
+.section-head,
+.time-row,
+.volume-head,
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.remote-head { animation: enter .5s ease both; }
+
+.remote-brand { display: flex; align-items: baseline; gap: 9px; }
+.remote-brand span { font: 650 12px/1 "Segoe UI Variable Display", sans-serif; letter-spacing: .13em; }
+.remote-brand small { color: var(--muted); font-size: 10px; }
+
+.connection-state { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
+.connection-state i { width: 6px; height: 6px; border-radius: 50%; background: #f0ba76; box-shadow: 0 0 12px rgba(240,186,118,.45); }
+.connection-state.online i { background: var(--mint); box-shadow: 0 0 12px rgba(101,244,191,.55); }
+.connection-state.offline i { background: #f26d6d; box-shadow: none; }
+
+.now-playing {
+  display: grid;
+  grid-template-columns: minmax(118px, 42%) minmax(0, 1fr);
+  align-items: end;
+  gap: 22px;
+  margin-top: clamp(42px, 9vh, 78px);
+  animation: enter .56s .06s ease both;
+}
+
+.artwork {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #111718;
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow: 0 22px 52px rgba(0,0,0,.44);
+}
+
+.artwork::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  pointer-events: none;
+}
+
+.artwork img { width: 100%; height: 100%; display: block; object-fit: cover; animation: imageIn .45s ease both; }
+.artwork-fallback { position: absolute; inset: 0; display: grid; place-items: center; }
+.artwork-fallback span { font: 700 30px/1 "Segoe UI Variable Display", sans-serif; letter-spacing: .15em; color: rgba(255,255,255,.76); }
+.artwork-fallback i { position: absolute; width: 38%; height: 1px; background: var(--mint); transform: rotate(-35deg); opacity: .72; }
+
+.track-copy { min-width: 0; padding-bottom: 3px; }
+.track-index { display: flex; justify-content: space-between; gap: 10px; color: var(--mint); font-size: 8px; letter-spacing: .12em; }
+.track-index span { color: var(--muted); white-space: nowrap; }
+.track-copy h1 { margin: 16px 0 8px; font: 650 clamp(24px, 8vw, 38px)/1.03 "Segoe UI Variable Display", "Microsoft YaHei UI", sans-serif; overflow-wrap: anywhere; }
+.track-copy > p { margin: 0; color: rgba(244,248,246,.72); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.track-copy .track-album { margin-top: 4px; color: var(--muted); font-size: 10px; }
+
+.timeline { margin-top: 30px; animation: enter .55s .12s ease both; }
+.time-row { margin-bottom: 10px; color: var(--muted); font: 500 9px/1 monospace; }
+.progress-track { position: relative; height: 2px; background: rgba(255,255,255,.14); }
+.progress-track i { position: absolute; inset: 0 auto 0 0; width: var(--fill); background: var(--mint); transition: width .3s linear; }
+.progress-track b { position: absolute; top: 50%; left: var(--fill); width: 7px; height: 7px; border: 1px solid var(--mint); background: var(--ink); transform: translate(-50%, -50%); transition: left .3s linear; }
+
+.transport { display: grid; grid-template-columns: 62px 84px 62px; align-items: center; justify-content: center; gap: 15px; margin: 32px 0 28px; animation: enter .55s .18s ease both; }
+.transport button { display: grid; place-items: center; border: 1px solid var(--line); background: rgba(255,255,255,.025); cursor: pointer; transition: transform .18s ease, border-color .18s ease, background .18s ease; }
+.transport button:active { transform: scale(.92); }
+.transport button:disabled { opacity: .35; cursor: default; }
+.transport-side { position: relative; width: 62px; height: 44px; }
+.transport-side span { font: 300 34px/1 sans-serif; transform: translateY(-2px); }
+.transport-side i { position: absolute; width: 1px; height: 14px; background: currentColor; }
+#previous-button i { left: 21px; }
+#next-button i { right: 21px; }
+.transport-main { width: 84px; height: 62px; border-color: rgba(101,244,191,.56) !important; background: var(--mint) !important; color: #07110f; box-shadow: 0 10px 30px rgba(101,244,191,.16); }
+.transport-main span { font: 650 22px/1 sans-serif; }
+.transport-main.paused span { transform: translateX(2px); }
+
+.volume { padding: 18px 0 22px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); animation: enter .55s .22s ease both; }
+.volume-head { margin-bottom: 15px; color: var(--muted); font-size: 9px; letter-spacing: .12em; }
+.volume output { color: var(--warm); font: 650 18px/1 "Segoe UI Variable Display", sans-serif; }
+.volume input { width: 100%; height: 24px; margin: 0; appearance: none; background: transparent; cursor: pointer; }
+.volume input::-webkit-slider-runnable-track { height: 3px; background: linear-gradient(90deg, var(--warm) var(--volume, 80%), rgba(255,255,255,.13) var(--volume, 80%)); }
+.volume input::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: -6px; appearance: none; border: 2px solid var(--warm); border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 4px rgba(243,181,139,.08); }
+
+.up-next { margin-top: 26px; animation: enter .55s .28s ease both; }
+.section-head h2 { margin: 0; font: 600 14px/1 "Segoe UI Variable Display", "Microsoft YaHei UI", sans-serif; }
+.section-head span { color: var(--muted); font-size: 8px; letter-spacing: .14em; }
+.up-next ol { list-style: none; margin: 16px 0 0; padding: 0; counter-reset: up-next; }
+.up-next li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; padding: 11px 0; border-top: 1px solid rgba(255,255,255,.075); counter-increment: up-next; }
+.up-next li::before { content: counter(up-next, decimal-leading-zero); color: rgba(101,244,191,.66); font: 500 9px/1.5 monospace; }
+.up-next li strong, .up-next li small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.up-next li strong { font-size: 11px; font-weight: 550; }
+.up-next li small { margin-top: 3px; color: var(--muted); font-size: 9px; }
+.up-next li.empty { display: block; color: var(--muted); font-size: 10px; }
+.up-next li.empty::before { content: none; }
+
+footer { margin-top: 28px; color: rgba(226,236,231,.34); font: 500 8px/1 monospace; letter-spacing: .1em; }
+
+.feedback { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 5; max-width: calc(100vw - 40px); padding: 9px 12px; border: 1px solid rgba(255,255,255,.16); background: rgba(7,10,11,.92); color: var(--paper); font-size: 10px; opacity: 0; pointer-events: none; transform: translate(-50%, 12px); transition: opacity .2s ease, transform .2s ease; }
+.feedback.show { opacity: 1; transform: translate(-50%, 0); }
+
+@keyframes enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes imageIn { from { opacity: .2; transform: scale(1.04); } to { opacity: 1; transform: scale(1); } }
+
+@media (max-width: 390px) {
+  .remote-shell { padding-left: 20px; padding-right: 20px; }
+  .now-playing { grid-template-columns: 122px minmax(0, 1fr); gap: 17px; margin-top: 40px; }
+  .track-copy h1 { margin-top: 12px; font-size: 25px; }
+  .track-index { display: block; }
+  .track-index span { display: block; margin-top: 5px; }
+  .transport { margin-top: 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
