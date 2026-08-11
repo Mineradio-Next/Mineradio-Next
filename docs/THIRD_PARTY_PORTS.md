@@ -5,8 +5,9 @@
 - Upstream: `ww085213/Mineradio-LX-Music`
 - Initial reference revision: `82826df814c32853d99697c0ee60f749a2fcad79`
 - Homepage refresh revision: `812e2dc2e18bbc263e61dbd0206cb765e003d6e9`
+- Artist album reference revision: `82751d5907fb580bc31da42afde5a4e806636400`
 - License: GNU GPL v3 (`GPL-3.0-only`)
-- Port dates: 2026-07-18 (initial), 2026-07-19 (homepage refresh)
+- Port dates: 2026-07-18 (initial), 2026-07-19 (homepage refresh), 2026-08-11 (artist albums)
 
 Mineradio's full desktop mode adapts the upstream idea of moving the existing
 Electron main-window HWND between the Windows WorkerW desktop layer and an
@@ -27,6 +28,13 @@ stable cover-image swaps, in-place quick-card updates, daily-review hover
 feedback, and compact-height scrolling/settings behavior. These features remain
 implemented against Mineradio's existing provider, weather-radio, local-library,
 queue, and playback modules rather than the upstream LX/local-only data model.
+
+The 2026-08-11 artist-album work adapts only the upstream idea of continuing
+from an artist page into album works. Mineradio uses real Netease and QQ artist
+album APIs, a new shared response contract, an original compact horizontal
+layout, and the existing Mineradio album-detail/gapless/collection paths. The
+upstream grouping implementation and its immersive album interface were not
+copied.
 
 The combined application remains distributed under the repository's GNU GPL v3
 license. Preserve this notice and the corresponding source when redistributing

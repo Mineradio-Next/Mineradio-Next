@@ -10644,6 +10644,122 @@ body.login-guide-active #login-guide-canvas {
   color: rgba(255, 255, 255, .64)
 }
 
+.artist-album-count {
+  color: rgba(255, 255, 255, .34);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums
+}
+
+.artist-album-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 132px;
+  gap: 10px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 1px 8px;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-inline: contain
+}
+
+.artist-album-card {
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: transform .2s cubic-bezier(.16, 1, .3, 1), border-color .2s, background .2s, box-shadow .2s
+}
+
+.artist-album-card:hover,
+.artist-album-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(var(--fc-accent-rgb), .22);
+  background: rgba(255, 255, 255, .045);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, .20);
+  outline: none
+}
+
+.artist-album-card:active {
+  transform: translateY(-1px) scale(.985)
+}
+
+.artist-album-cover {
+  display: flex;
+  width: 118px;
+  height: 118px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .42);
+  font-size: 22px;
+  font-weight: 800;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, .24)
+}
+
+.artist-album-cover-empty {
+  background: radial-gradient(circle at 32% 24%, rgba(var(--fc-accent-rgb), .18), rgba(255, 255, 255, .04) 52%, rgba(255, 255, 255, .025))
+}
+
+.artist-album-name,
+.artist-album-meta {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.artist-album-name {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, .88);
+  font-size: 11.5px;
+  font-weight: 680
+}
+
+.artist-album-meta {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, .37);
+  font-size: 10px
+}
+
+.artist-album-skeletons {
+  display: grid;
+  grid-template-columns: repeat(4, 118px);
+  gap: 16px;
+  overflow: hidden;
+  padding: 8px 7px 28px
+}
+
+.artist-album-skeletons span {
+  display: block;
+  width: 118px;
+  height: 118px;
+  border-radius: 7px;
+  background: linear-gradient(100deg, rgba(255, 255, 255, .035) 15%, rgba(255, 255, 255, .085) 35%, rgba(255, 255, 255, .035) 55%);
+  background-size: 220% 100%;
+  animation: artist-album-loading 1.35s ease-in-out infinite
+}
+
+.artist-album-error {
+  padding-top: 8px;
+  padding-bottom: 8px
+}
+
+@keyframes artist-album-loading {
+  from { background-position: 100% 0 }
+  to { background-position: -100% 0 }
+}
+
 .detail-action-toggle {
   min-height: 30px;
   padding: 0 12px;
@@ -10928,6 +11044,32 @@ body.login-guide-active #login-guide-canvas {
     width: 31px;
     height: 31px;
     border-radius: 9px
+  }
+
+  .artist-album-strip {
+    grid-auto-columns: 112px
+  }
+
+  .artist-album-cover,
+  .artist-album-skeletons span {
+    width: 98px;
+    height: 98px
+  }
+
+  .artist-album-skeletons {
+    grid-template-columns: repeat(4, 98px)
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artist-album-card,
+  .artist-album-strip {
+    scroll-behavior: auto;
+    transition: none
+  }
+
+  .artist-album-skeletons span {
+    animation: none
   }
 }
 

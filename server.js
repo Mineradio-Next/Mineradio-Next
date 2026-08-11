@@ -22,6 +22,7 @@ const {
   user_playlist,
   comment_music,
   album,
+  artist_album,
   artist_detail,
   artist_top_song,
   artist_songs,
@@ -67,6 +68,10 @@ const { importPlaylistLink } = require('./platform-playlist-link-import');
 const sourceHost = require('./source-host');
 const { searchBackupCatalog } = require('./backup-catalog-search');
 const { getPlatformRankings } = require('./platform-rankings');
+const {
+  normalizeNeteaseArtistAlbums,
+  normalizeQQArtistAlbums,
+} = require('./artist-albums-api');
 let backupCatalogEnabled = false;
 const {
   normalizeQQVipPayload: normalizeQQVipPayloadStrict,
@@ -3435,7 +3440,7 @@ async function handleQQArtistDetail(mid, limit) {
   const singerMid = String(mid || '').trim();
   const num = Math.max(10, Math.min(80, parseInt(limit || '36', 10) || 36));
   if (!singerMid) return { provider: 'qq', error: 'MISSING_SINGER_MID', artist: null, songs: [] };
-  const json = await qqMusicRequest({
+  const detailRequest = qqMusicRequest({
     comm: { ct: 24, cv: 0 },
     singer: {
       module: 'music.web_singer_info_svr',
@@ -3443,6 +3448,17 @@ async function handleQQArtistDetail(mid, limit) {
       param: { sort: 5, singermid: singerMid, sin: 0, num },
     },
   }, { cookie: true });
+  const albumRequest = qqMusicRequest({
+    comm: { ct: 24, cv: 0 },
+    album: {
+      module: 'music.web_singer_info_svr',
+      method: 'get_singer_album',
+      param: { singermid: singerMid, order: 'time', begin: 0, num: 12, exstatus: 1 },
+    },
+  }, { cookie: true });
+  const [detailResult, albumResult] = await Promise.allSettled([detailRequest, albumRequest]);
+  if (detailResult.status !== 'fulfilled') throw detailResult.reason;
+  const json = detailResult.value;
   const block = json && json.singer;
   if (!block || Number(block.code || 0) !== 0) {
     return { provider: 'qq', error: block && (block.message || block.msg || block.code) || 'QQ_ARTIST_DETAIL_FAILED', artist: null, songs: [] };
@@ -3457,6 +3473,9 @@ async function handleQQArtistDetail(mid, limit) {
   const artistMid = info.mid || singerMid;
   const artistName = info.name || info.title || (matchedSongArtist && matchedSongArtist.name) || '';
   const totalSong = Number(data.total_song || data.song_count || 0) || songs.length;
+  const albums = albumResult.status === 'fulfilled'
+    ? normalizeQQArtistAlbums(albumResult.value, 12, artistName)
+    : [];
   return {
     provider: 'qq',
     artist: {
@@ -3471,6 +3490,8 @@ async function handleQQArtistDetail(mid, limit) {
       mvSize: Number(data.total_mv || 0) || 0,
     },
     total: totalSong,
+    albums,
+    albumError: albumResult.status === 'rejected' ? String(albumResult.reason && albumResult.reason.message || 'QQ_ARTIST_ALBUMS_FAILED') : '',
     songs,
   };
 }
@@ -6700,29 +6721,29 @@ const server = http.createServer(async (req, res) => {
       const id = url.searchParams.get('id');
       const limit = Math.max(10, Math.min(80, parseInt(url.searchParams.get('limit') || '30', 10) || 30));
       if (!id) { sendJSON(res, { error: 'Missing artist id', songs: [] }, 400); return; }
-      let detailBody = {};
-      try {
-        const detail = await artist_detail({ id, cookie: userCookie, timestamp: Date.now() });
-        detailBody = detail.body || detail || {};
-      } catch (e) {
-        console.warn('[ArtistDetail] detail failed:', e.message);
-      }
-      let rawSongs = [];
-      try {
-        const list = await artist_songs({ id, order: 'hot', limit, offset: 0, cookie: userCookie, timestamp: Date.now() });
-        const b = list.body || list || {};
-        rawSongs = (b.songs || (b.data && b.data.songs) || []);
-      } catch (e) {
-        console.warn('[ArtistSongs] hot failed:', e.message);
-      }
-      if (!rawSongs.length) {
-        const top = await artist_top_song({ id, cookie: userCookie, timestamp: Date.now() });
-        const b = top.body || top || {};
-        rawSongs = b.songs || [];
-      }
+      const detailTask = artist_detail({ id, cookie: userCookie, timestamp: Date.now() })
+        .then(detail => detail.body || detail || {})
+        .catch(e => { console.warn('[ArtistDetail] detail failed:', e.message); return {}; });
+      const songsTask = artist_songs({ id, order: 'hot', limit, offset: 0, cookie: userCookie, timestamp: Date.now() })
+        .then(list => {
+          const b = list.body || list || {};
+          return b.songs || (b.data && b.data.songs) || [];
+        })
+        .catch(e => { console.warn('[ArtistSongs] hot failed:', e.message); return []; })
+        .then(async rawSongs => {
+          if (rawSongs.length) return rawSongs;
+          const top = await artist_top_song({ id, cookie: userCookie, timestamp: Date.now() });
+          const b = top.body || top || {};
+          return b.songs || [];
+        });
+      const albumsTask = artist_album({ id, limit: 12, offset: 0, cookie: userCookie, timestamp: Date.now() })
+        .then(result => ({ albums: normalizeNeteaseArtistAlbums(result, 12), error: '' }))
+        .catch(e => { console.warn('[ArtistAlbums] failed:', e.message); return { albums: [], error: e.message || 'ARTIST_ALBUMS_FAILED' }; });
+      const [detailBody, rawSongs, albumResult] = await Promise.all([detailTask, songsTask, albumsTask]);
       const artist = detailBody.artist || (detailBody.data && (detailBody.data.artist || detailBody.data)) || {};
       const songs = rawSongs.map(mapSongRecord).filter(s => s.id).slice(0, limit);
       sendJSON(res, {
+        provider: 'netease',
         id,
         artist: {
           id: artist.id || id,
@@ -6732,6 +6753,8 @@ const server = http.createServer(async (req, res) => {
           musicSize: artist.musicSize || artist.songSize || 0,
           albumSize: artist.albumSize || 0,
         },
+        albums: albumResult.albums,
+        albumError: albumResult.error,
         songs,
         body: detailBody,
       });

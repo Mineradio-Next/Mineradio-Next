@@ -48,6 +48,7 @@ function jsCheckFiles() {
     if (file.endsWith('.js')) files.push(file);
   });
   addIfExists(path.join(appRoot, 'server.js'));
+  addIfExists(path.join(appRoot, 'artist-albums-api.js'));
   addIfExists(path.join(appRoot, 'qq-vip-api.js'));
   addIfExists(path.join(appRoot, 'dj-analyzer.js'));
   walk(path.join(appRoot, 'cuefield')).forEach(file => {
@@ -101,6 +102,21 @@ function runPlaybackSourceFallbackTransactionCheck() {
     process.stdout.write(result.stdout || '');
     process.stderr.write(result.stderr || '');
     fail(`playback source fallback transaction regression failed: ${rel(testFile)}`);
+  }
+  process.stdout.write(result.stdout || '');
+}
+
+function runArtistAlbumRegressionCheck() {
+  logStep('Artist album browsing regression');
+  const testFile = path.join(appRoot, 'tests', 'artist-albums.test.js');
+  const result = spawnSync(process.execPath, ['--test', testFile], {
+    cwd: appRoot,
+    encoding: 'utf8'
+  });
+  if (result.status !== 0) {
+    process.stdout.write(result.stdout || '');
+    process.stderr.write(result.stderr || '');
+    fail(`artist album browsing regression failed: ${rel(testFile)}`);
   }
   process.stdout.write(result.stdout || '');
 }
@@ -5422,6 +5438,7 @@ async function main() {
   runNodeSyntaxCheck(jsCheckFiles());
   runPlaybackAudioGraphRegressionCheck();
   runPlaybackSourceFallbackTransactionCheck();
+  runArtistAlbumRegressionCheck();
   runLocalMusicLibraryRegressionCheck();
   runWallpaperEngineIdleDisposeRegressionCheck();
   runQQVipEntitlementRegressionCheck();

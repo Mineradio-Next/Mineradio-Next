@@ -31,6 +31,7 @@ function currentArtistNames(song) {
 }
 var trackDetailSeq = 0;
 var detailArtistSongs = [];
+var detailArtistAlbums = [];
 var detailAlbumSongs = [];
 var detailAlbumContext = null;
 var detailAlbumGaplessEnabled = true;
@@ -408,6 +409,57 @@ function renderArtistSongList(songs) {
       '</div>';
   }).join('') + '</div>';
 }
+function artistAlbumMeta(album) {
+  var parts = [];
+  var date = String(album && album.releaseDate || '');
+  var year = date.match(/^\d{4}/);
+  if (year) parts.push(year[0]);
+  var count = Number(album && album.trackCount || 0) || 0;
+  if (count > 0) parts.push(count + ' 首');
+  return parts.join(' · ') || '专辑作品';
+}
+function artistAlbumAsSong(album) {
+  album = album || {};
+  var provider = album.provider === 'qq' ? 'qq' : 'netease';
+  return {
+    provider: provider,
+    source: provider,
+    type: provider === 'qq' ? 'qq' : 'song',
+    name: album.name || '专辑作品',
+    artist: album.artist || '',
+    artists: album.artist ? [{ name: album.artist }] : [],
+    album: album.name || '',
+    albumId: album.id || '',
+    albumMid: album.albumMid || album.mid || '',
+    albummid: album.albumMid || album.mid || '',
+    cover: album.cover || '',
+    artistAlbumEntry: true,
+  };
+}
+function renderArtistAlbumStrip(albums) {
+  detailArtistAlbums = (albums || []).slice(0, 8).map(function (album) { return Object.assign({}, album); });
+  return '<div class="artist-album-strip">' + detailArtistAlbums.map(function (album, index) {
+    var cover = album.cover ? coverUrlWithSize(album.cover, 240) : '';
+    var coverHtml = cover
+      ? '<img class="artist-album-cover" src="' + escHtml(cover) + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.18">'
+      : '<div class="artist-album-cover artist-album-cover-empty">' + escHtml(String(album.name || '专').slice(0, 1)) + '</div>';
+    return '<button class="artist-album-card" type="button" onclick="openArtistAlbumDetail(' + index + ')" aria-label="打开专辑 ' + escHtml(album.name || '') + '">' +
+      coverHtml +
+      '<span class="artist-album-name">' + escHtml(album.name || '未知专辑') + '</span>' +
+      '<span class="artist-album-meta">' + escHtml(artistAlbumMeta(album)) + '</span>' +
+      '</button>';
+  }).join('') + '</div>';
+}
+function openArtistAlbumDetail(index) {
+  var album = detailArtistAlbums[index];
+  if (!album) return;
+  var song = artistAlbumAsSong(album);
+  if (!albumDetailUrlForSong(song)) {
+    showToast('这张专辑暂时缺少可用详情');
+    return;
+  }
+  openTrackDetailModal('album', song);
+}
 function playArtistDetailSong(i) {
   var song = detailArtistSongs[i];
   if (!song) return;
@@ -432,6 +484,15 @@ function bindTrackDetailScrollers() {
   var body = document.getElementById('track-detail-body');
   bindSmoothWheelScroll(body);
   if (body) body.querySelectorAll('.detail-scroll').forEach(bindSmoothWheelScroll);
+  if (body) body.querySelectorAll('.artist-album-strip').forEach(function (strip) {
+    if (strip.__artistAlbumWheelBound) return;
+    strip.__artistAlbumWheelBound = true;
+    strip.addEventListener('wheel', function (event) {
+      if (strip.scrollWidth <= strip.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+      event.preventDefault();
+      strip.scrollLeft += event.deltaY;
+    }, { passive: false });
+  });
 }
 function closeTrackDetailModal() {
   closeGsapModal(document.getElementById('track-detail-modal'), function () {
@@ -474,7 +535,7 @@ function openTrackDetailModal(type, songOverride) {
       '<div class="detail-sub" id="album-detail-sub">' + escHtml(song.artist || '未知歌手') + ' · ' + escHtml(songSourceLabel(song)) + '</div></div>' +
       '</div>' +
       '<div class="detail-grid">' +
-      detailRow('当前歌曲', title) +
+      detailRow(song.artistAlbumEntry ? '浏览来源' : '当前歌曲', song.artistAlbumEntry ? '歌手专辑作品' : title) +
       detailRow('专辑', albumTitle) +
       detailRow('歌手', song.artist || '未知歌手') +
       detailRow('来源', songSourceLabel(song)) +
@@ -563,14 +624,19 @@ function openTrackDetailModal(type, songOverride) {
       detailRow('来源', songSourceLabel(song)) +
       '</div>' +
       '<div class="detail-chip-row">' + (artists.length ? artists.map(function (name) { return '<span class="detail-chip">' + escHtml(name) + '</span>'; }).join('') : '<span class="detail-chip">未知歌手</span>') + '</div>' +
+      '<div id="artist-albums-section" class="detail-section artist-albums-section"' + (artistDetailUrl ? '' : ' hidden') + '><div class="detail-section-head"><div class="detail-section-title">专辑作品</div><div id="artist-album-count" class="artist-album-count"></div></div><div id="artist-albums"><div class="artist-album-skeletons"><span></span><span></span><span></span><span></span></div></div></div>' +
       '<div class="detail-section"><div class="detail-section-head"><div class="detail-section-title">热门歌曲</div></div><div id="artist-hot-songs">' + (artistDetailUrl ? '<div class="detail-loading">' + escHtml(artistLoadingText) + '</div>' : '<div class="detail-empty">' + escHtml(artistEmptyText) + '</div>') + '</div></div>';
     if (artistDetailUrl) {
       apiJson(artistDetailUrl).then(function (r) {
         if (seq !== trackDetailSeq) return;
         var returnedName = r && r.artist && r.artist.name;
         var target = document.getElementById('artist-hot-songs');
+        var albumTarget = document.getElementById('artist-albums');
+        var albumSection = document.getElementById('artist-albums-section');
+        var albumCount = document.getElementById('artist-album-count');
         if (returnedName && artistNamesForMatch.length && !artistNameMatches(artistNamesForMatch, returnedName)) {
           if (target) target.innerHTML = '<div class="detail-empty">歌手资料与当前歌曲不匹配，已停止展示错误主页。</div>';
+          if (albumSection) albumSection.hidden = true;
           bindTrackDetailScrollers();
           return;
         }
@@ -587,11 +653,26 @@ function openTrackDetailModal(type, songOverride) {
             avatarEl.style.backgroundPosition = 'center';
           }
         }
+        var albums = r && !r.error && Array.isArray(r.albums) ? r.albums : [];
+        if (albums.length) {
+          if (albumSection) albumSection.hidden = false;
+          if (albumTarget) albumTarget.innerHTML = renderArtistAlbumStrip(albums);
+          if (albumCount) albumCount.textContent = Math.min(albums.length, 8) + ' 张';
+        } else if (r && r.albumError) {
+          detailArtistAlbums = [];
+          if (albumTarget) albumTarget.innerHTML = '<div class="detail-empty artist-album-error">专辑作品暂时无法载入</div>';
+          if (albumCount) albumCount.textContent = '';
+        } else {
+          detailArtistAlbums = [];
+          if (albumSection) albumSection.hidden = true;
+        }
         if (target) target.innerHTML = r && !r.error ? renderArtistSongList(r.songs || []) : '<div class="detail-empty">歌手主页加载失败</div>';
         bindTrackDetailScrollers();
       }).catch(function () {
         var target = document.getElementById('artist-hot-songs');
         if (seq === trackDetailSeq && target) target.innerHTML = '<div class="detail-empty">歌手主页加载失败</div>';
+        var albumTarget = document.getElementById('artist-albums');
+        if (seq === trackDetailSeq && albumTarget) albumTarget.innerHTML = '<div class="detail-empty artist-album-error">专辑作品暂时无法载入</div>';
         bindTrackDetailScrollers();
       });
     }
