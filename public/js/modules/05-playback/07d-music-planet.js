@@ -158,7 +158,7 @@ function musicPlanetHash(value) {
 
 function musicPlanetColor(value, lightness) {
   var hue = musicPlanetHash(value) % 360;
-  return 'hsl(' + hue + ', 58%, ' + (Number(lightness) || 58) + '%)';
+  return 'hsl(' + hue + ', 30%, ' + (Number(lightness) || 58) + '%)';
 }
 
 function musicPlanetSongCover(song, size) {
@@ -297,17 +297,6 @@ function musicPlanetAddStars(scene, compact) {
   scene.add(new THREE.Points(geometry, material));
 }
 
-function musicPlanetAddOrbit(root, radius, y, color) {
-  var points = [];
-  for (var index = 0; index < 96; index += 1) {
-    var angle = index / 96 * Math.PI * 2;
-    points.push(new THREE.Vector3(Math.cos(angle) * radius, y, Math.sin(angle) * radius));
-  }
-  var geometry = new THREE.BufferGeometry().setFromPoints(points);
-  var material = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: .11, depthWrite: false });
-  root.add(new THREE.LineLoop(geometry, material));
-}
-
 function musicPlanetFallbackTexture(label, color) {
   if (typeof document === 'undefined' || typeof THREE === 'undefined' || !THREE.CanvasTexture) return null;
   var canvas = document.createElement('canvas');
@@ -316,15 +305,15 @@ function musicPlanetFallbackTexture(label, color) {
   var context = canvas.getContext('2d');
   if (!context) return null;
   context.clearRect(0, 0, 96, 96);
-  context.beginPath();
-  context.arc(48, 48, 43, 0, Math.PI * 2);
-  context.fillStyle = color || '#6fb9c4';
-  context.fill();
-  context.lineWidth = 3;
-  context.strokeStyle = 'rgba(255,255,255,.62)';
-  context.stroke();
+  context.fillStyle = '#14191e';
+  context.fillRect(3, 3, 90, 90);
+  context.fillStyle = color || '#6f9da3';
+  context.fillRect(3, 3, 5, 90);
+  context.lineWidth = 2;
+  context.strokeStyle = 'rgba(255,255,255,.18)';
+  context.strokeRect(3, 3, 90, 90);
   context.fillStyle = 'rgba(255,255,255,.92)';
-  context.font = '700 34px sans-serif';
+  context.font = '600 32px "Microsoft YaHei", "Noto Sans SC", sans-serif';
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.fillText(String(label || '?').trim().slice(0, 1).toUpperCase() || '?', 48, 50);
@@ -333,6 +322,68 @@ function musicPlanetFallbackTexture(label, color) {
   texture.magFilter = THREE.LinearFilter;
   musicPlanetState.textures.push(texture);
   return texture;
+}
+
+function musicPlanetArtistMarkerTexture(name, color) {
+  if (typeof document === 'undefined' || typeof THREE === 'undefined' || !THREE.CanvasTexture) return null;
+  var canvas = document.createElement('canvas');
+  canvas.width = 640;
+  canvas.height = 128;
+  var context = canvas.getContext('2d');
+  if (!context) return null;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = 'rgba(255,255,255,.18)';
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(24, 64);
+  context.lineTo(82, 64);
+  context.stroke();
+  context.fillStyle = color || '#87a5aa';
+  context.beginPath();
+  context.arc(28, 64, 7, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = 'rgba(255,255,255,.92)';
+  context.font = '600 34px "Microsoft YaHei", "Noto Sans SC", sans-serif';
+  context.textAlign = 'left';
+  context.textBaseline = 'middle';
+  context.fillText(String(name || '未知歌手'), 98, 63, 520);
+  var texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  musicPlanetState.textures.push(texture);
+  return texture;
+}
+
+function musicPlanetAddCoverFrame(group, size, color) {
+  var half = size / 2;
+  var corner = size * .22;
+  var positions = [
+    -half, half, 0, -half + corner, half, 0,
+    -half, half, 0, -half, half - corner, 0,
+    half, half, 0, half - corner, half, 0,
+    half, half, 0, half, half - corner, 0,
+    -half, -half, 0, -half + corner, -half, 0,
+    -half, -half, 0, -half, -half + corner, 0,
+    half, -half, 0, half - corner, -half, 0,
+    half, -half, 0, half, -half + corner, 0,
+  ];
+  var geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  var frame = new THREE.LineSegments(
+    geometry,
+    new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: .58, depthWrite: false })
+  );
+  frame.position.z = .012;
+  group.add(frame);
+  return frame;
+}
+
+function musicPlanetConnection(start, end, color, opacity) {
+  var geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+  return new THREE.Line(
+    geometry,
+    new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: opacity, depthWrite: false })
+  );
 }
 
 function musicPlanetApplyCover(material, cover, buildId, fallbackLabel, fallbackColor) {
@@ -378,24 +429,19 @@ function musicPlanetBuildScene(grouped) {
     }
     var scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x030508, .035);
-    var camera = new THREE.PerspectiveCamera(48, 1, .1, 60);
+    var camera = new THREE.PerspectiveCamera(46, 1, .1, 60);
     var root = new THREE.Group();
-    root.rotation.x = -.34;
+    root.rotation.x = -.08;
+    root.userData.musicPlanetTargetY = 0;
     scene.add(root);
     musicPlanetState.scene = scene;
     musicPlanetState.camera = camera;
     musicPlanetState.root = root;
-    musicPlanetState.zoom = window.innerWidth <= 620 ? 11.6 : 9.6;
+    var compact = window.innerWidth <= 620;
+    musicPlanetState.zoom = compact ? 11.2 : 9.4;
     camera.position.set(0, .15, musicPlanetState.zoom);
     camera.lookAt(0, 0, 0);
-    musicPlanetAddStars(scene, window.innerWidth <= 620);
-    scene.add(new THREE.AmbientLight(0xb7d5e8, .68));
-    var keyLight = new THREE.DirectionalLight(0xffffff, 1.3);
-    keyLight.position.set(-4, 6, 8);
-    scene.add(keyLight);
-    var edgeLight = new THREE.PointLight(0x77d8d0, .8, 20);
-    edgeLight.position.set(4, -2, 5);
-    scene.add(edgeLight);
+    musicPlanetAddStars(scene, compact);
 
     var buildId = musicPlanetState.buildId;
     var current = grouped.currentSong;
@@ -404,67 +450,66 @@ function musicPlanetBuildScene(grouped) {
       var currentColor = musicPlanetColor(musicPlanetArtistName(current), 62);
       var currentMaterial = new THREE.SpriteMaterial({ color: new THREE.Color(currentColor), transparent: true, opacity: 1 });
       var currentSprite = new THREE.Sprite(currentMaterial);
-      currentSprite.scale.set(1.15, 1.15, 1);
+      currentSprite.scale.set(1.06, 1.06, 1);
       currentSprite.userData.musicPlanetNode = { type: 'song', song: current, label: current.name || current.title || '当前歌曲' };
       currentGroup.add(currentSprite);
-      var currentRing = new THREE.Mesh(
-        new THREE.TorusGeometry(.72, .024, 10, 64),
-        new THREE.MeshBasicMaterial({ color: 0xbffcf7, transparent: true, opacity: .66, depthWrite: false })
-      );
-      currentGroup.add(currentRing);
+      musicPlanetAddCoverFrame(currentGroup, 1.3, 0xc7dfdf);
       root.add(currentGroup);
       musicPlanetState.pickables.push(currentSprite);
       musicPlanetApplyCover(currentMaterial, musicPlanetSongCover(current, 220), buildId, current.name || current.title, currentColor);
     }
 
-    var connectorPositions = [];
     grouped.artists.forEach(function (artist, artistIndex) {
-      var angle = artistIndex / Math.max(1, grouped.artists.length) * Math.PI * 2;
-      var radius = 2.35 + (artistIndex % 3) * .78;
-      var y = ((artistIndex % 5) - 2) * .34;
-      var zScale = .72;
-      var x = Math.cos(angle) * radius;
-      var z = Math.sin(angle) * radius * zScale;
+      var angle = artistIndex * 2.399963229728653;
+      var radius = 1.32 + Math.sqrt(artistIndex + 1) * .72;
+      var x = Math.cos(angle) * radius * (compact ? .58 : 1.1);
+      var y = Math.sin(angle) * radius * .72;
+      var z = ((artistIndex % 3) - 1) * .28;
       var group = new THREE.Group();
       group.position.set(x, y, z);
       group.userData.musicPlanetArtist = artist;
       root.add(group);
-      connectorPositions.push(0, 0, 0, x, y, z);
-      musicPlanetAddOrbit(root, radius, y, 0x89a5b6);
 
-      var color = musicPlanetColor(artist.name, 60);
-      var sphere = new THREE.Mesh(
-        new THREE.SphereGeometry(.28 + Math.min(.18, artist.songs.length * .028), 20, 14),
-        new THREE.MeshStandardMaterial({
-          color: new THREE.Color(color),
-          roughness: .72,
-          metalness: .06,
-          emissive: new THREE.Color(color),
-          emissiveIntensity: .12,
-        })
+      var color = musicPlanetColor(artist.name, 64);
+      var markerTexture = musicPlanetArtistMarkerTexture(artist.name, color);
+      var markerMaterial = new THREE.SpriteMaterial({ map: markerTexture, color: 0xffffff, transparent: true, opacity: .82, depthWrite: false });
+      var marker = new THREE.Sprite(markerMaterial);
+      var markerWidth = Math.min(2.45, Math.max(1.55, 1.05 + Array.from(String(artist.name || '')).length * .16));
+      var markerHeight = markerWidth / 5;
+      marker.scale.set(markerWidth, markerHeight, 1);
+      marker.userData.musicPlanetNode = { type: 'artist', artist: artist, artistIndex: artistIndex, label: artist.name };
+      marker.userData.musicPlanetScale = 1;
+      marker.userData.musicPlanetTargetScale = 1;
+      group.add(marker);
+      musicPlanetState.pickables.push(marker);
+
+      var connection = musicPlanetConnection(
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(x, y, z),
+        0x8fa5aa,
+        .045
       );
-      sphere.userData.musicPlanetNode = { type: 'artist', artist: artist, artistIndex: artistIndex, label: artist.name };
-      group.add(sphere);
-      musicPlanetState.pickables.push(sphere);
-      musicPlanetState.artistMeshes.push({ key: artist.key, group: group, mesh: sphere });
+      root.add(connection);
 
       var satelliteGroup = new THREE.Group();
       group.add(satelliteGroup);
-      musicPlanetState.satelliteGroups.push(satelliteGroup);
+      satelliteGroup.visible = false;
+      satelliteGroup.userData.musicPlanetScale = .78;
       var satelliteSongs = artist.songs.filter(function (song) {
         return !current || musicPlanetEquivalentIdentity(song) !== musicPlanetEquivalentIdentity(current);
       });
+      var songLinkPositions = [];
       satelliteSongs.forEach(function (song, songIndex) {
-        var satelliteAngle = songIndex / Math.max(1, artist.songs.length) * Math.PI * 2 + artistIndex * .29;
-        var satelliteRadius = .72 + songIndex * .12;
+        var spread = satelliteSongs.length <= 1 ? 0 : songIndex / (satelliteSongs.length - 1) - .5;
+        var outwardAngle = Math.atan2(y, x || .001) + spread * .9;
+        var satelliteRadius = 1.02 + (songIndex % 2) * .16;
+        var songX = Math.cos(outwardAngle) * satelliteRadius;
+        var songY = Math.sin(outwardAngle) * satelliteRadius * .74;
+        var songZ = (songIndex - (satelliteSongs.length - 1) / 2) * .11;
         var material = new THREE.SpriteMaterial({ color: new THREE.Color(color), transparent: true, opacity: .94 });
         var sprite = new THREE.Sprite(material);
-        sprite.position.set(
-          Math.cos(satelliteAngle) * satelliteRadius,
-          Math.sin(satelliteAngle) * satelliteRadius * .55,
-          Math.sin(satelliteAngle * 1.7) * .25
-        );
-        var scale = songIndex === 0 ? .36 : .29;
+        sprite.position.set(songX, songY, songZ);
+        var scale = songIndex === 0 ? .38 : .32;
         sprite.scale.set(scale, scale, 1);
         sprite.userData.musicPlanetNode = {
           type: 'song',
@@ -474,26 +519,33 @@ function musicPlanetBuildScene(grouped) {
         };
         satelliteGroup.add(sprite);
         musicPlanetState.pickables.push(sprite);
+        songLinkPositions.push(0, 0, 0, songX, songY, songZ);
         musicPlanetApplyCover(material, musicPlanetSongCover(song, 120), buildId, song.name || song.title, color);
       });
+      var songLinks = null;
+      if (songLinkPositions.length) {
+        var songLinkGeometry = new THREE.BufferGeometry();
+        songLinkGeometry.setAttribute('position', new THREE.Float32BufferAttribute(songLinkPositions, 3));
+        songLinks = new THREE.LineSegments(
+          songLinkGeometry,
+          new THREE.LineBasicMaterial({ color: 0x9dafb1, transparent: true, opacity: .2, depthWrite: false })
+        );
+        satelliteGroup.add(songLinks);
+      }
+      var entry = {
+        key: artist.key,
+        group: group,
+        marker: marker,
+        connection: connection,
+        satelliteGroup: satelliteGroup,
+        songLinks: songLinks,
+        baseWidth: markerWidth,
+        baseHeight: markerHeight,
+      };
+      musicPlanetState.artistMeshes.push(entry);
+      musicPlanetState.satelliteGroups.push({ key: artist.key, group: satelliteGroup });
     });
 
-    if (connectorPositions.length) {
-      var connectorGeometry = new THREE.BufferGeometry();
-      connectorGeometry.setAttribute('position', new THREE.Float32BufferAttribute(connectorPositions, 3));
-      var connectors = new THREE.LineSegments(
-        connectorGeometry,
-        new THREE.LineBasicMaterial({ color: 0x7893a4, transparent: true, opacity: .13, depthWrite: false })
-      );
-      root.add(connectors);
-    }
-
-    musicPlanetState.halo = new THREE.Mesh(
-      new THREE.TorusGeometry(.52, .018, 8, 56),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .8, depthWrite: false })
-    );
-    musicPlanetState.halo.visible = false;
-    root.add(musicPlanetState.halo);
     musicPlanetResize();
     return true;
   } catch (error) {
@@ -532,13 +584,38 @@ function musicPlanetStopFrame() {
 function musicPlanetFrame() {
   musicPlanetState.raf = 0;
   if (!musicPlanetState.open || document.hidden || !musicPlanetState.renderer || !musicPlanetState.scene || !musicPlanetState.camera) return;
-  if (!musicPlanetState.reducedMotion && !musicPlanetState.drag && musicPlanetState.root) musicPlanetState.root.rotation.y += .0014;
-  musicPlanetState.satelliteGroups.forEach(function (group, index) {
-    if (!musicPlanetState.reducedMotion) group.rotation.z += .001 + index * .00005;
+  if (!musicPlanetState.reducedMotion && !musicPlanetState.drag && musicPlanetState.root) musicPlanetState.root.rotation.y += .00022;
+  if (musicPlanetState.root) {
+    var rootTargetY = Number(musicPlanetState.root.userData.musicPlanetTargetY) || 0;
+    musicPlanetState.root.position.y += (rootTargetY - musicPlanetState.root.position.y) * (musicPlanetState.reducedMotion ? 1 : .12);
+  }
+  musicPlanetState.artistMeshes.forEach(function (entry) {
+    if (!entry.marker) return;
+    var currentScale = Number(entry.marker.userData.musicPlanetScale) || 1;
+    var targetScale = Number(entry.marker.userData.musicPlanetTargetScale) || 1;
+    currentScale += (targetScale - currentScale) * (musicPlanetState.reducedMotion ? 1 : .12);
+    entry.marker.userData.musicPlanetScale = currentScale;
+    entry.marker.scale.set(entry.baseWidth * currentScale, entry.baseHeight * currentScale, 1);
   });
-  if (musicPlanetState.halo && musicPlanetState.halo.visible) musicPlanetState.halo.rotation.z += .006;
+  musicPlanetState.satelliteGroups.forEach(function (entry) {
+    var group = entry.group;
+    if (!group || !group.visible) return;
+    var currentScale = Number(group.userData.musicPlanetScale) || .78;
+    currentScale += (1 - currentScale) * (musicPlanetState.reducedMotion ? 1 : .13);
+    group.userData.musicPlanetScale = currentScale;
+    group.scale.setScalar(currentScale);
+  });
   musicPlanetState.renderer.render(musicPlanetState.scene, musicPlanetState.camera);
   musicPlanetState.raf = requestAnimationFrame(musicPlanetFrame);
+}
+
+function musicPlanetObjectIsVisible(object) {
+  var current = object;
+  while (current) {
+    if (current.visible === false) return false;
+    current = current.parent;
+  }
+  return true;
 }
 
 function musicPlanetPointerNode(event) {
@@ -548,7 +625,8 @@ function musicPlanetPointerNode(event) {
   var y = -((event.clientY - rect.top) / Math.max(1, rect.height) * 2 - 1);
   var raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(new THREE.Vector2(x, y), musicPlanetState.camera);
-  var hits = raycaster.intersectObjects(musicPlanetState.pickables, false);
+  var visiblePickables = musicPlanetState.pickables.filter(musicPlanetObjectIsVisible);
+  var hits = raycaster.intersectObjects(visiblePickables, false);
   return hits.length ? hits[0].object.userData.musicPlanetNode || null : null;
 }
 
@@ -572,15 +650,33 @@ function musicPlanetShowNodeLabel(node, event) {
 
 function musicPlanetSelectArtistMesh(key) {
   var match = null;
+  var hasSelection = !!key;
   musicPlanetState.artistMeshes.forEach(function (entry) {
     var selected = entry.key === key;
-    if (entry.mesh && entry.mesh.material) entry.mesh.material.emissiveIntensity = selected ? .42 : .12;
+    if (entry.marker && entry.marker.material) {
+      entry.marker.material.opacity = hasSelection ? (selected ? 1 : .26) : .82;
+      entry.marker.userData.musicPlanetTargetScale = selected ? 1.08 : (hasSelection ? .96 : 1);
+    }
+    if (entry.connection && entry.connection.material) entry.connection.material.opacity = selected ? .32 : (hasSelection ? .018 : .045);
+    if (entry.satelliteGroup) {
+      entry.satelliteGroup.visible = selected;
+      entry.satelliteGroup.userData.musicPlanetScale = selected ? .78 : 1;
+      if (selected) entry.satelliteGroup.scale.setScalar(.78);
+    }
     if (selected) match = entry;
   });
-  if (musicPlanetState.halo) {
-    musicPlanetState.halo.visible = !!match;
-    if (match) musicPlanetState.halo.position.copy(match.group.position);
+  if (musicPlanetState.root) {
+    var compact = window.innerWidth <= 620;
+    var targetY = compact && match ? .9 - match.group.position.y : 0;
+    targetY = Math.max(-3, Math.min(3, targetY));
+    musicPlanetState.root.userData.musicPlanetTargetY = targetY;
+    if (musicPlanetState.reducedMotion) {
+      musicPlanetState.root.position.y = targetY;
+    } else if (typeof gsap !== 'undefined' && gsap && typeof gsap.to === 'function') {
+      gsap.to(musicPlanetState.root.position, { y: targetY, duration: .52, ease: 'power3.out', overwrite: true });
+    }
   }
+  return match;
 }
 
 function musicPlanetRowHtml(song, index, artist) {
@@ -606,7 +702,7 @@ function openMusicPlanetArtist(artistOrIndex) {
   var drawer = document.getElementById('music-planet-drawer');
   var name = document.getElementById('music-planet-drawer-name');
   var meta = document.getElementById('music-planet-drawer-meta');
-  var orb = document.getElementById('music-planet-drawer-orb');
+  var marker = document.getElementById('music-planet-drawer-marker');
   var list = document.getElementById('music-planet-drawer-list');
   var selection = document.getElementById('music-planet-selection');
   if (!drawer || !list) return false;
@@ -614,7 +710,7 @@ function openMusicPlanetArtist(artistOrIndex) {
   musicPlanetState.keyboardIndex = Math.max(0, musicPlanetState.artists.indexOf(artist));
   if (name) name.textContent = artist.name;
   if (meta) meta.textContent = artist.songs.length + ' 首关联歌曲';
-  if (orb) orb.style.setProperty('--music-planet-orb', musicPlanetColor(artist.name, 58));
+  if (marker) marker.style.setProperty('--music-planet-marker', musicPlanetColor(artist.name, 64));
   if (selection) selection.textContent = artist.name + ' · ' + artist.songs.length + ' 首歌曲';
   list.innerHTML = artist.songs.map(function (song, index) { return musicPlanetRowHtml(song, index, artist); }).join('');
   drawer.classList.add('show');
@@ -632,7 +728,7 @@ function closeMusicPlanetDrawer() {
   }
   musicPlanetState.selectedArtistKey = '';
   musicPlanetSelectArtistMesh('');
-  if (selection) selection.textContent = '选择一颗歌手星球查看歌曲';
+  if (selection) selection.textContent = '选择一位歌手展开歌曲';
 }
 
 function musicPlanetSelectedSong(index) {
@@ -694,12 +790,16 @@ function musicPlanetHandleSongAction(action, index) {
 }
 
 function resetMusicPlanetView() {
-  musicPlanetState.zoom = window.innerWidth <= 620 ? 11.6 : 9.6;
+  musicPlanetState.zoom = window.innerWidth <= 620 ? 11.2 : 9.4;
   if (musicPlanetState.camera) {
     musicPlanetState.camera.position.set(0, .15, musicPlanetState.zoom);
     musicPlanetState.camera.lookAt(0, 0, 0);
   }
-  if (musicPlanetState.root) musicPlanetState.root.rotation.set(-.34, 0, 0);
+  if (musicPlanetState.root) {
+    musicPlanetState.root.rotation.set(-.08, 0, 0);
+    musicPlanetState.root.position.y = 0;
+    musicPlanetState.root.userData.musicPlanetTargetY = 0;
+  }
   closeMusicPlanetDrawer();
 }
 

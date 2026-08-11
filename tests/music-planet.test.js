@@ -98,8 +98,15 @@ test('artist fallback colors are deterministic and artist parsing selects the pr
   const context = makeContext();
   assert.equal(context.musicPlanetColor('同一歌手', 58), context.musicPlanetColor('同一歌手', 58));
   assert.notEqual(context.musicPlanetColor('歌手甲', 58), context.musicPlanetColor('歌手乙', 58));
+  assert.match(context.musicPlanetColor('歌手甲', 58), /, 30%, 58%\)$/);
   assert.equal(context.musicPlanetArtistName({ artists: [{ name: '主唱' }, { name: '合作歌手' }] }), '主唱');
   assert.equal(context.musicPlanetArtistName({ artist: '主唱 / 合作歌手' }), '主唱');
+});
+
+test('hidden song branches are excluded from pointer targeting', () => {
+  const context = makeContext();
+  assert.equal(context.musicPlanetObjectIsVisible({ visible: true, parent: { visible: false, parent: null } }), false);
+  assert.equal(context.musicPlanetObjectIsVisible({ visible: true, parent: { visible: true, parent: null } }), true);
 });
 
 test('play, next and collection actions reuse Mineradio playback flows', async () => {
@@ -137,5 +144,11 @@ test('project wiring exposes the native music planet without LX naming or routes
   assert.match(frontend, /queueSongNext\(/);
   assert.match(frontend, /openCollectModal\(/);
   assert.match(frontend, /new THREE\.CanvasTexture\(canvas\)/);
+  assert.match(frontend, /function musicPlanetArtistMarkerTexture/);
+  assert.match(frontend, /satelliteGroup\.visible = false/);
+  assert.match(frontend, /entry\.satelliteGroup\.visible = selected/);
+  assert.match(frontend, /\.9 - match\.group\.position\.y/);
+  assert.match(frontend, /gsap\.to\(musicPlanetState\.root\.position/);
+  assert.doesNotMatch(frontend, /SphereGeometry|TorusGeometry|musicPlanetAddOrbit/);
   assert.doesNotMatch(frontend, /\/api\/lx-|\bLX\b|lx-music|lx_music/i);
 });
