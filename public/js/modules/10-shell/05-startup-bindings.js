@@ -6,6 +6,8 @@ bindQualityControl();
 bindAudioOutputControls();
 bindVolumeControls();
 if (typeof initSleepTimer === 'function') initSleepTimer();
+if (typeof initSystemMediaSession === 'function') initSystemMediaSession();
+if (typeof initWindowsShellControls === 'function') initWindowsShellControls();
 initControlGlassSurface();
 bindPlayerControlAnimations();
 scheduleUiWarmTask(function () {

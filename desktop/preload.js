@@ -110,6 +110,15 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   close: (behavior) => ipcRenderer.invoke('desktop-window-close', behavior),
   getCloseBehavior: () => ipcRenderer.invoke('desktop-window-get-close-behavior'),
   setCloseBehavior: (behavior) => ipcRenderer.invoke('desktop-window-set-close-behavior', behavior),
+  updateTrayPlayback: (state) => ipcRenderer.invoke('mineradio-tray-update-playback', state || {}),
+  onTrayCommand: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('mineradio-tray-command', listener);
+    return () => ipcRenderer.removeListener('mineradio-tray-command', listener);
+  },
+  getStartupStatus: () => ipcRenderer.invoke('mineradio-startup-get-status'),
+  setStartupEnabled: (enabled) => ipcRenderer.invoke('mineradio-startup-set-enabled', enabled === true),
   getLoginEasterEggStatus: () => ipcRenderer.invoke('mineradio-login-easter-egg-status'),
   unlockLoginEasterEgg: (value) => ipcRenderer.invoke('mineradio-login-easter-egg-unlock', String(value || '')),
   resetLoginEasterEgg: () => ipcRenderer.invoke('mineradio-login-easter-egg-reset'),

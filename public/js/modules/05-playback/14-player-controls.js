@@ -677,6 +677,8 @@ function clearQueue() {
   updateCustomCoverButton();
   updateCustomLyricControls();
   updateEmptyHomeVisibility({ forceLoad: false });
+  if (typeof updateSystemMediaSessionPlaybackState === 'function') updateSystemMediaSessionPlaybackState('clear-queue');
+  else if (typeof syncWindowsTrayPlayback === 'function') syncWindowsTrayPlayback(true);
 }
 function removeFromQueue(idx) {
   if (idx < 0 || idx >= playQueue.length) return;

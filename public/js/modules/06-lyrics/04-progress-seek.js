@@ -196,6 +196,12 @@ function bindPlaybackProgressEvents(audioEl) {
   });
   audioEl.addEventListener('timeupdate', function () {
     if (typeof tickCuefieldAutoMix === 'function') tickCuefieldAutoMix();
+    if (typeof updateSystemMediaSessionPosition === 'function') updateSystemMediaSessionPosition(false);
+  });
+  ['loadedmetadata', 'durationchange', 'seeked'].forEach(function (name) {
+    audioEl.addEventListener(name, function () {
+      if (audioEl === audio && typeof updateSystemMediaSessionPosition === 'function') updateSystemMediaSessionPosition(true);
+    });
   });
   ['play', 'playing', 'pause', 'ended', 'emptied', 'abort', 'error'].forEach(function (name) {
     audioEl.addEventListener(name, function () {

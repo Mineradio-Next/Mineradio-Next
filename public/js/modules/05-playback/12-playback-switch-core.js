@@ -23,6 +23,7 @@ function syncPlaybackStateFromAudioEvent(reason) {
     if (typeof markStageLyricsPlaybackResume === 'function') markStageLyricsPlaybackResume(reason);
   }
   forcePlaybackControlsInteractive();
+  if (typeof updateSystemMediaSessionPlaybackState === 'function') updateSystemMediaSessionPlaybackState(reason);
 }
 
 function isPlaybackRecursionError(err) {

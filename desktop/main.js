@@ -19,6 +19,7 @@ const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const { createLanRemoteServer } = require('./lan-remote-server');
 const { resolveVisualClipSaveSelection } = require('./visual-clip-save-path');
+const { normalizeTrayPlaybackState, normalizeWindowsStartupStatus } = require('./windows-shell-state');
 const {
   constrainDesktopLyricsBounds: calculateConstrainedDesktopLyricsBounds,
   desktopLyricsDisplayAnchor,
@@ -86,6 +87,13 @@ let appQuitCleanupPromise = null;
 let appQuitCleanupComplete = false;
 let mainWindowCloseFlushArmed = false;
 let tray = null;
+let trayPlaybackState = {
+  hasMedia: false,
+  title: '',
+  artist: '',
+  playing: false,
+  volume: 100,
+};
 let startupCompleted = false;
 let startupErrorReported = false;
 let localServerStartPromise = null;
@@ -2121,6 +2129,24 @@ function focusMainWindow() {
   return true;
 }
 
+function updateTrayPlaybackState(value) {
+  trayPlaybackState = normalizeTrayPlaybackState(value);
+  if (tray) createOrUpdateTray();
+  return { ok: true, state: { ...trayPlaybackState } };
+}
+
+function sendTrayPlaybackCommand(command, value) {
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || mainWindow.webContents.isDestroyed()) return false;
+  mainWindow.webContents.send('mineradio-tray-command', { command, value });
+  return true;
+}
+
+function trayCurrentSongLabel() {
+  if (!trayPlaybackState.hasMedia || !trayPlaybackState.title) return '暂无正在播放的歌曲';
+  const artist = trayPlaybackState.artist ? ` - ${trayPlaybackState.artist}` : '';
+  return `${trayPlaybackState.title}${artist}`.slice(0, 80);
+}
+
 function createOrUpdateTray() {
   if (process.platform !== 'win32' && process.platform !== 'linux') return;
   if (!tray) {
@@ -2136,7 +2162,29 @@ function createOrUpdateTray() {
     }
   }
   const desktopMode = fullDesktopModeRuntime.getStatus('tray-menu');
+  const hasMedia = trayPlaybackState.hasMedia === true;
+  try {
+    tray.setToolTip(hasMedia ? `${trayCurrentSongLabel()} · ${APP_NAME}` : APP_NAME);
+  } catch (_) {}
   const menu = Menu.buildFromTemplate([
+    { label: trayCurrentSongLabel(), enabled: false },
+    { type: 'separator' },
+    {
+      label: trayPlaybackState.playing ? '暂停' : '播放',
+      enabled: hasMedia,
+      click: () => sendTrayPlaybackCommand('toggle-play'),
+    },
+    { label: '上一首', enabled: hasMedia, click: () => sendTrayPlaybackCommand('previous') },
+    { label: '下一首', enabled: hasMedia, click: () => sendTrayPlaybackCommand('next') },
+    {
+      label: `音量 ${trayPlaybackState.volume}%`,
+      submenu: [
+        { label: '提高 10%', click: () => sendTrayPlaybackCommand('volume', 10) },
+        { label: '降低 10%', click: () => sendTrayPlaybackCommand('volume', -10) },
+        { label: trayPlaybackState.volume > 0 ? '静音' : '恢复音量', click: () => sendTrayPlaybackCommand('mute') },
+      ],
+    },
+    { type: 'separator' },
     { label: `显示 ${APP_NAME}`, click: () => focusMainWindow() },
     {
       label: '退出完整桌面模式',
@@ -4613,6 +4661,49 @@ ipcMain.handle('desktop-window-set-close-behavior', (_event, behavior) => {
     releaseFullDesktopModeRecoveryTray();
   }
   return { ok: true, behavior: closeBehavior };
+});
+
+ipcMain.handle('mineradio-tray-update-playback', (event, state) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+  return updateTrayPlaybackState(state);
+});
+
+function startupLaunchOptions() {
+  const options = { path: process.execPath, args: [] };
+  if (!app.isPackaged) options.args = [app.getAppPath()];
+  return options;
+}
+
+function getStartupLaunchStatus() {
+  if (process.platform !== 'win32') return { ok: false, supported: false, enabled: false, error: 'STARTUP_UNSUPPORTED_PLATFORM' };
+  try {
+    const options = startupLaunchOptions();
+    const settings = app.getLoginItemSettings(options);
+    return normalizeWindowsStartupStatus(settings, options);
+  } catch (error) {
+    return { ok: false, supported: true, enabled: false, error: error.message || 'STARTUP_STATUS_FAILED' };
+  }
+}
+
+ipcMain.handle('mineradio-startup-get-status', (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, supported: false, enabled: false, error: 'UNTRUSTED_SENDER' };
+  return getStartupLaunchStatus();
+});
+
+ipcMain.handle('mineradio-startup-set-enabled', (event, enabled) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, supported: false, enabled: false, error: 'UNTRUSTED_SENDER' };
+  if (process.platform !== 'win32') return { ok: false, supported: false, enabled: false, error: 'STARTUP_UNSUPPORTED_PLATFORM' };
+  const desired = enabled === true;
+  try {
+    app.setLoginItemSettings({ ...startupLaunchOptions(), openAtLogin: desired });
+    const status = getStartupLaunchStatus();
+    if (!status.ok || status.enabled !== desired) {
+      return { ...status, ok: false, error: status.error || 'STARTUP_STATE_MISMATCH' };
+    }
+    return status;
+  } catch (error) {
+    return { ok: false, supported: true, enabled: !desired, error: error.message || 'STARTUP_UPDATE_FAILED' };
+  }
 });
 
 ipcMain.handle('mineradio-hotkeys-configure-global', (_event, bindings) => {

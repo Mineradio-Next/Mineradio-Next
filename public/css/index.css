@@ -14646,6 +14646,10 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
   gap: 9px
 }
 
+.fx-toggle-grid.single {
+  grid-template-columns: minmax(0, 1fr)
+}
+
 .fx-toggle {
   min-height: 39px;
   display: flex;
@@ -14695,6 +14699,23 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
 .fx-toggle.on .dot {
   background: var(--fc-accent);
   box-shadow: 0 0 10px rgba(0, 245, 212, .45)
+}
+
+.fx-toggle.disabled,
+.fx-toggle.pending {
+  cursor: default;
+  opacity: .48
+}
+
+.fx-toggle.pending .dot {
+  animation: fx-toggle-pending 1s ease-in-out infinite
+}
+
+@keyframes fx-toggle-pending {
+  50% {
+    opacity: .28;
+    transform: scale(.72)
+  }
 }
 
 .fx-toggle.dev-locked {

@@ -4,7 +4,7 @@
 
 Expose Mineradio's existing playback state to the Windows media surface so media keys, Bluetooth headset controls, the volume flyout, and compatible lock-screen surfaces can control the active queue and display truthful now-playing information.
 
-The feature must remain a shell adapter. It must not create another player, queue, timer, or metadata store.
+The feature must remain a shell adapter. It must not create another player, queue, timer, or renderer-owned playback state.
 
 ## Options Considered
 
@@ -23,7 +23,17 @@ Add one classic renderer module after the desktop shell metadata helpers and bef
 - Route system actions back to `togglePlay`, `prevTrack`, `nextTrack`, and the current audio element.
 - Reuse the normal seek synchronization and snapshot path after system seeks.
 
-No IPC or main-process state is needed. Unsupported Media Session actions are registered independently so one browser limitation cannot disable the remaining controls.
+Unsupported Media Session actions are registered independently so one browser limitation cannot disable the remaining controls.
+
+## Windows Shell Batch
+
+The same delivery batch also completes the surrounding Windows shell experience without moving playback ownership out of the renderer.
+
+- The main process keeps only a sanitized snapshot for the native tray menu: current title, artist, play state, and volume.
+- Tray commands are sent through a narrow IPC channel and routed back to the existing player functions.
+- The tray menu includes the current song, play/pause, previous/next, volume changes, mute, window restore, full-desktop recovery, and exit.
+- The renderer reads and writes startup state through `app.getLoginItemSettings()` and `app.setLoginItemSettings()`. The UI always re-reads the OS result, so an unsupported or failed operation is never shown as successful.
+- Tray state and Windows Media Session state continue updating while the main window is hidden, because both subscribe to the existing audio lifecycle rather than window visibility.
 
 ## Synchronization
 

@@ -2424,6 +2424,7 @@ function checkQQVipStatusSyncGuard() {
   const userModalText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '08-account', '04-user-modal-logout.js'), 'utf8');
   const playbackText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '13-playback-start-audio.js'), 'utf8');
   const startupText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '10-shell', '05-startup-bindings.js'), 'utf8');
+  const controlsText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '14-player-controls.js'), 'utf8');
   const cssText = fs.readFileSync(path.join(appRoot, 'public', 'css', 'index.css'), 'utf8');
 
   if (!/function fetchQQVipStatus/.test(serverText) || !/SRFVipQuery_V2/.test(serverText) || !/QQ_VIP_INFO_CACHE_TTL_MS/.test(serverText) || !/forceVip/.test(serverText) || !/vipCheckedAt/.test(serverText)) {
@@ -2796,6 +2797,73 @@ function checkNonCurrentAudioPrefetchGuard() {
     fail('runQueueBeatPrefetch must also be guarded when an old timer fires');
   }
   console.log('[OK] Non-current audio URL prefetch stays disabled by default.');
+}
+
+function checkSystemMediaSessionGuard() {
+  logStep('Windows system media controls guard');
+  const loaderText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'index-loader.js'), 'utf8');
+  const mediaText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '10-shell', '04a-system-media-session.js'), 'utf8');
+  const playbackText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '12-playback-switch-core.js'), 'utf8');
+  const progressText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '06-lyrics', '04-progress-seek.js'), 'utf8');
+  const trackInfoText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '02-visual', '15-ripples-cover-depth.js'), 'utf8');
+  const startupText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '10-shell', '05-startup-bindings.js'), 'utf8');
+  const controlsText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '14-player-controls.js'), 'utf8');
+  const metadataIndex = loaderText.indexOf('04-desktop-overlay-fullscreen.js');
+  const mediaIndex = loaderText.indexOf('04a-system-media-session.js');
+  const startupIndex = loaderText.indexOf('05-startup-bindings.js');
+  if (metadataIndex < 0 || mediaIndex <= metadataIndex || startupIndex <= mediaIndex || !/initSystemMediaSession\(\)/.test(startupText)) {
+    fail('System media controls must load after song metadata helpers and initialize before startup completes');
+  }
+  if (!/new MediaMetadata/.test(mediaText) || !/setPositionState/.test(mediaText) || !/setActionHandler/.test(mediaText) || !/seekFromSystemMediaSession/.test(mediaText) || !/systemMediaSessionHasCurrentMedia/.test(mediaText)) {
+    fail('System media controls must publish metadata and position while routing standard media actions');
+  }
+  if (!/updateSystemMediaSessionPlaybackState\(reason\)/.test(playbackText) || !/updateSystemMediaSessionPosition\(false\)/.test(progressText) || !/updateSystemMediaSessionPosition\(true\)/.test(progressText) || !/updateSystemMediaSessionMetadata\(\)/.test(trackInfoText)) {
+    fail('System media controls must follow the existing playback, progress, and current-song state');
+  }
+  if (!/updateSystemMediaSessionPlaybackState\('clear-queue'\)/.test(controlsText)) {
+    fail('Clearing the queue must clear stale Windows media metadata and tray state');
+  }
+  if (/ipcRenderer|ipcMain|globalShortcut|LX\s*Music|Mineradio-LX|落雪/.test(mediaText)) {
+    fail('System media controls must remain a native renderer adapter without derivative naming or a second IPC player');
+  }
+  console.log('[OK] Windows media keys, now-playing metadata, and position reuse the existing player state.');
+}
+
+function checkWindowsShellControlsGuard() {
+  logStep('Windows tray and startup controls guard');
+  const loaderText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'index-loader.js'), 'utf8');
+  const shellText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '10-shell', '04b-windows-shell-controls.js'), 'utf8');
+  const startupText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '10-shell', '05-startup-bindings.js'), 'utf8');
+  const volumeText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '08-audio-graph-controls.js'), 'utf8');
+  const mainText = fs.readFileSync(path.join(appRoot, 'desktop', 'main.js'), 'utf8');
+  const stateText = fs.readFileSync(path.join(appRoot, 'desktop', 'windows-shell-state.js'), 'utf8');
+  const preloadText = fs.readFileSync(path.join(appRoot, 'desktop', 'preload.js'), 'utf8');
+  const htmlText = fs.readFileSync(path.join(appRoot, 'public', 'index.html'), 'utf8');
+  const mediaIndex = loaderText.indexOf('04a-system-media-session.js');
+  const shellIndex = loaderText.indexOf('04b-windows-shell-controls.js');
+  const startupIndex = loaderText.indexOf('05-startup-bindings.js');
+  if (mediaIndex < 0 || shellIndex <= mediaIndex || startupIndex <= shellIndex || !/initWindowsShellControls\(\)/.test(startupText)) {
+    fail('Windows shell adapter must load after Media Session and initialize during normal startup');
+  }
+  if (!/ipcMain\.handle\('mineradio-tray-update-playback', \(event, state\)/.test(mainText) || !/isTrustedMainWindowIpc\(event\)/.test(mainText) || !/mineradio-tray-command/.test(mainText + preloadText)) {
+    fail('Tray playback state and commands must cross the trusted desktop IPC bridge');
+  }
+  if (!/暂无正在播放的歌曲/.test(mainText) || !/上一首/.test(mainText) || !/下一首/.test(mainText) || !/提高 10%/.test(mainText) || !/恢复音量/.test(mainText)) {
+    fail('Native tray menu must expose current media, transport, and volume controls');
+  }
+  if (!/app\.getLoginItemSettings\(options\)/.test(mainText) || !/app\.setLoginItemSettings\(\{ \.\.\.startupLaunchOptions\(\), openAtLogin: desired \}\)/.test(mainText) || !/launchItems\.find\(\(item\) => launchItemMatches\(item, expected\)\)/.test(stateText)) {
+    fail('Startup controls must read and verify the real Windows login-item state');
+  }
+  if (!/id="t-systemStartup"/.test(htmlText) || !/getStartupStatus:/.test(preloadText) || !/setStartupEnabled:/.test(preloadText) || !/function toggleSystemStartup\(\)/.test(shellText)) {
+    fail('Original-style settings UI must expose the Windows startup bridge');
+  }
+  if (!/togglePlay\(\)/.test(shellText) || !/prevTrack\(true\)/.test(shellText) || !/nextTrack\(true\)/.test(shellText) || !/setVolume\(/.test(shellText) || !/toggleMute\(\)/.test(shellText) || !/syncWindowsTrayPlayback\(\)/.test(volumeText)) {
+    fail('Tray commands must reuse the existing renderer player and volume paths');
+  }
+  if (/LX\s*Music|Mineradio-LX|落雪/.test(shellText + mainText.slice(mainText.indexOf('function updateTrayPlaybackState'), mainText.indexOf("ipcMain.handle('mineradio-hotkeys-configure-global'")))) {
+    fail('Windows shell controls must not expose derivative naming');
+  }
+  console.log('[OK] Native tray playback, verified startup state, and hidden-window synchronization reuse the existing player.');
 }
 
 function checkSleepTimerGuard() {
@@ -5582,6 +5650,8 @@ async function main() {
   checkAudioOutputWorkflowPanelGuard();
   checkVolumeWheelStepGuard();
   checkNonCurrentAudioPrefetchGuard();
+  checkSystemMediaSessionGuard();
+  checkWindowsShellControlsGuard();
   checkSleepTimerGuard();
   checkCuefieldAutoMixGuard();
   checkAlbumDetailGaplessGuard();

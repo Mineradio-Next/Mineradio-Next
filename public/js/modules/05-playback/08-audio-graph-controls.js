@@ -629,6 +629,7 @@ function setVolume(value, silent) {
   if (shouldRestoreAudibleEnvelope) cancelAudioElementFadeFrame();
   applyVolumeToAudio({ restoreEnvelope: shouldRestoreAudibleEnvelope });
   updateVolumeUi();
+  if (typeof syncWindowsTrayPlayback === 'function') syncWindowsTrayPlayback();
   if (!silent) showToast('音量 ' + Math.round(next * 100) + '%');
 }
 function adjustVolumeByKeyboard(delta) {
