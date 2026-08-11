@@ -298,6 +298,7 @@ async function handleFiles(files, opts) {
         songs = persisted && persisted.tracks;
         if (!songs || !songs.length) throw new Error('LOCAL_LIBRARY_IMPORT_EMPTY');
         persistentLocalLibraryTracks = songs.map(cloneSong);
+        if (typeof refreshMusicLibraryWorkspace === 'function') refreshMusicLibraryWorkspace('local-import');
         if (persisted && Array.isArray(persisted.failures) && persisted.failures.length) {
           setTimeout(function () { showToast('有 ' + persisted.failures.length + ' 个文件无法读取，其余歌曲已保存'); }, 900);
         }

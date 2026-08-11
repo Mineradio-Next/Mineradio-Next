@@ -30,6 +30,26 @@ function queueSong(song, opts) {
 function queueSongNext(song) {
   return queueSong(song, { position: 'next' });
 }
+function queueSongs(songs, opts) {
+  opts = opts || {};
+  songs = Array.isArray(songs) ? songs.filter(Boolean) : [];
+  if (!songs.length) return 0;
+  var existing = Object.create(null), added = 0;
+  playQueue.forEach(function (item) { existing[queueItemKey(item)] = true; });
+  songs.forEach(function (song) {
+    var copy = hydrateCustomCover(cloneSong(song));
+    var key = queueItemKey(copy);
+    if (opts.dedupe !== false && key && existing[key]) return;
+    if (key) existing[key] = true;
+    playQueue.push(copy);
+    added += 1;
+  });
+  if (added) {
+    safeRenderQueuePanel('queue-songs');
+    safeShelfRebuild('queue-songs');
+  }
+  return added;
+}
 function queueSearchResult(i) {
   var song = playlist[i]; if (!song) return;
   queueSongNext(song);

@@ -15,6 +15,7 @@ const {
   LocalMusicLibrary,
   registerLocalMusicScheme,
 } = require('./local-music-library');
+const { LocalPlaylistCatalog } = require('./local-playlist-catalog');
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const { createLanRemoteServer } = require('./lan-remote-server');
@@ -184,6 +185,7 @@ fs.mkdirSync(NATIVE_HELPER_TEMP_PATH, { recursive: true });
 process.env.MINERADIO_NATIVE_TEMP_DIR = NATIVE_HELPER_TEMP_PATH;
 systemMemory.setNativeTempPath(NATIVE_HELPER_TEMP_PATH);
 const localMusicLibrary = new LocalMusicLibrary({ userDataPath: STABLE_USER_DATA_PATH });
+const localPlaylistCatalog = new LocalPlaylistCatalog({ userDataPath: STABLE_USER_DATA_PATH });
 const localMusicImportCapabilities = new Map();
 const wallpaperEngineLibrary = new WallpaperEngineLibrary({ userDataPath: STABLE_USER_DATA_PATH });
 const wallpaperEngineRuntime = new WallpaperEngineRuntime({
@@ -4549,6 +4551,33 @@ ipcMain.handle('mineradio-local-library-lyric', async (event, localFileId) => {
   }
 });
 
+ipcMain.handle('mineradio-local-library-remove', async (event, ids) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, count: 0, tracks: [], error: 'UNTRUSTED_SENDER' };
+  try {
+    return await localMusicLibrary.removeTracks(Array.isArray(ids) ? ids.slice(0, 50000) : []);
+  } catch (error) {
+    return { ok: false, count: 0, tracks: [], error: error.code || error.message || 'LOCAL_LIBRARY_REMOVE_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-local-playlists-list', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, count: 0, playlists: [], error: 'UNTRUSTED_SENDER' };
+  try {
+    return localPlaylistCatalog.listSync();
+  } catch (error) {
+    return { ok: false, count: 0, playlists: [], error: error.message || 'LOCAL_PLAYLIST_CATALOG_READ_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-local-playlists-save', async (event, playlists) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, count: 0, playlists: [], error: 'UNTRUSTED_SENDER' };
+  try {
+    return await localPlaylistCatalog.save(Array.isArray(playlists) ? playlists : []);
+  } catch (error) {
+    return { ok: false, count: 0, playlists: [], error: error.code || error.message || 'LOCAL_PLAYLIST_CATALOG_SAVE_FAILED' };
+  }
+});
+
 function pruneLocalMusicImportCapabilities() {
   const now = Date.now();
   for (const [token, capability] of localMusicImportCapabilities) {
@@ -4773,7 +4802,7 @@ ipcMain.handle('mineradio-export-json-file', async (event, payload = {}) => {
     });
     if (result.canceled || !result.filePath) return { ok: false, canceled: true };
     const text = typeof payload.text === 'string' ? payload.text : JSON.stringify(payload.data || {}, null, 2);
-    if (Buffer.byteLength(text, 'utf8') > 32 * 1024 * 1024) return { ok: false, error: 'JSON_FILE_TOO_LARGE' };
+    if (Buffer.byteLength(text, 'utf8') > 96 * 1024 * 1024) return { ok: false, error: 'JSON_FILE_TOO_LARGE' };
     fs.writeFileSync(result.filePath, text, 'utf8');
     return { ok: true, filePath: result.filePath };
   } catch (e) {
@@ -4898,15 +4927,15 @@ ipcMain.handle('mineradio-export-text-file', async (event, payload = {}) => {
 ipcMain.handle('mineradio-export-playlist-file', async (event, payload = {}) => {
   try {
     const owner = getSenderWindow(event);
-    const requestedName = String(payload.defaultName || 'Mineradio歌单.lxmc').replace(/[\\/:*?"<>|]+/g, '-');
-    const defaultName = requestedName.toLowerCase().endsWith('.lxmc') ? requestedName : `${requestedName}.lxmc`;
+    const requestedName = String(payload.defaultName || 'Mineradio歌单.mrpl').replace(/[\\/:*?"<>|]+/g, '-');
+    const defaultName = requestedName.toLowerCase().endsWith('.mrpl') ? requestedName : `${requestedName}.mrpl`;
     const text = JSON.stringify(payload.data || {});
     const compressed = zlib.gzipSync(Buffer.from(text, 'utf8'));
     if (compressed.length > 50 * 1024 * 1024) return { ok: false, error: 'PLAYLIST_FILE_TOO_LARGE' };
     const result = await dialog.showSaveDialog(owner, {
       title: '导出歌单文件',
       defaultPath: defaultName,
-      filters: [{ name: '歌单文件', extensions: ['lxmc'] }],
+      filters: [{ name: 'Mineradio 歌单', extensions: ['mrpl'] }],
     });
     if (result.canceled || !result.filePath) return { ok: false, canceled: true };
     fs.writeFileSync(result.filePath, compressed);
@@ -4927,7 +4956,7 @@ ipcMain.handle('mineradio-import-json-file', async (event) => {
     });
     if (result.canceled || !result.filePaths || !result.filePaths[0]) return { ok: false, canceled: true };
     const filePath = result.filePaths[0];
-    if (fs.statSync(filePath).size > 32 * 1024 * 1024) return { ok: false, error: 'JSON_FILE_TOO_LARGE' };
+    if (fs.statSync(filePath).size > 96 * 1024 * 1024) return { ok: false, error: 'JSON_FILE_TOO_LARGE' };
     const text = fs.readFileSync(filePath, 'utf8');
     return { ok: true, filePath, text };
   } catch (e) {

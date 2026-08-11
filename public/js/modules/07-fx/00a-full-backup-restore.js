@@ -2,7 +2,7 @@
 
 var MINERADIO_FULL_BACKUP_TYPE = 'mineradio-full-backup';
 var MINERADIO_FULL_BACKUP_SCHEMA = 1;
-var MINERADIO_FULL_BACKUP_MAX_BYTES = 32 * 1024 * 1024;
+var MINERADIO_FULL_BACKUP_MAX_BYTES = 96 * 1024 * 1024;
 var mineradioPendingFullRestore = null;
 
 var MINERADIO_FULL_BACKUP_CATEGORIES = {
@@ -259,7 +259,7 @@ function mineradioFullBackupErrorLabel(code) {
     BACKUP_TYPE_INVALID: '这不是 Mineradio 完整备份',
     BACKUP_SCHEMA_UNSUPPORTED: '备份版本暂不支持',
     BACKUP_CATEGORIES_INVALID: '备份分类结构无效',
-    BACKUP_TOO_LARGE: '备份文件超过 32 MB',
+    BACKUP_TOO_LARGE: '备份文件超过 96 MB',
     BACKUP_JSON_INVALID: '备份文件不是有效 JSON',
     BACKUP_FX_AUTOSAVE_INVALID: '备份中的当前视觉设置无效'
   };
@@ -301,31 +301,42 @@ function downloadMineradioFullBackup(text, fileName) {
   setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
 }
 
-function exportMineradioFullBackup() {
+async function exportMineradioFullBackup() {
   var result = collectMineradioFullBackup(localStorage, Date.now());
+  var api = mineradioFullBackupApi();
+  if (api && typeof api.listLocalPlaylists === 'function') {
+    try {
+      var catalog = await api.listLocalPlaylists();
+      if (catalog && catalog.ok === true && Array.isArray(catalog.playlists)) {
+        result.payload.categories.library['mineradio-local-playlist-files-v1'] = JSON.stringify(catalog.playlists);
+        result.summary.counts.library = Object.keys(result.payload.categories.library).length;
+        result.summary.total = mineradioFullBackupCategoryNames().reduce(function (sum, category) { return sum + result.summary.counts[category]; }, 0);
+      }
+    } catch (error) { console.warn('[FullBackup] local playlist catalog unavailable', error); }
+  }
   var text = JSON.stringify(result.payload, null, 2);
   if (mineradioFullBackupByteLength(text) > MINERADIO_FULL_BACKUP_MAX_BYTES) {
-    mineradioFullBackupToast('完整备份超过 32 MB，请先删除过大的自定义字体');
-    return Promise.resolve(false);
+    mineradioFullBackupToast('完整备份超过 96 MB，请先精简大型歌单或自定义字体');
+    return false;
   }
   var fileName = mineradioFullBackupFileName(result.payload.exportedAt);
-  var api = mineradioFullBackupApi();
   if (api && typeof api.exportJsonFile === 'function') {
-    return api.exportJsonFile({ defaultName: fileName, text: text }).then(function (response) {
+    try {
+      var response = await api.exportJsonFile({ defaultName: fileName, text: text });
       if (response && response.ok) {
         mineradioFullBackupToast('完整备份已导出，共 ' + result.summary.total + ' 项');
         return true;
       }
       if (!response || !response.canceled) mineradioFullBackupToast('完整备份导出失败');
       return false;
-    }).catch(function () {
+    } catch (error) {
       mineradioFullBackupToast('完整备份导出失败');
       return false;
-    });
+    }
   }
   downloadMineradioFullBackup(text, fileName);
   mineradioFullBackupToast('完整备份已导出，共 ' + result.summary.total + ' 项');
-  return Promise.resolve(true);
+  return true;
 }
 
 function ensureMineradioFullRestoreModal() {
@@ -392,23 +403,58 @@ function closeMineradioFullRestoreModal() {
   mineradioPendingFullRestore = null;
 }
 
-function confirmMineradioFullRestore() {
+async function confirmMineradioFullRestore() {
   if (!mineradioPendingFullRestore) return false;
-  var transaction = mineradioFullBackupFxDiskTransaction(mineradioPendingFullRestore.entries);
+  var entries = Object.assign({}, mineradioPendingFullRestore.entries);
+  var playlistKey = 'mineradio-local-playlist-files-v1';
+  var playlistRaw = entries[playlistKey];
+  var api = mineradioFullBackupApi();
+  var previousPlaylists = null;
+  var restoredPlaylistCatalog = false;
+  if (playlistRaw != null && api && typeof api.saveLocalPlaylists === 'function') {
+    var playlists = null;
+    try { playlists = JSON.parse(playlistRaw); } catch (error) { }
+    if (!Array.isArray(playlists)) {
+      mineradioFullBackupToast('备份中的歌单数据无效');
+      closeMineradioFullRestoreModal();
+      return false;
+    }
+    try {
+      if (typeof api.listLocalPlaylists === 'function') {
+        var previous = await api.listLocalPlaylists();
+        if (!previous || previous.ok !== true || !Array.isArray(previous.playlists)) {
+          throw new Error(previous && previous.error || 'LOCAL_PLAYLIST_CATALOG_READ_FAILED');
+        }
+        previousPlaylists = previous.playlists;
+      }
+      var saved = await api.saveLocalPlaylists(playlists);
+      if (!saved || saved.ok !== true) throw new Error(saved && saved.error || 'LOCAL_PLAYLIST_CATALOG_SAVE_FAILED');
+      restoredPlaylistCatalog = true;
+      delete entries[playlistKey];
+      try { localStorage.removeItem(playlistKey); } catch (_) { }
+    } catch (error) {
+      mineradioFullBackupToast('歌单恢复失败，当前歌单未改变');
+      closeMineradioFullRestoreModal();
+      return false;
+    }
+  }
+  var transaction = mineradioFullBackupFxDiskTransaction(entries);
   if (transaction && transaction.error) {
+    if (restoredPlaylistCatalog && previousPlaylists) await api.saveLocalPlaylists(previousPlaylists).catch(function () { });
     mineradioFullBackupToast(mineradioFullBackupErrorLabel(transaction.error));
     closeMineradioFullRestoreModal();
     return false;
   }
-  var result = restoreMineradioFullBackup(localStorage, mineradioPendingFullRestore.entries, transaction);
+  var result = restoreMineradioFullBackup(localStorage, entries, transaction);
   if (!result.ok) {
+    if (restoredPlaylistCatalog && previousPlaylists) await api.saveLocalPlaylists(previousPlaylists).catch(function () { });
     mineradioFullBackupToast(result.rollbackOk
       ? '恢复失败，已撤销本次写入'
       : '恢复失败，部分数据无法自动撤销');
     closeMineradioFullRestoreModal();
     return false;
   }
-  var restored = result.restored;
+  var restored = result.restored + (restoredPlaylistCatalog ? 1 : 0);
   closeMineradioFullRestoreModal();
   mineradioFullBackupToast('已恢复 ' + restored + ' 项设置，正在重新载入');
   setTimeout(function () { window.location.reload(); }, 450);
@@ -421,7 +467,7 @@ function readMineradioFullBackupBrowserFile(file) {
     return;
   }
   if (Number(file.size) > MINERADIO_FULL_BACKUP_MAX_BYTES) {
-    mineradioFullBackupToast('备份文件超过 32 MB');
+    mineradioFullBackupToast('备份文件超过 96 MB');
     return;
   }
   var reader = new FileReader();

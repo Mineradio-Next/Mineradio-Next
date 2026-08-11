@@ -1,12 +1,15 @@
-/* Local playlist files: compatible with gzip playListPart_v2 exports. */
+/* Mineradio local playlists with read-only compatibility for legacy gzip exports. */
 var LOCAL_PLAYLIST_FILES_KEY = 'mineradio-local-playlist-files-v1';
 var localFilePlaylists = readLocalFilePlaylists();
+var localPlaylistCatalogWritePromise = Promise.resolve();
+var localPlaylistCatalogReady = Promise.resolve(false);
 
 function localPlaylistSource(value) {
   var key = String(value || '').toLowerCase();
   return ({
     tx: 'qq', qq: 'qq', wy: 'netease', netease: 'netease', kg: 'kugou', kugou: 'kugou',
     kw: 'backup-source', kuwo: 'backup-source', mg: 'backup-source', migu: 'backup-source',
+    local: 'local', qishui: 'qishui', spotify: 'spotify',
     'backup-source': 'backup-source'
   })[key] || '';
 }
@@ -42,6 +45,17 @@ function normalizeLocalPlaylistSong(song) {
     importedFrom: String(song.source || song.provider || '').trim(),
     importedMeta: meta
   };
+  if (source === 'local') {
+    normalized.type = 'local';
+    normalized.localFileId = String(song.localFileId || id).replace(/^local:/, '');
+    normalized.localKey = String(song.localKey || normalized.localFileId);
+    normalized.localUrl = String(song.localUrl || '').trim();
+    normalized.localPath = String(song.localPath || '').trim();
+    normalized.cover = cover;
+    normalized.hasLyric = song.hasLyric === true;
+    normalized.lyricSource = String(song.lyricSource || '').trim();
+    normalized.localMissing = song.localMissing === true || !normalized.localUrl;
+  }
   if (source === 'backup-source') {
     var additionalSourceCode = String(song.additionalSourceCode || song.source || song.provider || '').toLowerCase();
     if (additionalSourceCode === 'kuwo') additionalSourceCode = 'kw';
@@ -93,13 +107,68 @@ function readLocalFilePlaylists() {
 }
 
 function saveLocalFilePlaylists() {
+  var snapshot = JSON.parse(JSON.stringify(localFilePlaylists || []));
+  var localSaved = false;
   try {
-    localStorage.setItem(LOCAL_PLAYLIST_FILES_KEY, JSON.stringify(localFilePlaylists || []));
-    return true;
+    localStorage.setItem(LOCAL_PLAYLIST_FILES_KEY, JSON.stringify(snapshot));
+    localSaved = true;
   } catch (_) {
-    showToast('歌单文件保存失败，可能超出本地存储空间');
-    return false;
+    try { localStorage.removeItem(LOCAL_PLAYLIST_FILES_KEY); } catch (_) { }
   }
+  var bridge = typeof window !== 'undefined' && window.desktopWindow;
+  if (bridge && typeof bridge.saveLocalPlaylists === 'function') {
+    localPlaylistCatalogWritePromise = localPlaylistCatalogWritePromise.catch(function () { return null; }).then(function () {
+      return bridge.saveLocalPlaylists(snapshot);
+    }).then(function (result) {
+      if (!result || result.ok !== true) throw new Error(result && result.error || 'LOCAL_PLAYLIST_CATALOG_SAVE_FAILED');
+      return true;
+    }).catch(function (error) {
+      console.warn('[LocalPlaylistCatalog]', error);
+      showToast('歌单保存失败，已保留上一次有效版本');
+      return false;
+    });
+    return true;
+  }
+  if (!localSaved) showToast('歌单保存失败，可能超出本地存储空间');
+  return localSaved;
+}
+
+function mergeLocalPlaylistCatalogs(primary, fallback) {
+  var merged = [], positions = Object.create(null);
+  (Array.isArray(primary) ? primary : []).concat(Array.isArray(fallback) ? fallback : []).forEach(function (item) {
+    if (!item || !Array.isArray(item.songs)) return;
+    var key = String(item.id || '') + '|' + String(item.name || '');
+    if (!key || positions[key] != null) return;
+    positions[key] = merged.length;
+    merged.push(item);
+  });
+  return merged;
+}
+
+function hydrateLocalPlaylistCatalog() {
+  var bridge = typeof window !== 'undefined' && window.desktopWindow;
+  if (!bridge || typeof bridge.listLocalPlaylists !== 'function') return Promise.resolve(false);
+  return bridge.listLocalPlaylists().then(function (result) {
+    if (!result || result.ok !== true || !Array.isArray(result.playlists)) return false;
+    // The Electron catalog is the durable source of truth. Browser storage is
+    // only a migration fallback for the first run after upgrading an older
+    // build, so a stale localStorage snapshot cannot overwrite newer disk data.
+    var diskCatalog = result.playlists;
+    var browserCatalog = localFilePlaylists;
+    var usingBrowserFallback = !diskCatalog.length && browserCatalog.length > 0;
+    var catalog = usingBrowserFallback ? browserCatalog : diskCatalog;
+    localFilePlaylists = mergeLocalPlaylistCatalogs(catalog, []);
+    try { localStorage.setItem(LOCAL_PLAYLIST_FILES_KEY, JSON.stringify(localFilePlaylists)); } catch (_) { }
+    if (usingBrowserFallback) saveLocalFilePlaylists();
+    if (typeof rebuildUserPlaylistsFromCatalog === 'function') {
+      rebuildUserPlaylistsFromCatalog({ animate: false, preserveScroll: true, reason: 'local-playlist-catalog-hydrate' });
+    }
+    if (typeof refreshMusicLibraryWorkspace === 'function') refreshMusicLibraryWorkspace('catalog-hydrate');
+    return true;
+  }).catch(function (error) {
+    console.warn('[LocalPlaylistCatalog]', error);
+    return false;
+  });
 }
 
 async function decodeLocalPlaylistFile(file) {
@@ -107,7 +176,7 @@ async function decodeLocalPlaylistFile(file) {
   var stream = file.stream().pipeThrough(new DecompressionStream('gzip'));
   var text = await new Response(stream).text();
   var payload = JSON.parse(text.replace(/^\uFEFF/, ''));
-  if (payload.type && payload.type !== 'playListPart_v2') throw new Error('歌单文件格式不受支持');
+  if (payload.type && payload.type !== 'playListPart_v2' && payload.type !== 'mineradio_playlist_v1') throw new Error('歌单文件格式不受支持');
   return normalizeLocalPlaylistPayload(payload);
 }
 
@@ -122,6 +191,7 @@ async function importLocalPlaylistFiles(files) {
   localFilePlaylists = Object.keys(byKey).map(function (key) { return byKey[key]; });
   saveLocalFilePlaylists();
   rebuildUserPlaylistsFromCatalog({ animate: true, preserveScroll: true, reason: 'local-playlist-import' });
+  if (typeof refreshMusicLibraryWorkspace === 'function') refreshMusicLibraryWorkspace('playlist-file-import');
   showToast('已导入 ' + imported.length + ' 个歌单' + (failed ? '，失败 ' + failed + ' 个' : ''));
   return true;
 }
@@ -132,7 +202,7 @@ function openLocalPlaylistImport() {
     input = document.createElement('input');
     input.id = 'local-playlist-file-input';
     input.type = 'file';
-    input.accept = '.lxmc,application/gzip,application/octet-stream';
+    input.accept = '.mrpl,.lxmc,application/gzip,application/octet-stream';
     input.multiple = true;
     input.hidden = true;
     input.addEventListener('change', function () {
@@ -199,6 +269,7 @@ function openLocalPlaylistLinkImport() {
       else localFilePlaylists.unshift(imported);
       if (!saveLocalFilePlaylists()) return;
       rebuildUserPlaylistsFromCatalog({ animate: true, preserveScroll: true, reason: 'local-playlist-link-import' });
+      if (typeof refreshMusicLibraryWorkspace === 'function') refreshMusicLibraryWorkspace('playlist-link-import');
       closeLocalPlaylistLinkImport();
       showToast('已导入歌单：' + imported.name + ' · ' + imported.songs.length + ' 首');
     }).catch(function (error) {
@@ -218,7 +289,7 @@ function createLocalFilePlaylist(name) {
   var playlist = {
     id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     provider: 'local', source: 'local', name: name, creator: '本地歌单',
-    cover: '', songs: [], trackCount: 0, importedAt: Date.now()
+    cover: '', songs: [], trackCount: 0, importedAt: Date.now(), updatedAt: Date.now()
   };
   localFilePlaylists.unshift(playlist);
   if (!saveLocalFilePlaylists()) {
@@ -239,6 +310,7 @@ function addSongToLocalFilePlaylist(id, song) {
   }
   playlist.songs.push(normalized);
   playlist.trackCount = playlist.songs.length;
+  playlist.updatedAt = Date.now();
   if (!playlist.cover) playlist.cover = normalized.picUrl || '';
   if (!saveLocalFilePlaylists()) {
     playlist.songs.pop();
@@ -247,6 +319,62 @@ function addSongToLocalFilePlaylist(id, song) {
   }
   rebuildUserPlaylistsFromCatalog({ animate: true, preserveScroll: true, reason: 'local-playlist-add-song' });
   return { ok: true, duplicate: false };
+}
+
+function addSongsToLocalFilePlaylist(id, songs) {
+  var playlist = localPlaylistById(id);
+  if (!playlist) return { ok: false, added: 0, duplicates: 0, error: 'LOCAL_PLAYLIST_NOT_FOUND' };
+  var keys = Object.create(null), added = 0, duplicates = 0;
+  playlist.songs.forEach(function (item) { keys[localPlaylistSongKey(item)] = true; });
+  (Array.isArray(songs) ? songs : []).forEach(function (song) {
+    var normalized = normalizeLocalPlaylistSong(song);
+    if (!normalized) return;
+    var key = localPlaylistSongKey(normalized);
+    if (keys[key]) { duplicates += 1; return; }
+    keys[key] = true;
+    playlist.songs.push(normalized);
+    added += 1;
+  });
+  if (!added) return { ok: true, added: 0, duplicates: duplicates };
+  playlist.trackCount = playlist.songs.length;
+  playlist.updatedAt = Date.now();
+  if (!playlist.cover) playlist.cover = playlist.songs[0] && (playlist.songs[0].picUrl || playlist.songs[0].cover) || '';
+  if (!saveLocalFilePlaylists()) return { ok: false, added: 0, duplicates: duplicates, error: 'LOCAL_PLAYLIST_SAVE_FAILED' };
+  rebuildUserPlaylistsFromCatalog({ animate: false, preserveScroll: true, reason: 'local-playlist-add-songs' });
+  return { ok: true, added: added, duplicates: duplicates };
+}
+
+function renameLocalFilePlaylist(id, name) {
+  var playlist = localPlaylistById(id);
+  name = String(name || '').trim().slice(0, 120);
+  if (!playlist || !name) return false;
+  playlist.name = name;
+  playlist.updatedAt = Date.now();
+  if (!saveLocalFilePlaylists()) return false;
+  rebuildUserPlaylistsFromCatalog({ animate: false, preserveScroll: true, reason: 'local-playlist-rename' });
+  return true;
+}
+
+function deleteLocalFilePlaylist(id) {
+  var index = localFilePlaylists.findIndex(function (item) { return String(item.id) === String(id); });
+  if (index < 0) return false;
+  localFilePlaylists.splice(index, 1);
+  if (!saveLocalFilePlaylists()) return false;
+  rebuildUserPlaylistsFromCatalog({ animate: false, preserveScroll: true, reason: 'local-playlist-delete' });
+  return true;
+}
+
+function removeSongFromLocalFilePlaylist(id, songIndex) {
+  var playlist = localPlaylistById(id);
+  songIndex = Number(songIndex);
+  if (!playlist || !Number.isInteger(songIndex) || songIndex < 0 || songIndex >= playlist.songs.length) return false;
+  playlist.songs.splice(songIndex, 1);
+  playlist.trackCount = playlist.songs.length;
+  playlist.cover = String(playlist.songs[0] && (playlist.songs[0].picUrl || playlist.songs[0].cover) || '');
+  playlist.updatedAt = Date.now();
+  if (!saveLocalFilePlaylists()) return false;
+  rebuildUserPlaylistsFromCatalog({ animate: false, preserveScroll: true, reason: 'local-playlist-remove-song' });
+  return true;
 }
 
 function playLocalPlaylistFile(id) {
@@ -265,7 +393,8 @@ function playLocalPlaylistFile(id) {
 
 function localPlaylistExportPayload(playlist) {
   return {
-    type: 'playListPart_v2',
+    type: 'mineradio_playlist_v1',
+    version: 1,
     data: {
       id: String(playlist.id || ''),
       name: String(playlist.name || 'Mineradio 歌单'),
@@ -278,7 +407,7 @@ function localPlaylistExportPayload(playlist) {
 
 function localPlaylistExportSong(song) {
   song = song || {};
-  var source = song.additionalSourceCode || (song.source === 'qq' ? 'tx' : (song.source === 'netease' ? 'wy' : (song.source === 'kugou' ? 'kg' : '')));
+  var source = song.additionalSourceCode || song.source || song.provider || '';
   var meta = Object.assign({}, song.importedMeta || {});
   [
     ['picUrl', song.picUrl || song.cover], ['albumName', song.albumName || song.album],
@@ -294,15 +423,24 @@ function localPlaylistExportSong(song) {
     name: song.name || '',
     singer: song.singer || song.artist || '',
     source: source,
+    provider: song.provider || song.source || source,
     interval: song.interval || song.duration || '',
-    meta: meta
+    meta: meta,
+    localFileId: song.localFileId || '',
+    localKey: song.localKey || '',
+    localUrl: song.localUrl || '',
+    localPath: song.localPath || '',
+    cover: song.cover || song.picUrl || '',
+    hasLyric: song.hasLyric === true,
+    lyricSource: song.lyricSource || '',
+    localMissing: song.localMissing === true
   };
 }
 
 async function exportLocalPlaylistFile(id) {
   var playlist = localPlaylistById(id);
   if (!playlist) return;
-  var name = String(playlist.name || 'Mineradio歌单').replace(/[\\/:*?"<>|]+/g, '-') + '.lxmc';
+  var name = String(playlist.name || 'Mineradio歌单').replace(/[\\/:*?"<>|]+/g, '-') + '.mrpl';
   var payload = localPlaylistExportPayload(playlist);
   var bridge = window.desktopWindow;
   if (bridge && typeof bridge.exportPlaylistFile === 'function') {
@@ -322,3 +460,5 @@ async function exportLocalPlaylistFile(id) {
   setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
   showToast('歌单文件已导出');
 }
+
+localPlaylistCatalogReady = hydrateLocalPlaylistCatalog();

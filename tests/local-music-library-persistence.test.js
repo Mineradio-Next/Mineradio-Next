@@ -170,6 +170,33 @@ test('subsequent imports append to the persistent library by default', async (t)
   assert.equal((await library.importFiles([{ path: '\\\\server\\share\\Blocked.flac' }])).error, 'NO_SUPPORTED_LOCAL_AUDIO');
 });
 
+test('batch removal updates only the Mineradio index and leaves audio files untouched', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-local-library-remove-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const first = path.join(root, 'Keep.flac');
+  const second = path.join(root, 'Remove.flac');
+  fs.writeFileSync(first, Buffer.from('keep'));
+  fs.writeFileSync(second, Buffer.from('remove'));
+  const profile = path.join(root, 'profile');
+  const library = new LocalMusicLibrary({
+    userDataPath: profile,
+    parseMetadata: async (filePath) => ({
+      common: { title: path.basename(filePath, '.flac'), artist: 'Local Artist' },
+      format: { duration: 1 },
+    }),
+  });
+  const imported = await library.importFiles([{ path: first }, { path: second }]);
+  const removedId = imported.tracks.find((track) => track.name === 'Remove').localFileId;
+  const result = await library.removeTracks([removedId, 'invalid-id']);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.count, 1);
+  assert.equal(result.tracks[0].name, 'Keep');
+  assert.equal(fs.existsSync(first), true);
+  assert.equal(fs.existsSync(second), true);
+  assert.deepEqual(new LocalMusicLibrary({ userDataPath: profile }).listTracksSync().tracks.map((track) => track.name), ['Keep']);
+});
+
 test('GB18030 sidecar lyrics and synchronized embedded lyrics normalize to readable LRC', () => {
   const gb18030 = Buffer.concat([
     Buffer.from('[00:01.00]', 'ascii'),
@@ -267,7 +294,9 @@ test('renderer and Electron wiring restore persistent tracks instead of blob-onl
   assert.match(preload, /listLocalMusicLibrary/);
   assert.match(preload, /readLocalMusicLyric/);
   assert.doesNotMatch(preload, /getPathForLocalFile:/);
-  assert.doesNotMatch(preload, /mineradio-local-library-remove/);
+  assert.match(preload, /removeLocalMusicTracks/);
+  assert.match(preload, /mineradio-local-library-remove/);
+  assert.match(main, /localMusicLibrary\.removeTracks/);
   assert.match(upload, /importPersistentLocalAudioFiles/);
   assert.match(upload, /copy\.localMissing = false/);
   assert.match(upload, /persistentLocalLibraryTracks = tracks\.map\(cloneSong\)/);

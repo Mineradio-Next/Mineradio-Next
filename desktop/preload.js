@@ -87,6 +87,9 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   },
   listLocalMusicLibrary: () => ipcRenderer.invoke('mineradio-local-library-list'),
   readLocalMusicLyric: (localFileId) => ipcRenderer.invoke('mineradio-local-library-lyric', String(localFileId || '')),
+  removeLocalMusicTracks: (ids) => ipcRenderer.invoke('mineradio-local-library-remove', Array.isArray(ids) ? ids : []),
+  listLocalPlaylists: () => ipcRenderer.invoke('mineradio-local-playlists-list'),
+  saveLocalPlaylists: (playlists) => ipcRenderer.invoke('mineradio-local-playlists-save', Array.isArray(playlists) ? playlists : []),
   importLocalMusicFiles: async (files) => {
     const entries = [];
     for (const file of Array.from(files || [])) {

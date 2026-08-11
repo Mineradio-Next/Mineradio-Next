@@ -841,16 +841,10 @@ function playHomeNextFromDock() {
 }
 
 function openHomeDashboardLibrary() {
-  var loggedIn = typeof hasAnyPlatformLogin === 'function' && hasAnyPlatformLogin()
-    || homeDiscoverState && homeDiscoverState.loggedIn;
-  if (loggedIn && typeof openHomeLibrary === 'function') {
-    openHomeLibrary();
+  if (typeof openMusicLibraryWorkspace === 'function') {
+    openMusicLibraryWorkspace('local');
     return;
   }
-  homeForcedOpen = false;
-  homeSuppressed = false;
-  if (typeof setHomeControlsLocked === 'function') setHomeControlsLocked(false);
-  if (typeof updateEmptyHomeVisibility === 'function') updateEmptyHomeVisibility();
   if (typeof openUploadPanel === 'function') openUploadPanel();
 }
 
