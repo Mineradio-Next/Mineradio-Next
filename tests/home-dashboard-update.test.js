@@ -106,6 +106,17 @@ test('music discovery entry stays ahead of the recommendation strip in the first
   );
 });
 
+test('music radio homepage card uses a product title instead of instructional copy', () => {
+  const card = indexHtml.match(
+    /<button class="home-insight-card home-ranking-entry home-radio-entry"[\s\S]*?<\/button>/,
+  );
+  assert.ok(card, 'expected the music radio homepage card');
+  assert.match(card[0], /home-insight-kicker">MUSIC RADIO · 音乐电台</);
+  assert.match(card[0], /home-ranking-entry-title">调到此刻的频道</);
+  assert.match(card[0], /让音乐自然接下去/);
+  assert.doesNotMatch(card[0], /home-ranking-entry-title">按状态/);
+});
+
 test('playlist import actions use a two-column toolbar instead of shrinking text vertically', () => {
   assert.match(
     indexHtml,
