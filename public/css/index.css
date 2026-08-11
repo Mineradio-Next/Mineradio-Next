@@ -18076,6 +18076,34 @@ body.panel-reordering .mini-queue-item.is-reordering {
   line-height: 1.6
 }
 
+.home-platform-recommend-login {
+  min-height: 32px;
+  margin-top: 4px;
+  padding: 0 15px;
+  border: 1px solid rgba(var(--fc-accent-rgb), .36);
+  border-radius: 999px;
+  background: rgba(var(--fc-accent-rgb), .1);
+  color: rgba(255, 255, 255, .9);
+  font: 750 10.5px inherit;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease
+}
+
+.home-platform-recommend-login:hover {
+  transform: translateY(-1px);
+  border-color: rgba(var(--fc-accent-rgb), .58);
+  background: rgba(var(--fc-accent-rgb), .16)
+}
+
+.home-platform-recommend-login:active {
+  transform: translateY(0)
+}
+
+.home-platform-recommend-login:focus-visible {
+  outline: 2px solid rgba(var(--fc-accent-rgb), .78);
+  outline-offset: 2px
+}
+
 .home-platform-recommend-actions {
   display: flex;
   justify-content: flex-end;

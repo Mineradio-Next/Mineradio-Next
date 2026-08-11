@@ -990,9 +990,21 @@ function scheduleHomePlatformDailyWindowRender() {
   }
 }
 
-function homePlatformRecommendationEmptyHtml(source, message) {
+function homePlatformRecommendationLoginLabel(source) {
+  return {
+    netease: '登录网易云',
+    qishui: '登录汽水音乐',
+    kugou: '登录酷狗音乐',
+    spotify: '连接 Spotify',
+  }[source] || '';
+}
+
+function homePlatformRecommendationEmptyHtml(source, message, loginSource) {
+  var loginLabel = homePlatformRecommendationLoginLabel(loginSource);
   return '<div class="home-platform-recommend-empty"><strong>' + escHtml(homePlatformRecommendationSourceLabel(source)) + ' 暂无可用推荐</strong>' +
-    '<span>' + escHtml(message || '当前版本没有可验证的平台推荐接口，未使用关键词搜索替代。') + '</span></div>';
+    '<span>' + escHtml(message || '当前版本没有可验证的平台推荐接口，未使用关键词搜索替代。') + '</span>' +
+    (loginLabel ? '<button class="home-platform-recommend-login" type="button" data-home-recommend-login="' + escHtml(loginSource) + '">' + escHtml(loginLabel) + '</button>' : '') +
+    '</div>';
 }
 
 function renderHomePlatformRecommendations() {
@@ -1038,7 +1050,8 @@ function renderHomePlatformRecommendations() {
       status.classList.toggle('is-error', !!homeDiscoverState.error);
       list.innerHTML = homePlatformRecommendationEmptyHtml('netease', homeDiscoverState.loggedIn
         ? '平台本次没有返回推荐内容，未使用搜索结果补位。'
-        : '登录网易云后可读取推荐歌单与每日推荐，未使用关键词搜索替代。');
+        : '登录网易云后可读取推荐歌单与每日推荐，未使用关键词搜索替代。',
+      homeDiscoverState.loggedIn ? '' : 'netease');
     }
     return;
   }
@@ -1080,7 +1093,8 @@ function renderHomePlatformRecommendations() {
       status.classList.toggle('is-error', feedFailed);
       list.innerHTML = homePlatformRecommendationEmptyHtml(source, feedState.message || (feedFailed
         ? '推荐接口当前不可用，未使用关键词搜索补位。'
-        : '连接' + sourceLabel + '后可读取平台推荐，未使用关键词搜索替代。'));
+        : '连接' + sourceLabel + '后可读取平台推荐，未使用关键词搜索替代。'),
+      authRequired ? source : '');
     }
     return;
   }
@@ -1209,6 +1223,12 @@ function bindHomePlatformRecommendationControls() {
     loadHomePlatformRecommendations(tab.getAttribute('data-home-recommend-source'), false);
   });
   if (list) list.addEventListener('click', function (event) {
+    var login = event.target.closest('[data-home-recommend-login]');
+    if (login && list.contains(login)) {
+      closeHomePlatformRecommendations();
+      openProviderLogin(login.getAttribute('data-home-recommend-login'));
+      return;
+    }
     var card = event.target.closest('[data-home-recommend-kind]');
     if (!card || !list.contains(card)) return;
     var kind = card.getAttribute('data-home-recommend-kind');

@@ -117,6 +117,16 @@ test('platform recommendation entry uses real feeds and does not synthesize radi
   assert.match(namedFunctionSource(dashboardScript, 'loadHomePlatformFeedRecommendations'), /feedState\.mode/);
   assert.match(namedFunctionSource(dashboardScript, 'renderHomePlatformRecommendations'), /liked-affinity/);
   assert.match(namedFunctionSource(dashboardScript, 'renderHomePlatformRecommendations'), /personal-top/);
+  const emptyState = namedFunctionSource(dashboardScript, 'homePlatformRecommendationEmptyHtml');
+  assert.match(emptyState, /data-home-recommend-login/);
+  const loginLabel = namedFunctionSource(dashboardScript, 'homePlatformRecommendationLoginLabel');
+  for (const source of ['netease', 'qishui', 'kugou', 'spotify']) {
+    assert.match(loginLabel, new RegExp(`${source}:`));
+  }
+  assert.doesNotMatch(loginLabel, /qq:/);
+  const recommendationControls = namedFunctionSource(dashboardScript, 'bindHomePlatformRecommendationControls');
+  assert.match(recommendationControls, /closest\('\[data-home-recommend-login\]'\)/);
+  assert.match(recommendationControls, /openProviderLogin\(login\.getAttribute\('data-home-recommend-login'\)\)/);
   assert.match(dashboardScript, /当前版本没有可验证的平台推荐接口，未使用关键词搜索替代/);
   const discoverySongs = namedFunctionSource(dashboardScript, 'homeDashboardDiscoverySongs');
   assert.doesNotMatch(discoverySongs, /homeWeatherRadioState/);

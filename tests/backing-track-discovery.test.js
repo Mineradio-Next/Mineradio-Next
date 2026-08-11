@@ -108,6 +108,8 @@ test('integrates through original search, detail, and queue surfaces without der
   assert.match(searchSource, /clearBackingTrackHighlight/);
   assert.match(detailSource, /id="detail-backing-track-action"/);
   assert.match(detailSource, />查找伴奏<\/button>/);
+  assert.match(detailSource, /song\.type !== 'podcast-radio'/);
+  assert.doesNotMatch(detailSource, /song\.type !== 'podcast'\s*&&/);
   assert.match(detailSource, /setBackingTrackActionBusy/);
   assert.match(loaderSource, /07a-backing-track-discovery\.js/);
 });

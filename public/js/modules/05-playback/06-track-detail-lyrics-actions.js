@@ -616,7 +616,7 @@ function openTrackDetailModal(type, songOverride) {
       '</div>' +
       '<div class="detail-chip-row">' +
       '<span class="detail-chip">' + escHtml(songSourceLabel(song)) + '</span>' +
-      (song.type !== 'podcast' && song.type !== 'podcast-radio' ? '<button id="detail-backing-track-action" class="detail-chip action" type="button" onclick="findCurrentBackingTrack(event)">查找伴奏</button>' : '') +
+      (song.type !== 'podcast-radio' ? '<button id="detail-backing-track-action" class="detail-chip action" type="button" onclick="findCurrentBackingTrack(event)">查找伴奏</button>' : '') +
       (isSongLiked(song) ? '<span class="detail-chip">红心喜欢</span>' : '') +
       (getCustomCoverForSong(song) ? '<span class="detail-chip">自定义封面</span>' : '') +
       (hasCustomLyricForSong(song) ? '<span class="detail-chip">自定义歌词</span>' : '') +
