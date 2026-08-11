@@ -290,8 +290,19 @@
             <h2 id="home-platform-recommend-title">音乐发现</h2>
             <p id="home-platform-recommend-subtitle">只读取平台可验证的推荐数据，不用关键词搜索替代。</p>
           </div>
-          <button id="home-platform-recommend-close" class="home-platform-recommend-close" type="button"
-            aria-label="关闭音乐发现">×</button>
+          <div class="home-platform-recommend-head-actions">
+            <button id="home-music-planet-entry" class="home-music-planet-entry" type="button"
+              onclick="openMusicPlanet()" aria-haspopup="dialog" title="打开音乐星图">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="3.1" />
+                <ellipse cx="12" cy="12" rx="8.7" ry="4.2" transform="rotate(-20 12 12)" />
+                <circle cx="18.4" cy="7.8" r="1" fill="currentColor" stroke="none" />
+              </svg>
+              <span>音乐星图</span>
+            </button>
+            <button id="home-platform-recommend-close" class="home-platform-recommend-close" type="button"
+              aria-label="关闭音乐发现">×</button>
+          </div>
         </div>
         <div id="home-platform-view-switch" class="home-platform-view-switch" role="tablist" aria-label="发现视图">
           <button type="button" role="tab" data-home-discovery-view="recommendations" aria-selected="true">推荐</button>
@@ -359,6 +370,56 @@
           <button type="button" onclick="closeMusicRadio()">完成</button>
         </div>
       </div>
+    </div>
+
+    <div id="music-planet-mask" class="modal-mask music-planet-mask" role="dialog" aria-modal="true"
+      aria-hidden="true" aria-labelledby="music-planet-title" onclick="if(event.target===this)closeMusicPlanet()">
+      <section class="modal music-planet-modal">
+        <header class="music-planet-head">
+          <div class="music-planet-heading">
+            <span class="music-planet-eyebrow">MUSIC MAP</span>
+            <h2 id="music-planet-title">音乐星图</h2>
+            <p id="music-planet-summary" aria-live="polite">正在整理你的音乐轨迹</p>
+          </div>
+          <div class="music-planet-head-actions">
+            <button id="music-planet-reset" class="music-planet-icon-btn" type="button"
+              onclick="resetMusicPlanetView()" title="重置视角" aria-label="重置星图视角">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4.8 9.2A7.8 7.8 0 1 1 5.7 17" />
+                <path d="M4.8 4.8v4.4h4.4" />
+              </svg>
+            </button>
+            <button class="music-planet-icon-btn" type="button" onclick="closeMusicPlanet()"
+              title="关闭" aria-label="关闭音乐星图">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
+          </div>
+        </header>
+        <div class="music-planet-stage">
+          <canvas id="music-planet-canvas" tabindex="0" aria-label="可旋转的歌手与歌曲星图"></canvas>
+          <div id="music-planet-fallback" class="music-planet-fallback" hidden></div>
+          <div id="music-planet-node-label" class="music-planet-node-label" aria-hidden="true"></div>
+          <div class="music-planet-stage-status">
+            <span id="music-planet-counts">0 位歌手 · 0 首歌曲</span>
+            <span id="music-planet-selection">选择一颗歌手星球查看歌曲</span>
+          </div>
+          <aside id="music-planet-drawer" class="music-planet-drawer" aria-hidden="true"
+            aria-labelledby="music-planet-drawer-name">
+            <div class="music-planet-drawer-head">
+              <span id="music-planet-drawer-orb" class="music-planet-drawer-orb" aria-hidden="true"></span>
+              <div>
+                <strong id="music-planet-drawer-name">歌手</strong>
+                <small id="music-planet-drawer-meta">关联歌曲</small>
+              </div>
+              <button class="music-planet-drawer-close" type="button" onclick="closeMusicPlanetDrawer()"
+                title="关闭歌手歌曲" aria-label="关闭歌手歌曲">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+              </button>
+            </div>
+            <div id="music-planet-drawer-list" class="music-planet-drawer-list" role="list"></div>
+          </aside>
+        </div>
+      </section>
     </div>
 
     <!-- 顶部右侧 (只保留用户) -->
