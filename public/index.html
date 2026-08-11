@@ -124,6 +124,16 @@
           <button id="search-mode-podcast" type="button" onclick="setSearchMode('podcast')"
             aria-selected="false">Podcast</button>
         </div>
+        <div id="search-context" class="search-context" aria-live="polite" hidden>
+          <span class="search-context-kicker">SEARCH / 当前检索</span>
+          <strong id="search-context-title">等待输入</strong>
+          <span id="search-context-meta" class="search-context-meta"></span>
+        </div>
+        <div id="search-content-tabs" class="search-content-tabs" role="tablist" aria-label="搜索内容筛选" hidden>
+          <button type="button" role="tab" data-search-content-filter="all" aria-selected="true">全部</button>
+          <button type="button" role="tab" data-search-content-filter="original" aria-selected="false">原版优先</button>
+          <button type="button" role="tab" data-search-content-filter="version" aria-selected="false">伴奏 / 版本</button>
+        </div>
         <div id="search-results"></div>
       </div>
       <div id="upload-actions">
@@ -316,6 +326,14 @@
         <div id="home-platform-view-switch" class="home-platform-view-switch" role="tablist" aria-label="发现视图">
           <button type="button" role="tab" data-home-discovery-view="recommendations" aria-selected="true">推荐</button>
           <button type="button" role="tab" data-home-discovery-view="rankings" aria-selected="false">榜单</button>
+        </div>
+        <div id="home-platform-source-pulse" class="home-platform-source-pulse" aria-label="推荐来源状态">
+          <span class="home-platform-source-pulse-label">来源脉冲</span>
+          <span class="home-platform-source-pulse-item" data-home-source-pulse="netease"><i></i><b>网易云</b><small>待同步</small></span>
+          <span class="home-platform-source-pulse-item" data-home-source-pulse="qishui"><i></i><b>汽水</b><small>待同步</small></span>
+          <span class="home-platform-source-pulse-item" data-home-source-pulse="qq"><i></i><b>QQ</b><small>搜索源</small></span>
+          <span class="home-platform-source-pulse-item" data-home-source-pulse="kugou"><i></i><b>酷狗</b><small>待同步</small></span>
+          <span class="home-platform-source-pulse-item" data-home-source-pulse="spotify"><i></i><b>Spotify</b><small>待同步</small></span>
         </div>
         <div id="home-platform-recommend-tabs" class="home-platform-recommend-tabs" role="tablist"
           aria-label="推荐平台">

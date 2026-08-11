@@ -223,11 +223,12 @@ function setHomeDiscoveryView(view, options) {
   if (rankingStatus) rankingStatus.hidden = !rankings;
   if (rankingList) rankingList.hidden = !rankings;
   if (playAll) playAll.hidden = !rankings;
-  if (title) title.textContent = rankings ? '平台榜单' : '平台推荐';
+  if (title) title.textContent = '音乐发现';
   if (subtitle) subtitle.textContent = rankings
     ? '汇总公开热歌榜；任一平台不可用时，其余榜单仍可浏览。'
     : '只读取平台可验证的推荐数据，不用关键词搜索替代。';
   if (refresh) refresh.textContent = rankings ? '刷新当前榜单' : '刷新当前平台';
+  if (typeof renderHomePlatformSourcePulse === 'function') renderHomePlatformSourcePulse();
   if (rankings) loadHomePlatformRankings(options.provider || homePlatformRankingState.provider || 'all', false);
   else loadHomePlatformRecommendations(options.source || homePlatformRecommendationState.source || 'netease', false);
 }

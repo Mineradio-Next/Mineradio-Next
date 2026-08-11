@@ -862,6 +862,33 @@ function homePlatformRecommendationSourceLabel(source) {
     spotify: 'Spotify',
   }[source] || '当前平台';
 }
+function homePlatformSourcePulseState(source) {
+  if (source === 'qq') return { state: 'source', label: '搜索源' };
+  if (source === 'netease') {
+    if (homeDiscoverState.loading || homePlatformRecommendationState.neteaseLoading) return { state: 'loading', label: '同步中' };
+    if (homeDiscoverState.error) return { state: 'error', label: '暂不可用' };
+    if ((homeDiscoverState.songs && homeDiscoverState.songs.length) || (homeDiscoverState.playlists && homeDiscoverState.playlists.length)) return { state: 'ready', label: '已连接' };
+    return { state: loginStatus && loginStatus.loggedIn ? 'empty' : 'login', label: loginStatus && loginStatus.loggedIn ? '暂无推荐' : '需登录' };
+  }
+  var feed = homePlatformRecommendationState.feeds[source];
+  if (!feed || feed.loading) return { state: 'loading', label: '同步中' };
+  if (feed.songs && feed.songs.length) return { state: 'ready', label: feed.fallback ? '回退内容' : '已连接' };
+  if (feed.error && /(?:AUTH|LOGIN)_REQUIRED|NOT_CONFIGURED/i.test(feed.error)) return { state: 'login', label: '需连接' };
+  if (feed.error) return { state: 'error', label: '暂不可用' };
+  return { state: 'empty', label: '待同步' };
+}
+function renderHomePlatformSourcePulse() {
+  var pulse = document.getElementById('home-platform-source-pulse');
+  if (!pulse) return;
+  ['netease', 'qishui', 'qq', 'kugou', 'spotify'].forEach(function (source) {
+    var item = pulse.querySelector('[data-home-source-pulse="' + source + '"]');
+    if (!item) return;
+    var state = homePlatformSourcePulseState(source);
+    item.setAttribute('data-state', state.state);
+    var label = item.querySelector('small');
+    if (label) label.textContent = state.label;
+  });
+}
 
 function homePlatformRecommendationFeedConfig(source) {
   return {
@@ -897,10 +924,12 @@ function homePlatformRecommendationCard(kind, index, item, label) {
   else sub = homeDashboardSubtitle(item) || label;
   var cover = item.cover || item.picUrl || homeDashboardSongCover(item, 180) || '';
   var coverStyle = cover ? ' style="background-image:url(&quot;' + escHtml(cssImageUrl(cover)) + '&quot;)"' : '';
+  var action = kind === 'netease-playlist' ? '打开歌单' : '播放歌曲';
   return '<button class="home-platform-recommend-card" type="button" data-home-recommend-kind="' + kind + '" data-home-recommend-index="' + index + '">' +
     '<span class="home-platform-recommend-cover"' + coverStyle + '></span>' +
     '<span class="home-platform-recommend-copy"><span class="home-platform-recommend-label">' + escHtml(label) + '</span>' +
     '<strong>' + escHtml(title) + '</strong><small>' + escHtml(sub) + '</small></span>' +
+    '<span class="home-platform-recommend-action">' + action + '</span>' +
     '<span class="home-platform-recommend-arrow" aria-hidden="true">›</span></button>';
 }
 
@@ -998,7 +1027,9 @@ function homePlatformRecommendationLoginLabel(source) {
 
 function homePlatformRecommendationEmptyHtml(source, message, loginSource) {
   var loginLabel = homePlatformRecommendationLoginLabel(loginSource);
-  return '<div class="home-platform-recommend-empty"><strong>' + escHtml(homePlatformRecommendationSourceLabel(source)) + ' 暂无可用推荐</strong>' +
+  var state = loginSource ? 'login' : (/失败|不可用/.test(String(message || '')) ? 'error' : 'empty');
+  var eyebrow = state === 'login' ? '需要连接账号' : (state === 'error' ? '来源暂不可用' : '没有可展示内容');
+  return '<div class="home-platform-recommend-empty" data-state="' + state + '"><span class="home-platform-recommend-empty-eyebrow">' + eyebrow + '</span><strong>' + escHtml(homePlatformRecommendationSourceLabel(source)) + ' 暂无可用推荐</strong>' +
     '<span>' + escHtml(message || '当前版本没有可验证的平台推荐接口，未使用关键词搜索替代。') + '</span>' +
     (loginLabel ? '<button class="home-platform-recommend-login" type="button" data-home-recommend-login="' + escHtml(loginSource) + '">' + escHtml(loginLabel) + '</button>' : '') +
     '</div>';
@@ -1009,6 +1040,7 @@ function renderHomePlatformRecommendations() {
   var list = document.getElementById('home-platform-recommend-list');
   var status = document.getElementById('home-platform-recommend-status');
   if (!mask || !list || !status) return;
+  renderHomePlatformSourcePulse();
   var source = homePlatformRecommendationState.source;
   var tabs = document.querySelectorAll('[data-home-recommend-source]');
   Array.prototype.forEach.call(tabs, function (tab) {

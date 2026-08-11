@@ -15,6 +15,8 @@ var searchMusicRenderState = {
   key: '',
   query: '',
   mode: 'song',
+  contentFilter: 'all',
+  allSongs: [],
   songs: [],
   visibleCount: 0,
   appending: false,
@@ -25,6 +27,70 @@ var searchMusicRenderState = {
 var $input = document.getElementById('search-input');
 var $results = document.getElementById('search-results');
 var $loading = document.getElementById('loading-overlay');
+var SEARCH_CONTENT_FILTERS = ['all', 'original', 'version'];
+function searchContentFilterLabel(filter) {
+  return filter === 'original' ? '原版优先' : (filter === 'version' ? '伴奏 / 版本' : '全部');
+}
+function searchSongIsVersion(song) {
+  var raw = String(((song && song.name) || '') + ' ' + ((song && song.album) || ''));
+  return (typeof searchVersionSignature === 'function' && !!searchVersionSignature(raw)) ||
+    (typeof searchLooksLikeDerivative === 'function' && searchLooksLikeDerivative(raw));
+}
+function filterSearchSongs(songs, filter) {
+  songs = Array.isArray(songs) ? songs : [];
+  if (filter === 'version') return songs.filter(searchSongIsVersion);
+  if (filter === 'original') return songs.filter(function (song) { return !searchSongIsVersion(song); });
+  return songs.slice();
+}
+function searchProviderShortLabel(provider) {
+  return { netease: 'NE', qq: 'QQ', kugou: 'KG', qishui: 'QS', spotify: 'SP', kuwo: 'KW', migu: 'MG' }[provider] || provider;
+}
+function updateSearchContext(state) {
+  var context = document.getElementById('search-context');
+  var title = document.getElementById('search-context-title');
+  var meta = document.getElementById('search-context-meta');
+  var tabs = document.getElementById('search-content-tabs');
+  if (!context || !title || !meta) return;
+  var query = String($input && $input.value || '').trim();
+  var isPodcast = searchMode === 'podcast';
+  var hasResults = !!($results && $results.classList.contains('show') && $results.children.length);
+  var filter = searchMusicRenderState.contentFilter || 'all';
+  var songs = searchMusicRenderState.songs || [];
+  var allSongs = searchMusicRenderState.allSongs || songs;
+  var providerSet = {};
+  allSongs.forEach(function (song) { providerSet[songProviderKey(song)] = true; });
+  context.hidden = !query && !hasResults;
+  title.textContent = query ? ('“' + query + '”') : (isPodcast ? '播客与电台' : '等待输入');
+  if (isPodcast) {
+    meta.textContent = '播客模式 · 输入关键词开始探索';
+  } else if (songs.length || allSongs.length) {
+    var countText = filter === 'all' ? (allSongs.length + ' 首') : (songs.length + ' / ' + allSongs.length + ' 首');
+    var sourceText = Object.keys(providerSet).map(searchProviderShortLabel).join(' · ');
+    meta.textContent = searchContentFilterLabel(filter) + ' · ' + countText + (sourceText ? ' · ' + sourceText : '');
+  } else {
+    meta.textContent = state && state.loading ? '正在同步多个来源…' : '输入关键词，跨来源查找歌曲';
+  }
+  if (tabs) {
+    var visible = !isPodcast && allSongs.length > 0;
+    tabs.hidden = !visible;
+    Array.prototype.forEach.call(tabs.querySelectorAll('[data-search-content-filter]'), function (button) {
+      var selected = button.getAttribute('data-search-content-filter') === filter;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-selected', selected ? 'true' : 'false');
+      button.tabIndex = selected ? 0 : -1;
+    });
+  }
+}
+function setSearchContentFilter(filter) {
+  filter = SEARCH_CONTENT_FILTERS.indexOf(filter) >= 0 ? filter : 'all';
+  if (searchMode === 'podcast' || !searchMusicRenderState.allSongs.length) return;
+  searchMusicRenderState.contentFilter = filter;
+  searchMusicRenderState.songs = filterSearchSongs(searchMusicRenderState.allSongs, filter);
+  playlist = searchMusicRenderState.songs;
+  searchMusicRenderState.visibleCount = Math.min(searchMusicRenderState.songs.length, MUSIC_SEARCH_INITIAL_VISIBLE);
+  renderVisibleSearchSongs();
+  updateSearchContext();
+}
 function setSearchHistorySurface(on) {
   if ($results) $results.classList.toggle('search-history-surface', !!on);
 }
@@ -53,6 +119,8 @@ function resetSearchMusicRenderState() {
   searchMusicRenderState.key = '';
   searchMusicRenderState.query = '';
   searchMusicRenderState.mode = 'song';
+  searchMusicRenderState.contentFilter = 'all';
+  searchMusicRenderState.allSongs = [];
   searchMusicRenderState.songs = [];
   searchMusicRenderState.visibleCount = 0;
   searchMusicRenderState.appending = false;
@@ -71,6 +139,7 @@ function clearSearchResults() {
   podcastCurrentRadio = null;
   $results.innerHTML = '';
   $results.classList.remove('show', 'search-history-surface');
+  updateSearchContext();
 }
 function emptySearchHistoryState() {
   return { version: SEARCH_HISTORY_STORE_VERSION, items: [] };
@@ -145,6 +214,7 @@ function renderSearchHistory() {
     '</div>';
   setSearchHistorySurface(true);
   $results.classList.add('show');
+  updateSearchContext();
   requestAnimationFrame(updateSearchPillGlassDisplacementMap);
   return true;
 }
@@ -215,6 +285,8 @@ function updateSearchModeTabs() {
   if ($input && searchMode === 'spotify') $input.placeholder = '搜索 Spotify 匹配源...';
   if ($input && searchMode === 'kuwo') $input.placeholder = '搜索酷我音乐...';
   if ($input && searchMode === 'migu') $input.placeholder = '搜索咪咕音乐...';
+  searchMusicRenderState.contentFilter = 'all';
+  updateSearchContext();
   requestAnimationFrame(updateSearchPillGlassDisplacementMap);
 }
 function setSearchMode(mode) {
@@ -286,6 +358,7 @@ function renderPodcastRadios(items, label) {
       '</div>';
   }).join('');
   $results.classList.add('show');
+  updateSearchContext();
   if (window.gsap) animateListItems($results, '.search-result', { x: 0, y: 6, stagger: 0.012, duration: 0.18, limit: 18 });
 }
 async function loadPodcastHot() {
@@ -339,6 +412,7 @@ function renderPodcastPrograms() {
   if (!podcastPrograms.length) {
     $results.innerHTML = '<div class="podcast-result-head"><button class="podcast-back-btn" onclick="event.stopPropagation();renderPodcastRadios(podcastResults)">‹</button><div class="search-result-info"><div class="search-result-title">' + escHtml(radio.name || 'Podcast') + '</div><div class="search-result-meta">No playable episodes</div></div></div>';
     $results.classList.add('show');
+    updateSearchContext();
     return;
   }
   $results.innerHTML =
@@ -360,6 +434,7 @@ function renderPodcastPrograms() {
         '</div>';
     }).join('');
   $results.classList.add('show');
+  updateSearchContext();
   if (window.gsap) animateListItems($results, '.search-result', { x: 0, y: 6, stagger: 0.010, duration: 0.18, limit: 18 });
 }
 function queuePodcastProgram(i) {
@@ -380,6 +455,7 @@ $input.addEventListener('input', function () {
   resetSearchMusicRenderState();
   if (!q) {
     playlist = [];
+    updateSearchContext();
     if (!renderSearchHistory() && searchMode === 'podcast') loadPodcastHot();
     return;
   }
@@ -387,6 +463,7 @@ $input.addEventListener('input', function () {
     setSearchHistorySurface(false);
     $results.innerHTML = '<div class="search-empty">正在搜索 “' + escHtml(q) + '”…</div>';
     $results.classList.add('show');
+    updateSearchContext({ loading: true });
   }
   searchTimer = setTimeout(function () { doSearch(q); }, 180);
 });
@@ -440,6 +517,12 @@ $results.addEventListener('click', function (e) {
     e.stopPropagation();
     runSearchHistory(item.getAttribute('data-history-query') || '');
   }
+});
+var searchContentTabs = document.getElementById('search-content-tabs');
+if (searchContentTabs) searchContentTabs.addEventListener('click', function (e) {
+  var button = e.target && e.target.closest ? e.target.closest('[data-search-content-filter]') : null;
+  if (!button || !searchContentTabs.contains(button)) return;
+  setSearchContentFilter(button.getAttribute('data-search-content-filter') || 'all');
 });
 $results.addEventListener('scroll', function () {
   if (!$results.classList.contains('show')) return;
@@ -1221,16 +1304,19 @@ async function loadNextMusicSearchPage(expectedKey) {
   try {
     var page = await fetchMusicSearchResults(q, mode, searchMusicRenderState.providerPages);
     if (requestSeq !== searchRequestSeq || expectedKey !== searchMusicRenderState.key || expectedKey !== searchLastResultQuery || searchMode !== mode || $input.value.trim() !== q) return false;
-    var before = searchMusicRenderState.songs.length;
-    var merged = mergeUniqueSearchSongPools(searchMusicRenderState.songs, page.songs || []);
+    var beforeAll = searchMusicRenderState.allSongs.length;
+    var beforeVisible = searchMusicRenderState.songs.length;
+    var mergedAll = mergeUniqueSearchSongPools(searchMusicRenderState.allSongs, page.songs || []);
     searchMusicRenderState.providerPages = page.providerPages || {};
-    searchMusicRenderState.songs = merged;
-    playlist = merged;
-    searchMusicRenderState.remoteHasMore = !!page.hasMore && merged.length < MUSIC_SEARCH_MAX_RESULTS;
-    if (merged.length === before) searchMusicRenderState.remoteHasMore = false;
+    searchMusicRenderState.allSongs = mergedAll;
+    searchMusicRenderState.songs = filterSearchSongs(mergedAll, searchMusicRenderState.contentFilter);
+    playlist = searchMusicRenderState.songs;
+    searchMusicRenderState.remoteHasMore = !!page.hasMore && mergedAll.length < MUSIC_SEARCH_MAX_RESULTS;
+    if (mergedAll.length === beforeAll) searchMusicRenderState.remoteHasMore = false;
     searchMusicRenderState.loadingMore = false;
-    if (merged.length > before) return appendNextSearchResults(expectedKey);
+    if (searchMusicRenderState.songs.length > beforeVisible) return appendNextSearchResults(expectedKey);
     refreshSearchLoadMoreSentinel();
+    updateSearchContext();
     return false;
   } catch (err) {
     console.warn('[SearchLoadMore]', err);
@@ -1272,28 +1358,46 @@ function appendNextSearchResults(expectedKey) {
     syncLikeStatusForSongs(searchMusicRenderState.songs.slice(start, end));
     searchMusicRenderState.appending = false;
     refreshSearchLoadMoreSentinel();
+    updateSearchContext();
   });
   return true;
+}
+function renderVisibleSearchSongs() {
+  var songs = Array.isArray(searchMusicRenderState.songs) ? searchMusicRenderState.songs : [];
+  var key = searchMusicRenderState.key;
+  disconnectSearchLoadMoreObserver();
+  if (!songs.length && searchMusicRenderState.allSongs.length) {
+    $results.innerHTML = '<div class="search-empty">当前结果里没有符合“' + escHtml(searchContentFilterLabel(searchMusicRenderState.contentFilter)) + '”的内容</div>' + searchLoadMoreSentinelHtml();
+    $results.classList.add('show');
+    observeSearchLoadMoreSentinel();
+    updateSearchContext();
+    return key;
+  }
+  var html = '';
+  for (var i = 0; i < searchMusicRenderState.visibleCount; i++) html += searchSongResultHtml(songs[i], i);
+  $results.innerHTML = html + searchLoadMoreSentinelHtml();
+  $results.classList.add('show');
+  syncLikeStatusForSongs(songs.slice(0, searchMusicRenderState.visibleCount));
+  if (window.gsap) animateListItems($results, '.search-result', { x: 0, y: 6, stagger: 0.012, duration: 0.18, limit: 18 });
+  observeSearchLoadMoreSentinel();
+  updateSearchContext();
+  return key;
 }
 function renderSongSearchResults(songs) {
   setSearchHistorySurface(false);
   var plan = pendingSearchProviderPages || {};
   resetSearchMusicRenderState();
-  playlist = Array.isArray(songs) ? songs : [];
+  searchMusicRenderState.allSongs = Array.isArray(songs) ? songs : [];
+  searchMusicRenderState.contentFilter = 'all';
+  playlist = searchMusicRenderState.allSongs.slice();
   searchMusicRenderState.key = plan.key || searchLastResultQuery || searchResultKey($input && $input.value, searchMode);
   searchMusicRenderState.query = plan.query || String($input && $input.value || '').trim();
   searchMusicRenderState.mode = plan.mode || searchMode;
   searchMusicRenderState.providerPages = plan.providerPages || {};
   searchMusicRenderState.remoteHasMore = !!plan.hasMore;
-  searchMusicRenderState.songs = playlist;
+  searchMusicRenderState.songs = searchMusicRenderState.allSongs.slice();
   searchMusicRenderState.visibleCount = Math.min(playlist.length, MUSIC_SEARCH_INITIAL_VISIBLE);
-  var html = '';
-  for (var i = 0; i < searchMusicRenderState.visibleCount; i++) html += searchSongResultHtml(playlist[i], i);
-  $results.innerHTML = html + searchLoadMoreSentinelHtml();
-  $results.classList.add('show');
-  syncLikeStatusForSongs(playlist.slice(0, searchMusicRenderState.visibleCount));
-  if (window.gsap) animateListItems($results, '.search-result', { x: 0, y: 6, stagger: 0.012, duration: 0.18, limit: 18 });
-  observeSearchLoadMoreSentinel();
+  renderVisibleSearchSongs();
 }
 
 async function doSearch(q, opts) {
@@ -1308,6 +1412,7 @@ async function doSearch(q, opts) {
     doPodcastSearch(q);
     return;
   }
+  updateSearchContext({ loading: true });
   var requestSeq = ++searchRequestSeq;
   disconnectSearchLoadMoreObserver();
   setSearchHistorySurface(false);
@@ -1322,6 +1427,7 @@ async function doSearch(q, opts) {
       searchLastResultQuery = '';
       $results.innerHTML = '<div class="search-empty">' + escHtml(searchProviderNotice || '没有找到相关歌曲') + '</div>';
       $results.classList.add('show');
+      updateSearchContext();
       return;
     }
     searchLastResultQuery = searchResultKey(q, mode);
@@ -1343,6 +1449,7 @@ async function doSearch(q, opts) {
       searchLastResultQuery = '';
       $results.innerHTML = '<div class="search-empty">搜索暂时失败，请稍后重试</div>';
       $results.classList.add('show');
+      updateSearchContext();
     }
   }
 }
