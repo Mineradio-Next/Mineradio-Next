@@ -924,8 +924,9 @@ function homePlatformRecommendationCard(kind, index, item, label) {
   else sub = homeDashboardSubtitle(item) || label;
   var cover = item.cover || item.picUrl || homeDashboardSongCover(item, 180) || '';
   var coverStyle = cover ? ' style="background-image:url(&quot;' + escHtml(cssImageUrl(cover)) + '&quot;)"' : '';
-  var action = kind === 'netease-playlist' ? '打开歌单' : '播放歌曲';
-  return '<button class="home-platform-recommend-card" type="button" data-home-recommend-kind="' + kind + '" data-home-recommend-index="' + index + '">' +
+  var action = kind === 'netease-playlist' ? '打开歌单' : '播放这首';
+  var actionTitle = kind === 'netease-playlist' ? '打开推荐歌单：' : '播放推荐歌曲：';
+  return '<button class="home-platform-recommend-card" type="button" aria-label="' + escHtml(actionTitle + title) + '" title="' + escHtml(actionTitle + title) + '" data-home-recommend-kind="' + kind + '" data-home-recommend-index="' + index + '">' +
     '<span class="home-platform-recommend-cover"' + coverStyle + '></span>' +
     '<span class="home-platform-recommend-copy"><span class="home-platform-recommend-label">' + escHtml(label) + '</span>' +
     '<strong>' + escHtml(title) + '</strong><small>' + escHtml(sub) + '</small></span>' +
