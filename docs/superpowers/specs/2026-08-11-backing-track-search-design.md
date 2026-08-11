@@ -34,7 +34,7 @@ The song-detail module only renders the action chip. Search provider selection r
 - Prefix and partial title matches receive smaller scores.
 - Matching artist text adds a small bonus.
 - Medleys, live recordings, DJ/remix versions, and covers are penalized.
-- A score of 60 or more is considered safe to queue as next.
+- A score of 60 or more is required for recommendation, but automatic queueing additionally requires an exact cleaned title, a confirmed matching artist, and rejection of live, medley, remix, DJ, and cover variants.
 
 ## State And Errors
 
@@ -43,6 +43,8 @@ The song-detail module only renders the action chip. Search provider selection r
 - Empty results: render the existing empty-result surface and leave the queue unchanged.
 - Search failure: render an error in the existing result surface and leave the queue unchanged.
 - A newer backing search invalidates older responses.
+- If the current song changes while the request is in flight, results are still shown but the queue is not changed.
+- Backing-track discovery intentionally uses one provider page so ordinary pagination cannot append unranked candidates beneath a ranked result set.
 - Closing the song-detail modal does not cancel the search; the search panel remains the result destination.
 
 ## Motion And Visual Fit

@@ -1160,15 +1160,17 @@ function searchSongResultHtml(s, i) {
     var vipTag = songVipTagHtml(s);
     var sourceTag = songSourceTagHtml(s);
     var sourceClass = songProviderKey(s) + '-source';
+    var backingClass = typeof backingTrackResultClass === 'function' ? backingTrackResultClass(s, i) : '';
+    var backingTag = typeof backingTrackBestTagHtml === 'function' ? backingTrackBestTagHtml(s, i) : '';
     var thumb = songCoverSrc(s, 80);
     var imgTag = thumb
       ? '<img src="' + thumb + '" alt="" loading="lazy" onerror="this.style.opacity=0.2">'
       : '<div style="width:40px;height:40px;border-radius:6px;background:rgba(255,255,255,0.06);flex-shrink:0"></div>';
-    return '<div class="search-result ' + sourceClass + '">' +
+    return '<div class="search-result ' + sourceClass + backingClass + '">' +
       '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0" onclick="playSearchResult(' + i + ')">' +
       imgTag +
       '<div class="search-result-info">' +
-      '<div class="search-result-title">' + escHtml(s.name) + sourceTag + vipTag + '</div>' +
+      '<div class="search-result-title">' + escHtml(s.name) + sourceTag + vipTag + backingTag + '</div>' +
       '<div class="search-result-meta">' + searchResultMetaHtml(s, i) + '</div>' +
       '</div>' +
       '</div>' +
@@ -1296,6 +1298,7 @@ function renderSongSearchResults(songs) {
 
 async function doSearch(q, opts) {
   opts = opts || {};
+  if (!opts.keepBackingHighlight && typeof clearBackingTrackHighlight === 'function') clearBackingTrackHighlight();
   q = String(q || '').trim();
   if (!q) {
     if (!renderSearchHistory() && searchMode === 'podcast') loadPodcastHot();
