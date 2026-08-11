@@ -297,6 +297,7 @@ function toggleCuefieldAutoMix() {
 
 function scheduleCuefieldAutoMixPrepare(token, index, delay, attempt) {
   clearCuefieldAutoMixTimer();
+  if (typeof sleepTimerBlocksUpcomingTransition === 'function' && sleepTimerBlocksUpcomingTransition()) return false;
   if (!cuefieldAutoMixEnabled || !audio || audio.paused || !playQueue || playQueue.length < 2) return false;
   var runtime = initCuefieldAutoMix();
   if (!runtime) return false;
@@ -313,6 +314,7 @@ function scheduleCuefieldAutoMixPrepare(token, index, delay, attempt) {
 }
 
 async function runCuefieldAutoMixPrepare(token, currentIndex, nextIndex, attempt) {
+  if (typeof sleepTimerBlocksUpcomingTransition === 'function' && sleepTimerBlocksUpcomingTransition()) return;
   if (!cuefieldAutoMixEnabled || !cuefieldAutoMix || token !== trackSwitchToken || currentIndex !== currentIdx) return;
   if (cuefieldAutoMixBlockedByAlbumGapless(currentIndex)) return;
   if (cuefieldAutoMixVisualTransitionBusy()) {
@@ -651,6 +653,7 @@ function submitCuefieldFeedback(rating) {
 }
 
 function tickCuefieldAutoMix() {
+  if (typeof sleepTimerBlocksUpcomingTransition === 'function' && sleepTimerBlocksUpcomingTransition()) return;
   if (!cuefieldAutoMixEnabled || !cuefieldAutoMix || cuefieldAutoMixExecuting || !audio) return;
   if (!cuefieldAutoMix.shouldTrigger({ token: trackSwitchToken, currentIndex: currentIdx, currentTime: audio.currentTime || 0 })) return;
   var pending = cuefieldAutoMix.consumePending();
@@ -697,6 +700,10 @@ function recoverCuefieldAutoMixEndedOutgoing(pending, context, reason) {
 }
 
 async function executeCuefieldAutoMix(pending) {
+  if (typeof sleepTimerBlocksUpcomingTransition === 'function' && sleepTimerBlocksUpcomingTransition()) {
+    if (pending && pending.preparedAudio) stopCuefieldPreparedAudio(pending.preparedAudio);
+    return;
+  }
   if (!pending || cuefieldAutoMixExecuting || pending.token !== trackSwitchToken || pending.currentIndex !== currentIdx) return;
   if (cuefieldAutoMixBlockedByAlbumGapless(pending.currentIndex)) {
     stopCuefieldPreparedAudio(pending.preparedAudio);

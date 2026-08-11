@@ -1612,6 +1612,28 @@
               <div class="listening-effects-mini-status" data-listening-status role="status" aria-live="polite">播放后可应用听感调节</div>
             </div>
           </div>
+          <div id="sleep-timer-control" class="sleep-timer-control">
+            <button id="sleep-timer-btn" class="ctrl-btn" type="button" onclick="toggleSleepTimerPanel(event)"
+              title="定时停播" aria-label="定时停播" aria-haspopup="true" aria-expanded="false" aria-pressed="false">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="8.5" />
+                <path d="M12 7.5v5l3.2 2" />
+              </svg>
+              <span id="sleep-timer-badge" class="sleep-timer-badge" aria-hidden="true"></span>
+            </button>
+            <div class="sleep-timer-popover" onclick="event.stopPropagation()">
+              <div class="sleep-timer-head"><span>定时停播</span><strong id="sleep-timer-status">未设置</strong></div>
+              <div class="sleep-timer-options" role="group" aria-label="停止播放时间">
+                <button type="button" data-sleep-timer-minutes="15">15 分</button>
+                <button type="button" data-sleep-timer-minutes="30">30 分</button>
+                <button type="button" data-sleep-timer-minutes="60">60 分</button>
+                <button type="button" data-sleep-timer-minutes="90">90 分</button>
+              </div>
+              <button class="sleep-timer-track-end" type="button" data-sleep-timer-track-end>本曲播完后停止</button>
+              <button class="sleep-timer-cancel" type="button" data-sleep-timer-cancel disabled>取消定时</button>
+              <span id="sleep-timer-announcer" class="sleep-timer-sr-status" role="status" aria-live="polite"></span>
+            </div>
+          </div>
           <button id="controls-hide-btn" class="ctrl-btn active" onclick="toggleControlsAutoHide()" title="控制条自动隐藏"><svg
               width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path d="M5 8h14" />

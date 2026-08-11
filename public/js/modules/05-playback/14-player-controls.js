@@ -370,6 +370,7 @@ async function completeAudioPlayStart(opts, reason, expectedMedia, expectedToken
   if (!playbackAttemptStillCurrent(expectedMedia, expectedToken)) return false;
   switchPlaybackVisualToEmily();
   playing = true; setPlayIcon(true);
+  if (typeof resumeSleepTimerTransitionsAfterPlaybackStart === 'function') resumeSleepTimerTransitionsAfterPlaybackStart();
   if (typeof markStageLyricsPlaybackResume === 'function') markStageLyricsPlaybackResume(reason || 'playback-started');
   if (opts.trackSwitch) primeCinemaAfterTrackStart(reason || 'track-switch');
   if (opts.trackSwitch && !opts.resumeRecovery && typeof resetPlaybackFreshUrlRecoveryBudget === 'function') {
@@ -428,6 +429,7 @@ async function resumePausedAudioFast(opts) {
     if (!isSameAudioPlaybackTarget(media, src) || token !== trackSwitchToken) return false;
     switchPlaybackVisualToEmily();
     playing = true; setPlayIcon(true);
+    if (typeof resumeSleepTimerTransitionsAfterPlaybackStart === 'function') resumeSleepTimerTransitionsAfterPlaybackStart();
     if (typeof markStageLyricsPlaybackResume === 'function') {
       setTimeout(function () {
         if (isSameAudioPlaybackTarget(media, src) && token === trackSwitchToken && !media.paused && !media.ended) {

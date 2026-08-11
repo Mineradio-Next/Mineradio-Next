@@ -330,6 +330,7 @@ function runAlbumGaplessBalancedCrossfade(preload, durationMs) {
 
 function startAlbumGaplessMix(preload, reason, remaining) {
   if (!preload || !preload.media || preload.mixStarted || preload.mixPending || albumGaplessState.handoff) return false;
+  if (typeof sleepTimerBlocksUpcomingTransition === 'function' && sleepTimerBlocksUpcomingTransition()) return false;
   if (!albumGaplessQueueCanAdvance(currentIdx)) return false;
   if (typeof cuefieldAutoMixExecuting !== 'undefined' && cuefieldAutoMixExecuting) return false;
   var outgoingMedia = audio;
@@ -732,6 +733,10 @@ function armAlbumGaplessMonitor(token) {
 }
 
 async function scheduleAlbumGaplessPreloadForCurrent(token, reason) {
+  if (typeof sleepTimerBlocksUpcomingTransition === 'function' && sleepTimerBlocksUpcomingTransition()) {
+    if (!albumGaplessState.handoff) clearAlbumGaplessPreload('sleep-timer-track-end');
+    return false;
+  }
   if (!albumGaplessQueueCanAdvance(currentIdx) || token !== trackSwitchToken) {
     if (!albumGaplessState.handoff) clearAlbumGaplessPreload(reason || 'album-gapless-not-eligible');
     return false;
@@ -876,6 +881,10 @@ async function playLocalQueueSong(song, idx, token, firstVisualPlay, opts, resum
   audio.onended = function () {
     if (token !== trackSwitchToken) return;
     if (this && this.__mineradioCuefieldEndedRecoveryToken === token) return;
+    if (typeof consumeSleepTimerOnTrackEnd === 'function' && consumeSleepTimerOnTrackEnd(token)) {
+      finalizeListenSession(true);
+      return;
+    }
     if (typeof cuefieldAutoMixExecuting !== 'undefined' && cuefieldAutoMixExecuting) {
       if (typeof noteCuefieldAutoMixOutgoingEnded === 'function') noteCuefieldAutoMixOutgoingEnded(this, token, currentIdx);
       return;
@@ -1271,6 +1280,10 @@ async function playQueueAt(idx, opts) {
       audio.onended = function () {
         if (token !== trackSwitchToken) return;
         if (this && this.__mineradioCuefieldEndedRecoveryToken === token) return;
+        if (typeof consumeSleepTimerOnTrackEnd === 'function' && consumeSleepTimerOnTrackEnd(token)) {
+          finalizeListenSession(true);
+          return;
+        }
         if (typeof cuefieldAutoMixExecuting !== 'undefined' && cuefieldAutoMixExecuting) {
           if (typeof noteCuefieldAutoMixOutgoingEnded === 'function') noteCuefieldAutoMixOutgoingEnded(this, token, currentIdx);
           return;

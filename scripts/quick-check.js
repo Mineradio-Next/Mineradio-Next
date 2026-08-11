@@ -2798,6 +2798,39 @@ function checkNonCurrentAudioPrefetchGuard() {
   console.log('[OK] Non-current audio URL prefetch stays disabled by default.');
 }
 
+function checkSleepTimerGuard() {
+  logStep('Sleep timer integration guard');
+  const loaderText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'index-loader.js'), 'utf8');
+  const htmlText = fs.readFileSync(path.join(appRoot, 'public', 'index.html'), 'utf8');
+  const cssText = fs.readFileSync(path.join(appRoot, 'public', 'css', 'index.css'), 'utf8');
+  const timerText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '14a-sleep-timer.js'), 'utf8');
+  const playbackText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '13-playback-start-audio.js'), 'utf8');
+  const automixText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '18-cuefield-automix-integration.js'), 'utf8');
+  const startupText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '10-shell', '05-startup-bindings.js'), 'utf8');
+  if (!/14a-sleep-timer\.js/.test(loaderText) || !/id="sleep-timer-control"/.test(htmlText) || !/data-sleep-timer-track-end/.test(htmlText) || !/\.sleep-timer-popover/.test(cssText) || !/initSleepTimer\(\)/.test(startupText)) {
+    fail('Sleep timer needs a loaded runtime module, native player control, popover, and startup binding');
+  }
+  if (!/SLEEP_TIMER_STORE_KEY/.test(timerText) || !/deadline:\s*Date\.now\(\) \+ minutes \* 60000/.test(timerText) || !/function readSleepTimerState/.test(timerText) || !/function persistSleepTimerState/.test(timerText)) {
+    fail('Sleep timer deadlines must persist as absolute time and recover through normalized state');
+  }
+  if (!/function executeSleepTimerDeadline/.test(timerText) || !/fadeOutAndPauseAudio/.test(timerText) || !/function consumeSleepTimerOnTrackEnd/.test(timerText) || !/function sleepTimerBlocksUpcomingTransition/.test(timerText)) {
+    fail('Sleep timer must fade active playback and expose one track-end transition gate');
+  }
+  if (!/mode === 'stopping'/.test(timerText) || !/resumeSleepTimerTransitionsAfterPlaybackStart/.test(timerText) || /trackSwitchToken \+= 1/.test(timerText)) {
+    fail('Sleep timer must hold transition blocking through async stop and restore scheduling after leaving track-end mode');
+  }
+  if (!/\.sleep-timer-popover[\s\S]*?visibility:\s*hidden/.test(cssText) || !/\.sleep-timer-control\.open \.sleep-timer-popover[\s\S]*?visibility:\s*visible/.test(cssText) || /\.sleep-timer-control:focus-within\s+\.sleep-timer-popover/.test(cssText) || /id="sleep-timer-status"[^>]*aria-live=/.test(htmlText) || !/id="sleep-timer-announcer"[^>]*aria-live="polite"/.test(htmlText)) {
+    fail('Sleep timer popover must close explicitly and announce only discrete state changes');
+  }
+  if ((playbackText.match(/consumeSleepTimerOnTrackEnd/g) || []).length < 2 || !/sleepTimerBlocksUpcomingTransition/.test(playbackText) || (automixText.match(/sleepTimerBlocksUpcomingTransition/g) || []).length < 3) {
+    fail('Sleep timer must block ordinary, gapless, and Cuefield transitions before stopping');
+  }
+  if (/LX\s*Music|Mineradio-LX|落雪/.test(htmlText.match(/<div id="sleep-timer-control"[\s\S]*?<button id="controls-hide-btn"/)?.[0] || '') || /LX\s*Music|Mineradio-LX|落雪/.test(timerText)) {
+    fail('Sleep timer must keep Mineradio-native naming');
+  }
+  console.log('[OK] Sleep timer persists deadlines and blocks every automatic transition path before stopping.');
+}
+
 function checkCuefieldAutoMixGuard() {
   logStep('Cuefield AutoMix integration guard');
   const serverText = fs.readFileSync(path.join(appRoot, 'server.js'), 'utf8');
@@ -2847,7 +2880,7 @@ function checkCuefieldAutoMixGuard() {
   if (!/CUEFIELD_FEEDBACK_FILE/.test(desktopText) || !/appendCuefieldFeedback/.test(serverText) || !/readCuefieldFeedbackStats/.test(serverText) || /feedback-remote|CUEFIELD_FEEDBACK_REMOTE|https?:\/\/.*cuefield/i.test(serverText + integrationText)) {
     fail('Cuefield feedback must remain local and must not wire a remote feedback service');
   }
-  if (!/albumGaplessHandoff:\s*true/.test(integrationText) || !/resetCuefieldAutoMix\(opts\.cuefieldAutoMix/.test(playbackText) || !/scheduleCuefieldAutoMixPrepare\(token, idx/.test(playbackText) || !/audio\.onended = function \(\) \{[\s\S]{0,160}cuefieldAutoMixExecuting/.test(playbackText) || !/tickCuefieldAutoMix/.test(progressText) || !/resetCuefieldAutoMix\('manual-seek'\)/.test(progressText)) {
+  if (!/albumGaplessHandoff:\s*true/.test(integrationText) || !/resetCuefieldAutoMix\(opts\.cuefieldAutoMix/.test(playbackText) || !/scheduleCuefieldAutoMixPrepare\(token, idx/.test(playbackText) || !/audio\.onended = function \(\) \{[\s\S]{0,360}cuefieldAutoMixExecuting/.test(playbackText) || !/tickCuefieldAutoMix/.test(progressText) || !/resetCuefieldAutoMix\('manual-seek'\)/.test(progressText)) {
     fail('Cuefield must hand off through the proven player path and reset for manual seeking');
   }
   if (!/function claimCuefieldPreparedAudioForPlayback/.test(integrationText) || !/media === audio[\s\S]{0,100}claimCuefieldPreparedAudioForPlayback\(media\);[\s\S]{0,40}return;/.test(integrationText) || !/audio = opts\.preloadedAudio;[\s\S]{0,180}claimCuefieldPreparedAudioForPlayback\(audio\)/.test(playbackText) || !/preserveExecution:\s*!!opts\.cuefieldAutoMix/.test(playbackText)) {
@@ -5549,6 +5582,7 @@ async function main() {
   checkAudioOutputWorkflowPanelGuard();
   checkVolumeWheelStepGuard();
   checkNonCurrentAudioPrefetchGuard();
+  checkSleepTimerGuard();
   checkCuefieldAutoMixGuard();
   checkAlbumDetailGaplessGuard();
   checkInternalBetaPackagingGuard();
