@@ -690,6 +690,7 @@
       var locked = isLocked();
       document.body.classList.toggle('locked', locked);
       document.body.classList.toggle('unlocked', !locked);
+      if (locked && (hintVisible || hintTimer)) hideInteractionHint();
       if (lockText) lockText.textContent = locked ? '\u4e2d\u952e\u89e3\u9501' : '\u4e2d\u952e\u9501\u5b9a';
     }
     function setPointerCapture(active) {
@@ -1144,6 +1145,9 @@
       dragging = false;
       dragPointerId = null;
       setPointerCapture(false);
+      if (window.desktopOverlay && window.desktopOverlay.setLyricsDrag) {
+        window.desktopOverlay.setLyricsDrag(false).catch(function(){});
+      }
     }
     window.addEventListener('pointermove', function(evt){
       if (dragging && evt.buttons != null && (evt.buttons & 1) === 0) {
@@ -1186,6 +1190,9 @@
         dragLast.x = evt.screenX;
         dragLast.y = evt.screenY;
         setPointerCapture(true);
+        if (window.desktopOverlay && window.desktopOverlay.setLyricsDrag) {
+          window.desktopOverlay.setLyricsDrag(true).catch(function(){});
+        }
         try {
           if (stage.setPointerCapture) stage.setPointerCapture(evt.pointerId);
         } catch (e) {}

@@ -6,6 +6,7 @@ var desktopOverlayPushState = {
   lastLyricsCustomFontId: '',
   lastWallpaperKey: ''
 };
+var desktopLyricsPositionRevision = 0;
 var desktopWallpaperRuntimeState = {
   supported: true,
   active: false,
@@ -1056,7 +1057,10 @@ function desktopLyricsPayload(forceBeatMap, includeCustomFontData) {
     playing: !!playing,
     size: clampRange(Number(fx.desktopLyricsSize) || fxDefaults.desktopLyricsSize, 0.72, 1.55),
     opacity: clampRange(fx.desktopLyricsOpacity == null ? fxDefaults.desktopLyricsOpacity : Number(fx.desktopLyricsOpacity), 0.28, 1),
+    x: clampRange(fx.desktopLyricsX == null ? fxDefaults.desktopLyricsX : Number(fx.desktopLyricsX), 0.02, 0.98),
     y: clampRange(fx.desktopLyricsY == null ? fxDefaults.desktopLyricsY : Number(fx.desktopLyricsY), 0.08, 0.92),
+    display: String(fx.desktopLyricsDisplay || '').slice(0, 120),
+    positionRevision: Math.max(0, Math.round(Number(desktopLyricsPositionRevision) || 0)),
     clickThrough: isDevelopmentLockedFx('desktopLyricsClickThrough') ? true : fx.desktopLyricsClickThrough !== false,
     lyricGlowParticles: !!fx.lyricGlowParticles,
     cinema: fx.desktopLyricsCinema !== false,
@@ -1372,7 +1376,7 @@ function pushDesktopLyricsState(force) {
   var colors = payload.colors || {};
   var motion = payload.motion || {};
   var payloadCustomFontId = payload.customFont ? payload.customFont.id : '';
-  var key = payload.enabled + '|' + payload.text + '|' + Math.round(payload.progress * 1000) + '|' + Math.round((payload.progressSpan || 0) * 100) + '|' + payload.playing + '|' + payload.size + '|' + payload.opacity + '|' + payload.y + '|' + payload.clickThrough + '|' + payload.cinema + '|' + payload.highlightFollow + '|' + payload.frameRate + '|' + payload.fontFamily + '|' + payloadCustomFontId + '|' + payload.fontWeight + '|' + payload.letterSpacing + '|' + payload.lineHeight + '|' + payload.lyricScale + '|' + payload.feather + '|' + payload.beatMapKey + '|' + colors.primary + '|' + colors.secondary + '|' + colors.highlight + '|' + colors.glow + '|' + motion.lyricGlow + '|' + motion.lyricGlowBeat + '|' + Math.round((motion.lyricGlowStrength || 0) * 100) + '|' + Math.round((motion.highBloom || 0) * 100) + '|' + Math.round((motion.beatGlow || 0) * 100) + '|' + Math.round((motion.beatPulse || 0) * 100) + '|' + Math.round((motion.bass || 0) * 100);
+  var key = payload.enabled + '|' + payload.text + '|' + Math.round(payload.progress * 1000) + '|' + Math.round((payload.progressSpan || 0) * 100) + '|' + payload.playing + '|' + payload.size + '|' + payload.opacity + '|' + payload.x + '|' + payload.y + '|' + payload.display + '|' + payload.positionRevision + '|' + payload.clickThrough + '|' + payload.cinema + '|' + payload.highlightFollow + '|' + payload.frameRate + '|' + payload.fontFamily + '|' + payloadCustomFontId + '|' + payload.fontWeight + '|' + payload.letterSpacing + '|' + payload.lineHeight + '|' + payload.lyricScale + '|' + payload.feather + '|' + payload.beatMapKey + '|' + colors.primary + '|' + colors.secondary + '|' + colors.highlight + '|' + colors.glow + '|' + motion.lyricGlow + '|' + motion.lyricGlowBeat + '|' + Math.round((motion.lyricGlowStrength || 0) * 100) + '|' + Math.round((motion.highBloom || 0) * 100) + '|' + Math.round((motion.beatGlow || 0) * 100) + '|' + Math.round((motion.beatPulse || 0) * 100) + '|' + Math.round((motion.bass || 0) * 100);
   if (!force && key === desktopOverlayPushState.lastLyricsKey && now - desktopOverlayPushState.lyricsAt < 900) return;
   desktopOverlayPushState.lyricsAt = now;
   desktopOverlayPushState.lastLyricsKey = key;
@@ -1608,6 +1612,27 @@ function toggleFullscreen() {
       updateFxInputs();
       saveLyricLayout({ user: true, reason: 'desktopLyrics' });
       showToast(enabled ? '桌面歌词已开启' : '桌面歌词已关闭');
+    });
+  }
+  if (typeof api.onDesktopLyricsPositionState === 'function') {
+    api.onDesktopLyricsPositionState(function (payload) {
+      var revision = Math.max(0, Math.round(Number(payload && payload.positionRevision) || 0));
+      if (revision < desktopLyricsPositionRevision) return;
+      var nextX = clampRange(!payload || payload.x == null ? fxDefaults.desktopLyricsX : Number(payload.x), 0.02, 0.98);
+      var nextY = clampRange(!payload || payload.y == null ? fxDefaults.desktopLyricsY : Number(payload.y), 0.08, 0.92);
+      var nextDisplay = String(payload && payload.display || '').slice(0, 120);
+      var currentX = clampRange(fx.desktopLyricsX == null ? fxDefaults.desktopLyricsX : Number(fx.desktopLyricsX), 0.02, 0.98);
+      var currentY = clampRange(fx.desktopLyricsY == null ? fxDefaults.desktopLyricsY : Number(fx.desktopLyricsY), 0.08, 0.92);
+      var changed = Math.abs(nextX - currentX) > 0.001
+        || Math.abs(nextY - currentY) > 0.001
+        || nextDisplay !== String(fx.desktopLyricsDisplay || '');
+      desktopLyricsPositionRevision = revision;
+      if (!changed) return;
+      fx.desktopLyricsX = nextX;
+      fx.desktopLyricsY = nextY;
+      fx.desktopLyricsDisplay = nextDisplay;
+      updateFxInputs();
+      saveLyricLayout({ user: true, reason: 'desktopLyricsDrag' });
     });
   }
 

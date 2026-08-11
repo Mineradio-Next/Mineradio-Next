@@ -76,6 +76,7 @@ function updateDevelopmentFxControls() {
   [
     ['desktopLyrics', 'fx-desktoplyricssize'],
     ['desktopLyrics', 'fx-desktoplyricsopacity'],
+    ['desktopLyrics', 'fx-desktoplyricsx'],
     ['desktopLyrics', 'fx-desktoplyricsy'],
     ['wallpaperMode', 'fx-wallpaperopacity']
   ].forEach(function (item) {
@@ -94,6 +95,43 @@ function updateDevelopmentFxControls() {
   document.querySelectorAll('#wallpaper-fps-seg [data-wallpaper-fps]').forEach(function (btn) {
     btn.disabled = wallpaperFpsLocked;
   });
+  var desktopLyricsLocked = isDevelopmentLockedFx('desktopLyrics');
+  document.querySelectorAll('#desktop-lyrics-position-seg [data-desktop-lyrics-position]').forEach(function (btn) {
+    btn.disabled = desktopLyricsLocked;
+  });
+}
+function updateDesktopLyricsPositionControls() {
+  var x = clampRange(fx.desktopLyricsX == null ? fxDefaults.desktopLyricsX : Number(fx.desktopLyricsX), 0.02, 0.98);
+  document.querySelectorAll('#desktop-lyrics-position-seg [data-desktop-lyrics-position]').forEach(function (btn) {
+    var position = btn.getAttribute('data-desktop-lyrics-position');
+    var active = (position === 'left' && x <= 0.025)
+      || (position === 'center' && Math.abs(x - 0.5) < 0.005)
+      || (position === 'right' && x >= 0.975);
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+function bumpDesktopLyricsPositionRevision() {
+  desktopLyricsPositionRevision = Math.max(0, Math.round(Number(desktopLyricsPositionRevision) || 0)) + 1;
+  return desktopLyricsPositionRevision;
+}
+function setDesktopLyricsPositionPreset(position) {
+  position = String(position || '').toLowerCase();
+  var positions = { left: 0.02, center: 0.5, right: 0.98 };
+  if (position === 'reset') {
+    fx.desktopLyricsX = fxDefaults.desktopLyricsX;
+    fx.desktopLyricsY = fxDefaults.desktopLyricsY;
+  } else if (Object.prototype.hasOwnProperty.call(positions, position)) {
+    fx.desktopLyricsX = positions[position];
+  } else {
+    return false;
+  }
+  bumpDesktopLyricsPositionRevision();
+  updateFxInputs();
+  pushDesktopLyricsState(true);
+  saveLyricLayout({ user: true, reason: 'desktopLyricsPosition' });
+  showToast(position === 'reset' ? '桌面歌词位置已复位' : ('桌面歌词已移到' + (position === 'left' ? '左侧' : position === 'right' ? '右侧' : '中间')));
+  return true;
 }
 function updateDesktopLyricsFpsControls() {
   var fps = normalizeDesktopLyricsFps(fx.desktopLyricsFps);
@@ -272,7 +310,9 @@ function updateFxInputs() {
   setRange('fx-playlistclose', fx.playlistPanelCloseDuration);
   setRange('fx-desktoplyricssize', fx.desktopLyricsSize);
   setRange('fx-desktoplyricsopacity', fx.desktopLyricsOpacity);
+  setRange('fx-desktoplyricsx', fx.desktopLyricsX);
   setRange('fx-desktoplyricsy', fx.desktopLyricsY);
+  updateDesktopLyricsPositionControls();
   setRange('fx-wallpaperopacity', fx.wallpaperOpacity);
   setRange('fx-shelfsize', fx.shelfSize);
   setRange('fx-shelfx', fx.shelfOffsetX);
@@ -485,6 +525,11 @@ function resetFxSliderValue(id, key, btn) {
   syncFxUniforms();
   if (/^shelf/.test(key) && shelfManager && shelfManager.refreshTheme) shelfManager.refreshTheme();
   syncLyricRealtimeFxChange(key);
+  if (/^(desktopLyricsSize|desktopLyricsOpacity|desktopLyricsX|desktopLyricsY)$/.test(key)) {
+    if (key === 'desktopLyricsX' || key === 'desktopLyricsY') bumpDesktopLyricsPositionRevision();
+    updateDesktopLyricsPositionControls();
+    pushDesktopLyricsState(true);
+  }
   saveLyricLayout({ syncDisk: key === 'controlGlassChromaticOffset', user: true, reason: 'reset:' + key });
   animateFxResetButton(btn);
   showToast('已恢复默认数值');
@@ -809,6 +854,7 @@ function relabelFxPanelControls() {
   setFxSliderLabel('fx-lyrictilty', '左右旋转');
   setFxSliderLabel('fx-desktoplyricssize', '桌面歌词大小');
   setFxSliderLabel('fx-desktoplyricsopacity', '桌面歌词透明度');
+  setFxSliderLabel('fx-desktoplyricsx', '桌面歌词左右');
   setFxSliderLabel('fx-desktoplyricsy', '桌面歌词高度');
   setFxSliderLabel('fx-wallpaperopacity', '壁纸透明度');
   setFxSliderLabel('fx-shelfsize', '歌单架大小');

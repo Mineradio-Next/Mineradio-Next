@@ -146,7 +146,9 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('t-desktopLyricsHighlight', '桌面歌词高亮跟随', '桌面逐字高亮'),
         fxConsoleItem('fx-desktoplyricssize', '桌面歌词大小', '桌面字号'),
         fxConsoleItem('fx-desktoplyricsopacity', '桌面歌词透明度', '桌面歌词透明'),
+        fxConsoleItem('fx-desktoplyricsx', '桌面歌词左右', '桌面水平位置'),
         fxConsoleItem('fx-desktoplyricsy', '桌面歌词高度', '桌面位置'),
+        fxConsoleItem('desktop-lyrics-position-seg', '桌面歌词快捷定位', '左侧 居中 右侧 复位'),
         fxConsoleItem('desktop-lyrics-fps-seg', '桌面歌词帧率', '24 30 60 120 无上限 FPS')
       ] }
     ]

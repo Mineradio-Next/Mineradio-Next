@@ -222,7 +222,8 @@ function readSavedLyricLayout() {
       : (raw.backgroundColorCustom === true || (raw.backgroundColorCustom !== false && savedBgColor !== '#000000') || savedBgOpacity < 1);
     var savedBgMedia = normalizeCustomBackgroundMedia(raw.backgroundMedia || raw.backgroundImage);
     var savedBgAlbumCover = raw.backgroundAlbumCover === true || !!(savedBgMedia && savedBgMedia.type === 'album');
-    var desktopLyricsSchemaReady = raw.desktopLyricsSchema === 'desktop-lyrics-v3';
+    var desktopLyricsSchemaV4 = raw.desktopLyricsSchema === 'desktop-lyrics-v4';
+    var desktopLyricsSchemaReady = desktopLyricsSchemaV4 || raw.desktopLyricsSchema === 'desktop-lyrics-v3';
     var savedShelfCameraMode = normalizeShelfCameraMode(raw.shelfCameraMode || fxDefaults.shelfCameraMode);
     var savedShelfAngleManual = raw.shelfAngleYManual === true;
     var savedShelfAngle = savedShelfAngleManual
@@ -323,7 +324,11 @@ function readSavedLyricLayout() {
       desktopLyrics: raw.desktopLyrics === true,
       desktopLyricsSize: clampRange(Number(raw.desktopLyricsSize) || fxDefaults.desktopLyricsSize, 0.72, 1.55),
       desktopLyricsOpacity: clampRange(raw.desktopLyricsOpacity == null ? fxDefaults.desktopLyricsOpacity : Number(raw.desktopLyricsOpacity), 0.28, 1),
+      desktopLyricsX: desktopLyricsSchemaV4
+        ? clampRange(raw.desktopLyricsX == null ? fxDefaults.desktopLyricsX : Number(raw.desktopLyricsX), 0.02, 0.98)
+        : fxDefaults.desktopLyricsX,
       desktopLyricsY: clampRange(raw.desktopLyricsY == null ? fxDefaults.desktopLyricsY : Number(raw.desktopLyricsY), 0.08, 0.92),
+      desktopLyricsDisplay: desktopLyricsSchemaV4 ? String(raw.desktopLyricsDisplay || '').slice(0, 120) : '',
       desktopLyricsClickThrough: desktopLyricsSchemaReady ? raw.desktopLyricsClickThrough === true : fxDefaults.desktopLyricsClickThrough,
       desktopLyricsCinema: desktopLyricsSchemaReady ? raw.desktopLyricsCinema !== false : fxDefaults.desktopLyricsCinema,
       desktopLyricsHighlight: desktopLyricsSchemaReady ? raw.desktopLyricsHighlight === true : fxDefaults.desktopLyricsHighlight,
@@ -555,6 +560,8 @@ function currentFxAutosaveTouchedKeys(reason, payload) {
     desktopLyrics: ['desktopLyrics'],
     desktopLyricsClickThrough: ['desktopLyricsClickThrough'],
     desktopLyricsFps: ['desktopLyricsFps'],
+    desktopLyricsPosition: ['desktopLyricsX', 'desktopLyricsY', 'desktopLyricsDisplay'],
+    desktopLyricsDrag: ['desktopLyricsX', 'desktopLyricsY', 'desktopLyricsDisplay'],
     performanceBackground: ['performanceBackground', 'liveBackgroundKeep'],
     performanceQuality: ['performanceQuality'],
     liveBackgroundKeep: ['performanceBackground', 'liveBackgroundKeep'],
@@ -589,7 +596,7 @@ function scopeCurrentFxAutosavePayload(payload, opts) {
     autosaveUser: true,
     autosaveReason: payload.autosaveReason || currentFxAutosaveSaveReason(opts, 'scoped'),
     visualPresetSchema: payload.visualPresetSchema || base.visualPresetSchema || VISUAL_PRESET_SCHEMA,
-    desktopLyricsSchema: payload.desktopLyricsSchema || base.desktopLyricsSchema || 'desktop-lyrics-v3'
+    desktopLyricsSchema: payload.desktopLyricsSchema || base.desktopLyricsSchema || 'desktop-lyrics-v4'
   });
   keys.forEach(function (key) {
     if (Object.prototype.hasOwnProperty.call(payload, key)) scoped[key] = payload[key];
@@ -640,7 +647,7 @@ function saveCurrentFxAutosavePatch(patch, opts) {
     autosaveReason: currentFxAutosaveSaveReason(opts, 'patch')
   });
   if (!payload.visualPresetSchema) payload.visualPresetSchema = VISUAL_PRESET_SCHEMA;
-  if (!payload.desktopLyricsSchema) payload.desktopLyricsSchema = 'desktop-lyrics-v3';
+  if (!payload.desktopLyricsSchema) payload.desktopLyricsSchema = 'desktop-lyrics-v4';
   payload = scopeCurrentFxAutosavePayload(payload, opts);
   if (shouldSkipCurrentFxAutosaveWrite(payload, opts)) return false;
   return writeCurrentFxAutosavePayload(payload, opts);
@@ -718,7 +725,7 @@ function saveLyricLayout(opts) {
       autosaveUser: opts.user === true,
       autosaveReason: currentFxAutosaveSaveReason(opts, 'layout'),
       visualPresetSchema: VISUAL_PRESET_SCHEMA,
-      desktopLyricsSchema: 'desktop-lyrics-v3',
+      desktopLyricsSchema: 'desktop-lyrics-v4',
       preset: presetForSave,
       intensity: layoutNumber(fx.intensity, fxDefaults.intensity, 0.2, 1.6),
       cinemaShake: layoutNumber(fx.cinemaShake, fxDefaults.cinemaShake, 0, 1.8),
@@ -809,7 +816,9 @@ function saveLyricLayout(opts) {
       desktopLyrics: !!fx.desktopLyrics,
       desktopLyricsSize: clampRange(Number(fx.desktopLyricsSize) || fxDefaults.desktopLyricsSize, 0.72, 1.55),
       desktopLyricsOpacity: clampRange(fx.desktopLyricsOpacity == null ? fxDefaults.desktopLyricsOpacity : Number(fx.desktopLyricsOpacity), 0.28, 1),
+      desktopLyricsX: clampRange(fx.desktopLyricsX == null ? fxDefaults.desktopLyricsX : Number(fx.desktopLyricsX), 0.02, 0.98),
       desktopLyricsY: clampRange(fx.desktopLyricsY == null ? fxDefaults.desktopLyricsY : Number(fx.desktopLyricsY), 0.08, 0.92),
+      desktopLyricsDisplay: String(fx.desktopLyricsDisplay || '').slice(0, 120),
       desktopLyricsClickThrough: fx.desktopLyricsClickThrough === true,
       desktopLyricsCinema: fx.desktopLyricsCinema !== false,
       desktopLyricsHighlight: fx.desktopLyricsHighlight === true,
