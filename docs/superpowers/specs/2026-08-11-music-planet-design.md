@@ -22,8 +22,10 @@ Add a Mineradio-native spatial library view that groups the user's currently ava
 ## Scene And Interaction
 
 - Use a separate transparent Three.js renderer, scene, perspective camera, raycaster, and root group.
-- The current track is the central node. Artist planets orbit the center; their song satellites use smaller nearby orbits and faint connector lines.
-- Use actual cover images on song nodes when they can be loaded. Failed or missing covers fall back to deterministic artist colors and initials.
+- The current track is the central square cover and visual anchor. Artist entries use named constellation markers distributed through a stable golden-angle field, not solid planets on concentric orbital bands.
+- The resting scene shows only the current cover, artist markers, sparse stars, and quiet center-to-artist relationships. Song nodes remain hidden until their artist is selected.
+- Selecting an artist dims unrelated markers and expands only that artist's song covers as a local branch. This keeps the hierarchy legible and makes selection produce a meaningful spatial response.
+- Use actual cover images on expanded song nodes when they can be loaded. Failed or missing covers fall back to restrained deterministic colors and initials.
 - Drag rotates the root, wheel or trackpad zooms within a fixed range, and pointer hover highlights a node without changing layout.
 - Clicking an artist opens its song drawer. Clicking a song node or drawer row starts that song through the existing queue and playback path.
 - Drawer actions support direct play, next-song insertion, and collection through existing Mineradio functions.
@@ -32,7 +34,8 @@ Add a Mineradio-native spatial library view that groups the user's currently ava
 ## Visual System
 
 - Keep the original dark glass, restrained borders, compact type, and current accent color.
-- The scene uses a quiet star field, thin orbital paths, album-cover nodes, and one selected-node halo. It does not use gradient orbs, decorative bokeh, copied LX artwork, or a second brand palette.
+- The scene uses a quiet star field, album-cover nodes, typographic artist markers, and selection-only relationship lines. It does not use solid rainbow spheres, stacked elliptical orbits, gradient orbs, decorative bokeh, copied LX artwork, or a second brand palette.
+- Artist markers stay desaturated and typographic. Color is a minor identity cue rather than the dominant object, preserving Mineradio's dark, restrained visual language.
 - A compact header shows `MUSIC MAP / 音乐星图`, available artist and track counts, a reset-view icon, and close.
 - The lower hint names only the direct gestures. The side drawer uses the existing dense song-row language and never nests cards.
 - At `390 x 844`, the scene remains full viewport, controls stay inside safe bounds, and the drawer becomes a bottom sheet with a bounded track list.
