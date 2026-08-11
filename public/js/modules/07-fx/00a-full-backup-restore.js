@@ -52,7 +52,8 @@ var MINERADIO_FULL_BACKUP_CATEGORIES = {
       'mineradio-startup-autoplay-v1',
       'mineradio-startup-fast-skip-v1',
       'mineradio-startup-resume-mode-v1',
-      'mineradio-cuefield-automix-v1'
+      'mineradio-cuefield-automix-v1',
+      'mineradio-listening-effects-v1'
     ]
   }
 };

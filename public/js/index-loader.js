@@ -64,6 +64,7 @@
     'js/modules/05-playback/07-search.js',
     'js/modules/05-playback/07a-backing-track-discovery.js',
     'js/modules/05-playback/08-audio-graph-controls.js',
+    'js/modules/05-playback/08a-listening-effects.js',
     'js/modules/05-playback/09-queue-snapshot-autoplay.js',
     'js/modules/05-playback/10-queue-actions.js',
     'js/modules/05-playback/11-provider-fallback.js',

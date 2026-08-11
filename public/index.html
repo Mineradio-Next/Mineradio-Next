@@ -964,6 +964,26 @@
             <button data-startup-resume-mode="resume">按上次进度</button>
             <button data-startup-resume-mode="restart">重播整首</button>
           </div>
+          <div class="fx-section-label" id="listening-effects-section">听感调节</div>
+          <div class="fx-toggle-grid">
+            <div class="fx-toggle" id="t-listeningEffects" data-listening-toggle title="将均衡器与防削波应用到当前播放" aria-label="听感调节">
+              <span>听感调节</span><span class="dot"></span>
+            </div>
+          </div>
+          <div class="fx-seg listening-effects-presets" id="listening-effects-presets" role="group" aria-label="听感预设">
+            <button type="button" data-listening-preset="flat">原声</button>
+            <button type="button" data-listening-preset="bass">低频</button>
+            <button type="button" data-listening-preset="vocal">人声</button>
+            <button type="button" data-listening-preset="live">现场</button>
+            <button type="button" data-listening-preset="night">夜间</button>
+            <button type="button" data-listening-preset="custom">自定义</button>
+          </div>
+          <div class="fx-slider"><label>80 Hz</label><input id="audio-eq-80" data-listening-band-index="0" type="range" min="-9" max="9" step="0.5"><output></output></div>
+          <div class="fx-slider"><label>250 Hz</label><input id="audio-eq-250" data-listening-band-index="1" type="range" min="-9" max="9" step="0.5"><output></output></div>
+          <div class="fx-slider"><label>1 kHz</label><input id="audio-eq-1k" data-listening-band-index="2" type="range" min="-9" max="9" step="0.5"><output></output></div>
+          <div class="fx-slider"><label>4 kHz</label><input id="audio-eq-4k" data-listening-band-index="3" type="range" min="-9" max="9" step="0.5"><output></output></div>
+          <div class="fx-slider"><label>12 kHz</label><input id="audio-eq-12k" data-listening-band-index="4" type="range" min="-9" max="9" step="0.5"><output></output></div>
+          <div id="listening-effects-status" class="listening-effects-status" data-listening-status role="status" aria-live="polite">播放后可应用听感调节</div>
           <div class="fx-section-label">输出接口</div>
           <div class="audio-output-section" id="audio-output-panel">
             <div class="quality-output-head"><span>播放输出设备</span><span class="quality-output-actions"><button class="quality-output-refresh" type="button"
@@ -1391,6 +1411,40 @@
                 <input id="fade-out-slider" type="range" min="0" max="3" step="0.05" value="0.40" aria-label="音乐淡出秒数">
                 <span id="fade-out-value">0.40s</span>
               </div>
+            </div>
+          </div>
+          <div id="listening-effects-control" class="listening-effects-control">
+            <button id="listening-effects-btn" class="ctrl-btn" type="button" onclick="toggleListeningEffectsPanel(event)"
+              title="听感调节" aria-label="听感调节" aria-haspopup="true" aria-expanded="false">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h8M16 7h4M4 17h4M12 17h8" />
+                <circle cx="14" cy="7" r="2" />
+                <circle cx="10" cy="17" r="2" />
+              </svg>
+            </button>
+            <div class="listening-effects-popover" onclick="event.stopPropagation()">
+              <div class="listening-effects-popover-head">
+                <span>听感调节</span>
+                <button class="listening-effects-inline-toggle" type="button" data-listening-toggle role="switch" aria-label="听感调节开关">
+                  <span>启用</span><i></i>
+                </button>
+              </div>
+              <div class="listening-effects-mini-presets" role="group" aria-label="听感预设">
+                <button type="button" data-listening-preset="flat">原声</button>
+                <button type="button" data-listening-preset="bass">低频</button>
+                <button type="button" data-listening-preset="vocal">人声</button>
+                <button type="button" data-listening-preset="live">现场</button>
+                <button type="button" data-listening-preset="night">夜间</button>
+                <button type="button" data-listening-preset="custom">自定义</button>
+              </div>
+              <div class="listening-effects-mini-bands">
+                <label><span>80</span><input data-listening-band-index="0" type="range" min="-9" max="9" step="0.5"><output></output></label>
+                <label><span>250</span><input data-listening-band-index="1" type="range" min="-9" max="9" step="0.5"><output></output></label>
+                <label><span>1k</span><input data-listening-band-index="2" type="range" min="-9" max="9" step="0.5"><output></output></label>
+                <label><span>4k</span><input data-listening-band-index="3" type="range" min="-9" max="9" step="0.5"><output></output></label>
+                <label><span>12k</span><input data-listening-band-index="4" type="range" min="-9" max="9" step="0.5"><output></output></label>
+              </div>
+              <div class="listening-effects-mini-status" data-listening-status role="status" aria-live="polite">播放后可应用听感调节</div>
             </div>
           </div>
           <button id="controls-hide-btn" class="ctrl-btn active" onclick="toggleControlsAutoHide()" title="控制条自动隐藏"><svg

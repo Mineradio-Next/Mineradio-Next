@@ -1,5 +1,6 @@
 applyDiyMode(diyPlayerMode, { save: false });
 bindFxPanel();
+if (typeof bindListeningEffectsControls === 'function') bindListeningEffectsControls();
 applySavedLyricPaletteState();
 bindQualityControl();
 bindAudioOutputControls();

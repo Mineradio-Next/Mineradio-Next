@@ -222,6 +222,7 @@ function disposeCuefieldPreparedAudioGraph(media) {
   [graph.source, graph.analyser, graph.beatAnalyser, graph.gainNode].forEach(function (node) {
     try { if (node) node.disconnect(); } catch (_) { }
   });
+  if (typeof disconnectListeningEffectsGraph === 'function') disconnectListeningEffectsGraph(graph.effects);
   try { delete media.__mineradioPreparedAudioGraph; } catch (_) { }
 }
 
@@ -385,7 +386,7 @@ function cuefieldCreatePreparedAudioGraph(media) {
   try {
     if ((!audioCtx || audioCtx.state === 'closed') && typeof initAudio === 'function') initAudio();
     if (!audioCtx || audioCtx.state === 'closed' || !audioCtx.createMediaElementSource) return null;
-    graph = { context: audioCtx, source: null, analyser: null, beatAnalyser: null, gainNode: null, adopted: false };
+    graph = { context: audioCtx, source: null, analyser: null, beatAnalyser: null, gainNode: null, effects: null, adopted: false };
     graph.source = audioCtx.createMediaElementSource(media);
     // A media element cannot be safely returned to direct-output mode after a
     // MediaElementSource has been created for it. Mark it immediately so a
@@ -399,9 +400,15 @@ function cuefieldCreatePreparedAudioGraph(media) {
     graph.beatAnalyser.fftSize = typeof BEAT_FFT_SIZE !== 'undefined' ? BEAT_FFT_SIZE : 1024;
     graph.beatAnalyser.smoothingTimeConstant = 0.10;
     graph.gainNode.gain.value = 0;
+    if (typeof createListeningEffectsGraph === 'function') graph.effects = createListeningEffectsGraph(audioCtx);
     graph.source.connect(graph.analyser);
     graph.source.connect(graph.beatAnalyser);
-    graph.analyser.connect(graph.gainNode);
+    if (graph.effects && graph.effects.input && graph.effects.output) {
+      graph.analyser.connect(graph.effects.input);
+      graph.effects.output.connect(graph.gainNode);
+    } else {
+      graph.analyser.connect(graph.gainNode);
+    }
     graph.gainNode.connect(audioCtx.destination);
     media.__mineradioPreparedAudioGraph = graph;
     return graph;
@@ -410,6 +417,7 @@ function cuefieldCreatePreparedAudioGraph(media) {
       [graph.source, graph.analyser, graph.beatAnalyser, graph.gainNode].forEach(function (node) {
         try { if (node) node.disconnect(); } catch (_) { }
       });
+      if (typeof disconnectListeningEffectsGraph === 'function') disconnectListeningEffectsGraph(graph.effects);
     }
     if (media && media.__mineradioMediaSourceBound) media.__mineradioPreparedGraphFailed = true;
     try { delete media.__mineradioPreparedAudioGraph; } catch (_) { }

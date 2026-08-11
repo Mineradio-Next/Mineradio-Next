@@ -42,6 +42,7 @@ test('collects only present allowlisted settings and keeps raw storage strings',
     'mineradio-local-playlist-files-v1': '[{"id":1}]',
     'mineradio-custom-lyrics-v1': '{"song":"line"}',
     'mineradio-diy-player-mode-v1': '1',
+    'mineradio-listening-effects-v1': '{"enabled":true}',
     'mineradio-login-cookie-export-v1': 'sensitive',
     'mineradio-search-history': '["ignored"]'
   });
@@ -53,7 +54,8 @@ test('collects only present allowlisted settings and keeps raw storage strings',
   assert.equal(result.payload.categories.library['mineradio-local-playlist-files-v1'], '[{"id":1}]');
   assert.equal(result.payload.categories.lyrics['mineradio-custom-lyrics-v1'], '{"song":"line"}');
   assert.equal(result.payload.categories.preferences['mineradio-diy-player-mode-v1'], '1');
-  assert.equal(result.summary.total, 3);
+  assert.equal(result.payload.categories.preferences['mineradio-listening-effects-v1'], '{"enabled":true}');
+  assert.equal(result.summary.total, 4);
   assert.doesNotMatch(JSON.stringify(result.payload), /sensitive|search-history/);
 });
 

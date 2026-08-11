@@ -2,6 +2,7 @@
 
 var FX_CONSOLE_TABS = [
   { key: 'home', label: '常用' },
+  { key: 'sound', label: '声音' },
   { key: 'interface', label: '界面' },
   { key: 'lyrics', label: '歌词' },
   { key: 'motion', label: '动效' },
@@ -30,6 +31,25 @@ var FX_CONSOLE_LAYOUT = [
       ] },
       { key: 'reset', title: '恢复与整理', hint: '恢复全部默认参数', items: [
         fxConsoleItem({ selector: '.fx-actions' }, '恢复默认', '重置 全部默认')
+      ] }
+    ]
+  },
+  {
+    key: 'sound',
+    groups: [
+      { key: 'listening-effects', title: '听感调节', hint: '均衡器预设和播放动态保护', open: true, items: [
+        fxConsoleItem('listening-effects-section', '听感调节', '均衡器 预设 原声 低频 人声 现场 夜间 自定义'),
+        fxConsoleItem('t-listeningEffects', '听感调节开关', '均衡器 开关 原声', false),
+        fxConsoleItem('listening-effects-presets', '听感预设', '原声 低频 人声 现场 夜间 自定义'),
+        fxConsoleItem('audio-eq-80', '80 Hz', '均衡器 低频 次低频'),
+        fxConsoleItem('audio-eq-250', '250 Hz', '均衡器 低频'),
+        fxConsoleItem('audio-eq-1k', '1 kHz', '均衡器 中频'),
+        fxConsoleItem('audio-eq-4k', '4 kHz', '均衡器 高频 人声'),
+        fxConsoleItem('audio-eq-12k', '12 kHz', '均衡器 高频 空气'),
+        fxConsoleItem('listening-effects-status', '播放状态', '已应用 原声直出 回退', false)
+      ] },
+      { key: 'output', title: '播放输出', hint: '音频输出设备和路由面板', items: [
+        fxConsoleItem('audio-output-panel', '播放输出设备', '声卡 耳机 扬声器 路由', false)
       ] }
     ]
   },
@@ -260,9 +280,6 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('t-startupAutoplay', '启动自动播放', '打开软件继续播放'),
         fxConsoleItem('t-startupFastSkip', '秒启动跳过启动页', '快速启动'),
         fxConsoleItem('startup-resume-mode-seg', '恢复播放位置', '按上次进度 重播整首')
-      ] },
-      { key: 'output', title: '播放输出', hint: '音频输出设备和路由面板', items: [
-        fxConsoleItem('audio-output-panel', '播放输出设备', '声卡 耳机 扬声器 路由', false)
       ] },
       { key: 'performance', title: '性能与后台', hint: '画质档位、后台渲染和直播保持', items: [
         fxConsoleItem('performance-quality-seg', '画质档位', '低配 中 高 超高 渲染质量'),

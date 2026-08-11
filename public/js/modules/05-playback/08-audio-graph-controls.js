@@ -3,6 +3,10 @@ function audioGraphHealthy() {
   return !!(audio && audioReady && audioCtx && audioCtx.state !== 'closed' && source && audioSourceMedia === audio && analyser && beatAnalyser && (gainNode || analysisSinkNode));
 }
 function disconnectAudioGraphNodes(keepSource) {
+  if (typeof disconnectListeningEffectsGraph === 'function' && typeof listeningEffectsGraph !== 'undefined' && listeningEffectsGraph) {
+    disconnectListeningEffectsGraph(listeningEffectsGraph);
+    listeningEffectsGraph = null;
+  }
   [source, analyser, beatAnalyser, gainNode, analysisSinkNode].forEach(function (node) {
     if (!node) return;
     try { node.disconnect(); } catch (e) { }
@@ -96,11 +100,14 @@ function resetPlaybackAudioGraphForSourceSwitch(reason) {
     analyser = preparedGraph.analyser;
     beatAnalyser = preparedGraph.beatAnalyser;
     gainNode = preparedGraph.gainNode;
+    listeningEffectsGraph = preparedGraph.effects || null;
     analysisSinkNode = null;
     audioSourceMedia = audio;
     audio.__mineradioMediaSourceBound = true;
     preparedGraph.adopted = true;
     audioReady = true;
+    if (typeof applyListeningEffectsToGraph === 'function') applyListeningEffectsToGraph(listeningEffectsGraph, false);
+    if (typeof updateListeningEffectsControls === 'function') updateListeningEffectsControls();
   }
 }
 function initAudio() {
@@ -174,6 +181,10 @@ function initAudio() {
   analyser = audioCtx.createAnalyser();
   beatAnalyser = audioCtx.createAnalyser();
   gainNode = sourceUsesCapture ? null : audioCtx.createGain();
+  listeningEffectsGraph = null;
+  if (!sourceUsesCapture && typeof createListeningEffectsGraph === 'function') {
+    listeningEffectsGraph = createListeningEffectsGraph(audioCtx);
+  }
   analysisSinkNode = sourceUsesCapture ? audioCtx.createGain() : null;
   if (analysisSinkNode) analysisSinkNode.gain.value = 0;
   analyser.fftSize = FFT_SIZE;
@@ -183,7 +194,12 @@ function initAudio() {
   source.connect(analyser);
   source.connect(beatAnalyser);
   if (gainNode) {
-    analyser.connect(gainNode);
+    if (listeningEffectsGraph && listeningEffectsGraph.input && listeningEffectsGraph.output) {
+      analyser.connect(listeningEffectsGraph.input);
+      listeningEffectsGraph.output.connect(gainNode);
+    } else {
+      analyser.connect(gainNode);
+    }
     gainNode.connect(audioCtx.destination);
   } else if (analysisSinkNode) {
     analyser.connect(analysisSinkNode);
@@ -196,6 +212,7 @@ function initAudio() {
   resetRealtimeBeatEngine();
   audioReady = true;
   applyAudioOutputDevice(audio);
+  if (typeof updateListeningEffectsControls === 'function') updateListeningEffectsControls();
   return true;
 }
 function readPlaybackAnalyserSignal() {

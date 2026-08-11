@@ -5332,13 +5332,14 @@ function checkFxConsoleWorkspaceGuard() {
   const stageLyrics = fs.readFileSync(stageLyricsPath, 'utf8');
   const starRiver = fs.readFileSync(starRiverPath, 'utf8');
   const maskTexture = fs.readFileSync(maskTexturePath, 'utf8');
-  const labels = ['常用', '界面', '歌词', '动效', '歌单架', '系统'];
+  const labels = ['常用', '声音', '界面', '歌词', '动效', '歌单架', '系统'];
   if (!labels.every(label => workspace.includes(`label: '${label}'`))) fail('task-first visual console tabs are incomplete');
   if (!loader.includes("js/modules/07-fx/09-console-workspace.js")) fail('visual console workspace module is not loaded');
   if (!/data-console-layout['"],\s*['"]task-first-v2/.test(workspace) && !/setAttribute\('data-console-layout', 'task-first-v2'\)/.test(workspace)) fail('visual console layout marker is missing');
   if (!/node\.parentNode === panel/.test(workspace)) fail('visual console old-shell cleanup can remove reparented controls');
   if (!/FX_CONSOLE_HISTORY_LIMIT\s*=\s*40/.test(workspace) || !/fxConsoleChangedKeys/.test(workspace)) fail('scoped session history guard is missing');
-  if (!/home:\s*1[\s\S]*interface:\s*1[\s\S]*lyrics:\s*1[\s\S]*motion:\s*1[\s\S]*shelf:\s*1[\s\S]*system:\s*1/.test(panel)) fail('visual console tab allow-list is incomplete');
+  if (!/home:\s*1[\s\S]*sound:\s*1[\s\S]*interface:\s*1[\s\S]*lyrics:\s*1[\s\S]*motion:\s*1[\s\S]*shelf:\s*1[\s\S]*system:\s*1/.test(panel)) fail('visual console tab allow-list is incomplete');
+  if (!loader.includes("js/modules/05-playback/08a-listening-effects.js") || !/id="listening-effects-control"/.test(html) || !/data-listening-band-index="4"/.test(html) || !/key:\s*'sound'/.test(workspace)) fail('listening effects module, simple-mode entry, five-band controls, or sound tab is incomplete');
   if (!/\.fx-console-toolbar/.test(css) || !/\.fx-console-group/.test(css) || !/prefers-reduced-motion:reduce/.test(css)) fail('visual console layout or reduced-motion styles are missing');
   if (!/fxConsoleSearchHitDelayTimer/.test(workspace) || !/outline-offset:\s*-2px/.test(css) || !/\.bg-media-actions,[\s\S]{0,160}\.wallpaper-engine-actions/.test(css)) fail('visual console search highlight or background media responsive layout is missing');
   const clarityButtonsReady = ['1', '2', '3', '4'].every(value => html.includes(`data-lyric-texture-clarity="${value}"`));
@@ -5350,7 +5351,7 @@ function checkFxConsoleWorkspaceGuard() {
   if (!/frameCommits:\s*\[\]/.test(rowLayers) || !/function commitDeferredLyricQualityRows/.test(rowLayers) || !/lyricQualityState\.deferFinalize \|\| row\.qualityWanted !== true/.test(qualityCommitBody) || /discardLyricRowPendingQuality/.test(qualityCommitBody) || !/commitDeferredLyricQualityRows\(\)/.test(rowLayers) || !/function disposeLyricQualityOwner/.test(rowLayers) || !/__mineradioLyricQualityDisposed/.test(rowLayers) || !/disposeLyricQualityOwner\(lyricData\)/.test(starRiver) || !/qualityProjectedPoolBytes/.test(rowLayers) || !/function lyricQualityHasPendingTexture/.test(rowLayers)) fail('lyric quality deferred commit, disposed-owner cancellation, or bounded atomic tier replacement guard is incomplete');
   const fpsModesReady = ['vsync', '45', '60', '75', '90', '120'].every(value => html.includes(`data-foreground-fps="${value}"`));
   if (!fpsModesReady || !/function setForegroundFpsMode/.test(panel) || !/foregroundFpsMode/.test(persistence) || !/foreground-fps-seg/.test(workspace + css) || !/foregroundFpsMode:\s*'vsync'/.test(defaults) || !packagedDefaultsUseRuntimeDefaults) fail('default VSync and optional foreground FPS controls are incomplete');
-  console.log('[OK] Six task tabs, explicit grouping, scoped history, safe DOM cleanup, search, and responsive styles are wired.');
+  console.log('[OK] Seven task tabs, listening controls, explicit grouping, scoped history, safe DOM cleanup, search, and responsive styles are wired.');
 }
 
 function checkFirstLaunchDefaultsAndSplashGuard() {
