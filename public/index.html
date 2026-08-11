@@ -262,11 +262,11 @@
             </button>
 
             <button class="home-insight-card home-ranking-entry home-radio-entry" type="button"
-              onclick="openHomeDashboardRadio()" aria-label="打开平台推荐">
+              onclick="openMusicRadio('all')" aria-label="打开音乐电台">
               <span class="home-ranking-entry-copy">
-                <span class="home-insight-kicker">PLATFORM PICKS · 平台推荐</span>
-                <span class="home-ranking-entry-title">推荐电台 / 歌单</span>
-                <span class="home-ranking-entry-sub">读取每日歌曲、推荐歌单与推荐 Feed，不用关键词搜索</span>
+                <span class="home-insight-kicker">MUSIC RADIO · 音乐电台</span>
+                <span class="home-ranking-entry-title">按状态生成连续播放</span>
+                <span class="home-ranking-entry-sub">私人漫游、场景、风格与能量模式</span>
               </span>
               <span class="home-radio-entry-art" aria-hidden="true"><i></i><i></i></span>
               <span class="home-next-arrow" aria-hidden="true">›</span>
@@ -307,6 +307,36 @@
         <div class="home-platform-recommend-actions">
           <button id="home-platform-recommend-refresh" type="button">刷新当前平台</button>
           <button id="home-platform-recommend-done" type="button">完成</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="music-radio-mask" class="modal-mask" role="dialog" aria-modal="true" aria-hidden="true"
+      aria-labelledby="music-radio-title" onclick="if(event.target===this)closeMusicRadio()">
+      <div class="modal music-radio-modal">
+        <div class="music-radio-head">
+          <div>
+            <div class="music-radio-eyebrow">MUSIC RADIO</div>
+            <h2 id="music-radio-title">音乐电台</h2>
+            <p>从可用音乐目录和你的音乐中生成连续播放队列</p>
+          </div>
+          <div class="music-radio-head-actions">
+            <button class="music-radio-icon-btn" type="button" onclick="refreshMusicRadioModes()" aria-label="换一批电台顺序" title="换一批">↻</button>
+            <button class="music-radio-icon-btn" type="button" onclick="closeMusicRadio()" aria-label="关闭音乐电台" title="关闭">×</button>
+          </div>
+        </div>
+        <div class="music-radio-tabs" role="tablist" aria-label="电台分类">
+          <button type="button" role="tab" data-music-radio-category="all" aria-selected="true" onclick="selectMusicRadioCategory('all')">全部</button>
+          <button type="button" role="tab" data-music-radio-category="personal" aria-selected="false" onclick="selectMusicRadioCategory('personal')">为你</button>
+          <button type="button" role="tab" data-music-radio-category="scene" aria-selected="false" onclick="selectMusicRadioCategory('scene')">场景</button>
+          <button type="button" role="tab" data-music-radio-category="style" aria-selected="false" onclick="selectMusicRadioCategory('style')">风格</button>
+          <button type="button" role="tab" data-music-radio-category="energy" aria-selected="false" onclick="selectMusicRadioCategory('energy')">能量</button>
+        </div>
+        <div id="music-radio-status" class="music-radio-status" role="status" aria-live="polite"></div>
+        <div id="music-radio-grid" class="music-radio-grid" aria-label="音乐电台模式"></div>
+        <div class="music-radio-footer">
+          <span>收藏的模式会优先显示</span>
+          <button type="button" onclick="closeMusicRadio()">完成</button>
         </div>
       </div>
     </div>

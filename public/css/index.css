@@ -18767,6 +18767,326 @@ body.panel-reordering .mini-queue-item.is-reordering {
   }
 }
 
+.music-radio-modal {
+  width: min(880px, 92vw);
+  max-width: min(880px, 92vw);
+  max-height: min(86vh, 780px);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-align: left
+}
+
+.music-radio-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px
+}
+
+.music-radio-eyebrow {
+  margin-bottom: 6px;
+  color: rgba(var(--fc-accent-rgb), .72);
+  font-size: 8.5px;
+  font-weight: 850;
+  letter-spacing: .13em
+}
+
+.music-radio-head h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 780
+}
+
+.music-radio-head p {
+  margin: 0;
+  color: rgba(255, 255, 255, .48);
+  font-size: 11px;
+  line-height: 1.55
+}
+
+.music-radio-head-actions {
+  display: flex;
+  gap: 7px
+}
+
+.music-radio-icon-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .04);
+  color: rgba(255, 255, 255, .72);
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .18s ease, border-color .18s ease, background-color .18s ease, transform .18s ease
+}
+
+.music-radio-icon-btn:hover {
+  border-color: rgba(var(--fc-accent-rgb), .4);
+  background: rgba(var(--fc-accent-rgb), .08);
+  color: #fff;
+  transform: translateY(-1px)
+}
+
+.music-radio-tabs {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .085);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .025)
+}
+
+.music-radio-tabs button {
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, .055);
+  background: transparent;
+  color: rgba(255, 255, 255, .48);
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: color .18s ease, background-color .18s ease
+}
+
+.music-radio-tabs button:last-child {
+  border-right: 0
+}
+
+.music-radio-tabs button:hover {
+  color: rgba(255, 255, 255, .86);
+  background: rgba(255, 255, 255, .04)
+}
+
+.music-radio-tabs button.active,
+.music-radio-tabs button[aria-selected="true"] {
+  color: #fff;
+  background: rgba(var(--fc-accent-rgb), .12)
+}
+
+.music-radio-status {
+  flex: 0 0 auto;
+  min-height: 17px;
+  margin-top: 12px;
+  color: rgba(255, 255, 255, .42);
+  font-size: 10px
+}
+
+.music-radio-grid {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 8px;
+  max-height: min(58vh, 520px);
+  margin-top: 7px;
+  padding-right: 5px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .18) transparent
+}
+
+.music-radio-mode {
+  position: relative;
+  min-width: 0;
+  min-height: 84px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .075);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .028);
+  transition: border-color .18s ease, background-color .18s ease, transform .18s ease
+}
+
+.music-radio-mode::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--music-radio-accent, rgba(var(--fc-accent-rgb), .7));
+  opacity: .72
+}
+
+.music-radio-mode:hover,
+.music-radio-mode:focus-within {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--music-radio-accent, #8b95a6) 46%, transparent);
+  background: rgba(255, 255, 255, .047)
+}
+
+.music-radio-mode-main {
+  width: 100%;
+  min-height: 84px;
+  padding: 13px 44px 12px 15px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  grid-template-areas: "kicker play" "title title" "sub sub";
+  align-content: center;
+  gap: 4px 10px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer
+}
+
+.music-radio-kicker {
+  grid-area: kicker;
+  overflow: hidden;
+  color: var(--music-radio-accent, rgba(var(--fc-accent-rgb), .75));
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .1em;
+  white-space: nowrap;
+  text-overflow: ellipsis
+}
+
+.music-radio-play {
+  grid-area: play;
+  align-self: center;
+  justify-self: end;
+  color: rgba(255, 255, 255, .48);
+  font-size: 11px
+}
+
+.music-radio-mode-main strong {
+  grid-area: title;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 780;
+  white-space: nowrap;
+  text-overflow: ellipsis
+}
+
+.music-radio-sub {
+  grid-area: sub;
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, .4);
+  font-size: 9.5px;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis
+}
+
+.music-radio-favorite {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .12);
+  color: rgba(255, 255, 255, .32);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .18s ease, border-color .18s ease, background-color .18s ease
+}
+
+.music-radio-favorite:hover,
+.music-radio-favorite.active {
+  border-color: color-mix(in srgb, var(--music-radio-accent, #8b95a6) 38%, transparent);
+  background: rgba(255, 255, 255, .045);
+  color: var(--music-radio-accent, #fff)
+}
+
+.music-radio-mode.loading .music-radio-play {
+  color: var(--music-radio-accent, #fff);
+  animation: music-radio-spin .8s linear infinite
+}
+
+@keyframes music-radio-spin {
+  to {
+    transform: rotate(360deg)
+  }
+}
+
+.music-radio-footer {
+  flex: 0 0 auto;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px
+}
+
+.music-radio-footer span {
+  color: rgba(255, 255, 255, .36);
+  font-size: 9.5px
+}
+
+.music-radio-footer button {
+  min-height: 32px;
+  padding: 0 17px;
+  border: 1px solid rgba(var(--fc-accent-rgb), .4);
+  border-radius: 8px;
+  background: rgba(var(--fc-accent-rgb), .1);
+  color: #fff;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 750;
+  cursor: pointer
+}
+
+@media (max-width:640px) {
+  .music-radio-modal {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    padding: 17px
+  }
+
+  .music-radio-head p {
+    max-width: 230px
+  }
+
+  .music-radio-grid {
+    grid-template-columns: 1fr;
+    max-height: 62vh
+  }
+
+  .music-radio-tabs button {
+    padding: 0 4px;
+    font-size: 10px
+  }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .music-radio-mode,
+  .music-radio-icon-btn,
+  .music-radio-mode.loading .music-radio-play {
+    animation: none !important;
+    transition: none !important
+  }
+}
+
 /* Full-desktop work-area layout. These offsets are renderer DIPs supplied by
    Electron, so a bottom/side taskbar never covers desktop-mode controls. */
 :root {
