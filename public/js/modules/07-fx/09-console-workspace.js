@@ -29,6 +29,9 @@ var FX_CONSOLE_LAYOUT = [
       { key: 'archives', title: '用户存档', hint: '保存、应用和分享整套视觉参数', items: [
         fxConsoleItem('user-archive-grid', '用户存档', '方案 快照 预设码 应用 回退')
       ] },
+      { key: 'visual-clip', title: '场景留影', hint: '录下当前窗口中的歌词与视觉画面', items: [
+        fxConsoleItem('visual-clip-control', '场景留影', '录制 视频 WebM 当前窗口 分享', false)
+      ] },
       { key: 'reset', title: '恢复与整理', hint: '恢复全部默认参数', items: [
         fxConsoleItem({ selector: '.fx-actions' }, '恢复默认', '重置 全部默认')
       ] }

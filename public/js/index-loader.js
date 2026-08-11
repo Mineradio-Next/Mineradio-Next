@@ -97,6 +97,7 @@
     'js/modules/07-fx/05-fx-panel-performance.js',
     'js/modules/07-fx/06-hotkeys.js',
     'js/modules/07-fx/06a-lan-remote.js',
+    'js/modules/07-fx/06b-visual-clip.js',
     'js/modules/07-fx/07-bindings-shelf-immersive.js',
     'js/modules/07-fx/08-cache-storage-settings.js',
     'js/modules/07-fx/09-console-workspace.js',

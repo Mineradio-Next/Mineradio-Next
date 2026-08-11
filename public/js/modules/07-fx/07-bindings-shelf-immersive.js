@@ -4,6 +4,7 @@ function bindFxPanel() {
   organizeFxPanel();
   bindHotkeySettings();
   if (typeof bindLanRemoteControl === 'function') bindLanRemoteControl();
+  if (typeof bindVisualClipControl === 'function') bindVisualClipControl();
   bindCloseBehaviorControls();
   bindStartupResumeModeControls();
   bindAudioOutputControls();

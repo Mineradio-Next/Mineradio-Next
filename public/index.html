@@ -466,6 +466,21 @@
       <div class="preset-grid" id="preset-grid"></div>
       <div class="fx-section-label">用户存档</div>
       <div class="user-archive-grid" id="user-archive-grid"></div>
+      <div id="visual-clip-control" class="visual-clip-control" data-phase="idle">
+        <div class="visual-clip-summary">
+          <span class="visual-clip-mark" aria-hidden="true"><i></i></span>
+          <span class="visual-clip-copy"><strong>场景留影</strong><small id="visual-clip-status">15 秒 · 当前窗口 · WebM</small></span>
+        </div>
+        <div id="visual-clip-progress" class="visual-clip-progress" hidden>
+          <span id="visual-clip-time">15s</span><i><b id="visual-clip-progress-fill"></b></i>
+        </div>
+        <div class="visual-clip-actions">
+          <button id="visual-clip-open-folder" class="fx-mini-btn ghost" type="button" hidden>打开文件夹</button>
+          <button id="visual-clip-cancel" class="fx-mini-btn ghost" type="button" hidden>取消</button>
+          <button id="visual-clip-finish" class="fx-mini-btn ghost" type="button" hidden>完成</button>
+          <button id="visual-clip-start" class="fx-mini-btn" type="button">开始</button>
+        </div>
+      </div>
       <div class="fx-section-label">自定义颜色</div>
       <div class="lyric-color-row">
         <input id="ui-accent-picker" class="lyric-color-picker" type="color" value="#ffffff" title="界面高亮色">
@@ -1193,6 +1208,8 @@
         <button class="fx-mini-btn" onclick="resetFx()">恢复默认</button>
       </div>
     </div>
+
+    <div id="visual-clip-countdown" class="visual-clip-countdown" aria-live="assertive" aria-hidden="true"><span></span></div>
 
     <!-- 歌单/队列面板 (左侧贴边自动显示, 无关闭按钮) -->
     <div id="playlist-panel">

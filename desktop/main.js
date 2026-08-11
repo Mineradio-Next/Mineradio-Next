@@ -38,6 +38,7 @@ registerLocalMusicScheme(protocol);
 let mainWindow = null;
 let localServer = null;
 let mainServerPort = 0;
+let lastVisualClipFilePath = '';
 let desktopLyricsWindow = null;
 let desktopLyricsState = {};
 let desktopLyricsUserBounds = null;
@@ -184,6 +185,7 @@ const fullDesktopModeRuntime = new FullDesktopModeRuntime({
 });
 let wallpaperEngineCaptureSourceId = '';
 let wallpaperEngineCaptureGrant = null;
+let visualClipCaptureGrant = null;
 let wallpaperEngineCaptureOperation = 0;
 let wallpaperEngineCapturePreparationOperation = 0;
 let wallpaperEngineGlassCaptureOperation = 0;
@@ -200,6 +202,7 @@ let wallpaperEngineHostVisibilityStopPromise = null;
 let fullDesktopModeHostVisibilityTransitionDepth = 0;
 let wallpaperEngineDesktopIconLayeringQueue = Promise.resolve(true);
 const WALLPAPER_ENGINE_CAPTURE_GRANT_MS = 12000;
+const VISUAL_CLIP_CAPTURE_GRANT_MS = 10000;
 const WALLPAPER_ENGINE_CAPTURE_PREPARE_TIMEOUT_MS = 9000;
 // Windows Graphics Capture may still be releasing the previous exact HWND for
 // a few hundred milliseconds after its MediaStreamTrack stops. A short bounded
@@ -871,6 +874,44 @@ function isTrustedWallpaperEnginePreparationMediaPermission(webContents, origin,
   if (mediaType && !mediaType.includes('video')) return false;
   if (mediaTypes.length && !mediaTypes.every((value) => value.includes('video'))) return false;
   return isTrustedWallpaperEngineDisplayCapturePermission(webContents, origin, details);
+}
+
+function clearVisualClipCaptureGrant() {
+  visualClipCaptureGrant = null;
+}
+
+function getVisualClipCaptureGrant() {
+  const grant = visualClipCaptureGrant;
+  if (!grant) return null;
+  let currentSourceId = '';
+  try {
+    currentSourceId = mainWindow && !mainWindow.isDestroyed() && typeof mainWindow.getMediaSourceId === 'function'
+      ? String(mainWindow.getMediaSourceId() || '')
+      : '';
+  } catch (_) {}
+  if (Date.now() > grant.expiresAt || !currentSourceId || currentSourceId !== grant.sourceId) {
+    clearVisualClipCaptureGrant();
+    return null;
+  }
+  return grant;
+}
+
+function isTrustedVisualClipMediaPermission(webContents, origin, details) {
+  try {
+    if (!webContents || !mainWindow || mainWindow.isDestroyed() || webContents !== mainWindow.webContents || webContents.isDestroyed()) return false;
+    if (!isLocalAppUrl(origin)) return false;
+    if (details && details.isMainFrame === false) return false;
+    const mediaType = String(details && details.mediaType || '').toLowerCase();
+    const mediaTypes = details && Array.isArray(details.mediaTypes)
+      ? details.mediaTypes.map((value) => String(value || '').toLowerCase()).filter(Boolean)
+      : [];
+    if (mediaType.includes('audio') || mediaTypes.some((value) => value.includes('audio'))) return false;
+    if (mediaType && !mediaType.includes('video')) return false;
+    if (mediaTypes.length && !mediaTypes.every((value) => value.includes('video'))) return false;
+    return !!getVisualClipCaptureGrant();
+  } catch (_) {
+    return false;
+  }
 }
 
 async function prepareWallpaperEngineRendererCapture(sessionId, fps) {
@@ -1576,7 +1617,10 @@ function configureLocalAppPermissions() {
   ses.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
     const origin = requestingOrigin || (details && details.requestingUrl) || (webContents && webContents.getURL && webContents.getURL()) || '';
     if (permission === 'display-capture') return isTrustedWallpaperEngineDisplayCapturePermission(webContents, origin, details);
-    if (permission === 'media') return isTrustedWallpaperEnginePreparationMediaPermission(webContents, origin, details);
+    if (permission === 'media') {
+      return isTrustedVisualClipMediaPermission(webContents, origin, details)
+        || isTrustedWallpaperEnginePreparationMediaPermission(webContents, origin, details);
+    }
     return LOCAL_APP_PERMISSION_ALLOWLIST.has(permission) && isLocalAppUrl(origin);
   });
   ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
@@ -1586,6 +1630,15 @@ function configureLocalAppPermissions() {
       return;
     }
     if (permission === 'media') {
+      const visualClipGrant = getVisualClipCaptureGrant();
+      if (visualClipGrant && isTrustedVisualClipMediaPermission(webContents, origin, details)) {
+        if (visualClipGrant.requestStarted) callback(false);
+        else {
+          visualClipGrant.requestStarted = true;
+          callback(true);
+        }
+        return;
+      }
       callback(isTrustedWallpaperEnginePreparationMediaPermission(webContents, origin, details));
       return;
     }
@@ -4563,6 +4616,78 @@ ipcMain.handle('mineradio-export-json-file', async (event, payload = {}) => {
     return { ok: true, filePath: result.filePath };
   } catch (e) {
     return { ok: false, error: e.message || 'EXPORT_FAILED' };
+  }
+});
+
+const VISUAL_CLIP_MAX_BYTES = 32 * 1024 * 1024;
+const VISUAL_CLIP_MIME_TYPES = new Set([
+  'video/webm',
+  'video/webm;codecs=vp8',
+  'video/webm;codecs=vp9',
+]);
+
+function visualClipBuffer(value) {
+  if (Buffer.isBuffer(value)) return value;
+  if (value instanceof ArrayBuffer) return Buffer.from(value);
+  if (ArrayBuffer.isView(value)) return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+  return null;
+}
+
+ipcMain.handle('mineradio-visual-clip-source', async (event) => {
+  try {
+    if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+    if (!mainWindow || mainWindow.isDestroyed() || typeof mainWindow.getMediaSourceId !== 'function') {
+      return { ok: false, error: 'VISUAL_CLIP_SOURCE_UNAVAILABLE' };
+    }
+    const sourceId = String(mainWindow.getMediaSourceId() || '');
+    if (!/^window:\d+:\d+$/.test(sourceId)) return { ok: false, error: 'VISUAL_CLIP_SOURCE_UNAVAILABLE' };
+    visualClipCaptureGrant = {
+      sourceId,
+      requestStarted: false,
+      expiresAt: Date.now() + VISUAL_CLIP_CAPTURE_GRANT_MS,
+    };
+    return { ok: true, sourceId, maxWidth: 1920, maxHeight: 1080, maxFrameRate: 30 };
+  } catch (e) {
+    return { ok: false, error: e.message || 'VISUAL_CLIP_SOURCE_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-visual-clip-save', async (event, payload = {}) => {
+  try {
+    if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+    clearVisualClipCaptureGrant();
+    const mime = String(payload.mime || '').toLowerCase().replace(/\s+/g, '');
+    if (!VISUAL_CLIP_MIME_TYPES.has(mime)) return { ok: false, error: 'VISUAL_CLIP_MIME_REJECTED' };
+    const data = visualClipBuffer(payload.bytes);
+    if (!data || data.length < 1024) return { ok: false, error: 'VISUAL_CLIP_EMPTY' };
+    if (data.length > VISUAL_CLIP_MAX_BYTES) return { ok: false, error: 'VISUAL_CLIP_TOO_LARGE' };
+    const requested = String(payload.defaultName || 'Mineradio-场景留影.webm').replace(/[\\/:*?"<>|]+/g, '-');
+    const defaultName = requested.toLowerCase().endsWith('.webm') ? requested : `${requested}.webm`;
+    const owner = getSenderWindow(event);
+    const result = await dialog.showSaveDialog(owner, {
+      title: '保存场景留影',
+      defaultPath: defaultName,
+      filters: [{ name: 'WebM 视频', extensions: ['webm'] }],
+    });
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    await fs.promises.writeFile(result.filePath, data);
+    lastVisualClipFilePath = result.filePath;
+    return { ok: true, filePath: result.filePath, fileName: path.basename(result.filePath), bytes: data.length };
+  } catch (e) {
+    return { ok: false, error: e.message || 'VISUAL_CLIP_SAVE_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-visual-clip-show-last', async (event) => {
+  try {
+    if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+    if (!lastVisualClipFilePath || !fs.existsSync(lastVisualClipFilePath)) {
+      return { ok: false, error: 'VISUAL_CLIP_FILE_MISSING' };
+    }
+    shell.showItemInFolder(lastVisualClipFilePath);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message || 'VISUAL_CLIP_SHOW_FAILED' };
   }
 });
 
