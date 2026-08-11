@@ -290,6 +290,15 @@ function openCustomLyricModal() {
   }, 120);
 }
 
+function openLyricTrackEditorFromTiming(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  if (typeof closeLyricTimingPopover === 'function') closeLyricTimingPopover(false);
+  openCustomLyricModal();
+}
+
 function closeCustomLyricModal(force) {
   if (!force && lyricTrackEditorState.dirty && !window.confirm('当前歌词还有未保存的修改，确认关闭吗？')) return;
   lyricTrackEditorState.dirty = false;

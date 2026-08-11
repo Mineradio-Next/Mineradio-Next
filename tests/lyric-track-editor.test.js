@@ -84,6 +84,9 @@ test('integrates through the original modal and lyric pipeline without derivativ
   assert.match(htmlSource, /id="custom-lyric-modal"/);
   assert.match(htmlSource, /id="lyric-editor-rows"/);
   assert.match(htmlSource, />歌词工作台</);
+  assert.match(htmlSource, /id="lyric-editor-entry"[\s\S]*openLyricTrackEditorFromTiming\(event\)/);
+  assert.match(source, /function openLyricTrackEditorFromTiming/);
+  assert.match(source, /closeLyricTimingPopover/);
   assert.match(source, /applyLyricsState\(/);
   assert.match(source, /CUSTOM_LYRIC_STORE_KEY/);
   assert.match(source, /editor:\s*\{\s*schema:\s*1/);
