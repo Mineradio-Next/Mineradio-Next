@@ -39,9 +39,9 @@
 
 ### 窗口源授权
 
-渲染进程通过预加载层请求主窗口的媒体源。主进程只在可信 Mineradio 主文档发起 IPC 时返回 `mainWindow.getMediaSourceId()`，不枚举或暴露桌面上的其他窗口。
+渲染进程在用户点击开始后，只调用预加载层暴露的 `beginVisualClipCapture`。预加载层在一个不可拆分的同步调用中签发一次性授权，并立刻用固定约束执行标准 `getDisplayMedia`；页面拿不到单独的授权方法或 source ID。这个顺序既保留 Chromium 对屏幕捕获要求的瞬时用户激活，也防止页面拿授权改走旧的 source-ID 通道。渲染进程不能指定、枚举或选择桌面媒体源，也不会获得其他窗口的信息。
 
-渲染进程使用带 `chromeMediaSource: desktop` 与指定 source ID 的 `getUserMedia` 创建只含视频轨的 `MediaStream`。分辨率跟随当前窗口，最高 1920×1080，帧率上限 30 FPS。
+主进程在 `setDisplayMediaRequestHandler` 中校验可信 Mineradio 主文档、一次性授权、视频请求和无音频约束，再内部枚举窗口并严格匹配 `mainWindow.getMediaSourceId()`。只有当前 Mineradio 主窗口会被返回给 Chromium；旧的 `getUserMedia + chromeMediaSourceId` 通道不获得场景留影授权。分辨率跟随当前窗口，最高 1920×1080，帧率上限 30 FPS。
 
 ### 录制与状态机
 
@@ -88,7 +88,7 @@
 
 - 单元测试覆盖 MIME 选择、文件名、状态互斥、提前完成、取消与资源释放。
 - 集成测试覆盖入口、模块加载、可信窗口 source ID IPC、32 MB 限制和 WebM 保存过滤器。
-- Electron smoke test 验证主窗口 source ID 可取得、MediaRecorder 可创建、录制产生非空 WebM、保存取消路径不会报错。
+- Electron smoke test 验证旧 source-ID 通道被拒绝、`getDisplayMedia` 只录到主窗口、MediaRecorder 可创建、录制产生非空 WebM、保存取消路径不会报错。
 - 浏览器视觉测试覆盖空闲、倒计时、录制和保存状态，以及 1440×900、1280×720 和减少动态模式。
 
 ## 后续边界

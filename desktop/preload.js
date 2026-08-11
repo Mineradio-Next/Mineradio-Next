@@ -1,5 +1,51 @@
 const { contextBridge, ipcRenderer, clipboard, webUtils } = require('electron');
 
+const VISUAL_CLIP_MAX_BYTES = 32 * 1024 * 1024;
+let visualClipCaptureSequence = 0;
+
+function beginVisualClipCapture() {
+  const grant = ipcRenderer.sendSync('mineradio-visual-clip-source');
+  if (!grant || grant.ok !== true) return grant || { ok: false, error: 'VISUAL_CLIP_SOURCE_UNAVAILABLE' };
+  const captureKey = `__mineradioVisualClipCapture${Date.now()}_${++visualClipCaptureSequence}`;
+  const started = contextBridge.executeInMainWorld({
+    func: (key, constraints) => {
+      try {
+        Object.defineProperty(window, key, {
+          configurable: true,
+          enumerable: false,
+          value: navigator.mediaDevices.getDisplayMedia(constraints),
+        });
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, error: String(error && (error.message || error.name) || error || 'VISUAL_CLIP_SOURCE_FAILED') };
+      }
+    },
+    args: [captureKey, {
+      audio: false,
+      video: {
+        width: { max: Math.min(1920, Number(grant.maxWidth) || 1920) },
+        height: { max: Math.min(1080, Number(grant.maxHeight) || 1080) },
+        frameRate: { max: Math.min(30, Number(grant.maxFrameRate) || 30) },
+      },
+    }],
+  });
+  if (!started || started.ok !== true) return started || { ok: false, error: 'VISUAL_CLIP_SOURCE_FAILED' };
+  return { ok: true, captureKey };
+}
+
+function saveVisualClip(payload) {
+  if (!payload || typeof payload !== 'object') return Promise.resolve({ ok: false, error: 'VISUAL_CLIP_PAYLOAD_REJECTED' });
+  const bytes = payload.bytes;
+  const validBytes = bytes instanceof ArrayBuffer || ArrayBuffer.isView(bytes);
+  if (!validBytes) return Promise.resolve({ ok: false, error: 'VISUAL_CLIP_PAYLOAD_REJECTED' });
+  if (bytes.byteLength > VISUAL_CLIP_MAX_BYTES) return Promise.resolve({ ok: false, error: 'VISUAL_CLIP_TOO_LARGE' });
+  return ipcRenderer.invoke('mineradio-visual-clip-save', {
+    bytes,
+    mime: String(payload.mime || ''),
+    defaultName: String(payload.defaultName || ''),
+  });
+}
+
 contextBridge.exposeInMainWorld('desktopWindow', {
   isDesktop: true,
   minimize: () => ipcRenderer.invoke('desktop-window-minimize'),
@@ -99,8 +145,8 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   exportPlaylistFile: (payload) => ipcRenderer.invoke('mineradio-export-playlist-file', payload || {}),
   exportLoginCookie: (provider) => ipcRenderer.invoke('mineradio-export-login-cookie', provider || ''),
   importJsonFile: () => ipcRenderer.invoke('mineradio-import-json-file'),
-  getVisualClipSource: () => ipcRenderer.invoke('mineradio-visual-clip-source'),
-  saveVisualClip: (payload) => ipcRenderer.invoke('mineradio-visual-clip-save', payload || {}),
+  beginVisualClipCapture,
+  saveVisualClip,
   showLastVisualClip: () => ipcRenderer.invoke('mineradio-visual-clip-show-last'),
   readCurrentFxAutosaveSync: () => ipcRenderer.sendSync('mineradio-current-fx-autosave-read-sync'),
   saveCurrentFxAutosaveSync: (payload) => ipcRenderer.sendSync('mineradio-current-fx-autosave-save-sync', payload || {}),

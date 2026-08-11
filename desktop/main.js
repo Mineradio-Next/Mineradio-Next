@@ -18,6 +18,7 @@ const {
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const { createLanRemoteServer } = require('./lan-remote-server');
+const { resolveVisualClipSaveSelection } = require('./visual-clip-save-path');
 const {
   LoginEasterEggGate,
   LOGIN_EASTER_EGG_GATE_VERSION,
@@ -896,19 +897,28 @@ function getVisualClipCaptureGrant() {
   return grant;
 }
 
-function isTrustedVisualClipMediaPermission(webContents, origin, details) {
+function isTrustedVisualClipDisplayCapturePermission(webContents, origin, details) {
   try {
     if (!webContents || !mainWindow || mainWindow.isDestroyed() || webContents !== mainWindow.webContents || webContents.isDestroyed()) return false;
     if (!isLocalAppUrl(origin)) return false;
     if (details && details.isMainFrame === false) return false;
+    return !!getVisualClipCaptureGrant();
+  } catch (_) {
+    return false;
+  }
+}
+
+function isTrustedVisualClipMediaPermission(webContents, origin, details, requireDisplayRequest = false) {
+  try {
+    if (!isTrustedVisualClipDisplayCapturePermission(webContents, origin, details)) return false;
+    const grant = getVisualClipCaptureGrant();
+    if (!grant || (requireDisplayRequest && grant.displayRequestStarted !== true)) return false;
     const mediaType = String(details && details.mediaType || '').toLowerCase();
     const mediaTypes = details && Array.isArray(details.mediaTypes)
       ? details.mediaTypes.map((value) => String(value || '').toLowerCase()).filter(Boolean)
       : [];
-    if (mediaType.includes('audio') || mediaTypes.some((value) => value.includes('audio'))) return false;
-    if (mediaType && !mediaType.includes('video')) return false;
-    if (mediaTypes.length && !mediaTypes.every((value) => value.includes('video'))) return false;
-    return !!getVisualClipCaptureGrant();
+    if (mediaType || mediaTypes.length) return false;
+    return true;
   } catch (_) {
     return false;
   }
@@ -1616,30 +1626,30 @@ function configureLocalAppPermissions() {
   ses._mineradioPermissionsConfigured = true;
   ses.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
     const origin = requestingOrigin || (details && details.requestingUrl) || (webContents && webContents.getURL && webContents.getURL()) || '';
-    if (permission === 'display-capture') return isTrustedWallpaperEngineDisplayCapturePermission(webContents, origin, details);
+    if (permission === 'display-capture') {
+      return isTrustedVisualClipDisplayCapturePermission(webContents, origin, details)
+        || isTrustedWallpaperEngineDisplayCapturePermission(webContents, origin, details);
+    }
     if (permission === 'media') {
-      return isTrustedVisualClipMediaPermission(webContents, origin, details)
-        || isTrustedWallpaperEnginePreparationMediaPermission(webContents, origin, details);
+      const visualAllowed = isTrustedVisualClipMediaPermission(webContents, origin, details, true);
+      return visualAllowed || isTrustedWallpaperEnginePreparationMediaPermission(webContents, origin, details);
     }
     return LOCAL_APP_PERMISSION_ALLOWLIST.has(permission) && isLocalAppUrl(origin);
   });
   ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
     const origin = (details && (details.requestingUrl || details.securityOrigin)) || (webContents && webContents.getURL && webContents.getURL()) || '';
     if (permission === 'display-capture') {
-      callback(isTrustedWallpaperEngineDisplayCapturePermission(webContents, origin, details));
+      callback(isTrustedVisualClipDisplayCapturePermission(webContents, origin, details)
+        || isTrustedWallpaperEngineDisplayCapturePermission(webContents, origin, details));
       return;
     }
     if (permission === 'media') {
-      const visualClipGrant = getVisualClipCaptureGrant();
-      if (visualClipGrant && isTrustedVisualClipMediaPermission(webContents, origin, details)) {
-        if (visualClipGrant.requestStarted) callback(false);
-        else {
-          visualClipGrant.requestStarted = true;
-          callback(true);
-        }
-        return;
-      }
-      callback(isTrustedWallpaperEnginePreparationMediaPermission(webContents, origin, details));
+      const visualGrant = getVisualClipCaptureGrant();
+      const visualAllowed = !!visualGrant
+        && visualGrant.mediaPermissionStarted !== true
+        && isTrustedVisualClipMediaPermission(webContents, origin, details, false);
+      if (visualAllowed) visualGrant.mediaPermissionStarted = true;
+      callback(visualAllowed || isTrustedWallpaperEnginePreparationMediaPermission(webContents, origin, details));
       return;
     }
     callback(LOCAL_APP_PERMISSION_ALLOWLIST.has(permission) && isLocalAppUrl(origin));
@@ -1659,6 +1669,34 @@ function configureLocalAppPermissions() {
         && frame === mainWindow.webContents.mainFrame
         && !frame.parent
         && isLocalAppUrl(request.securityOrigin));
+      const visualGrant = getVisualClipCaptureGrant();
+      if (visualGrant) {
+        if (!trustedFrame
+          || !request.videoRequested
+          || request.audioRequested
+          || visualGrant.mediaPermissionStarted !== true
+          || visualGrant.displayRequestStarted) {
+          reply({});
+          return;
+        }
+        visualGrant.displayRequestStarted = true;
+        const currentSourceId = String(mainWindow.getMediaSourceId() || '');
+        const sources = await desktopCapturer.getSources({
+          types: ['window'],
+          thumbnailSize: { width: 0, height: 0 },
+          fetchWindowIcons: false,
+        });
+        const source = sources.find((candidate) => String(candidate && candidate.id || '') === currentSourceId);
+        if (visualClipCaptureGrant !== visualGrant
+          || !/^window:\d+:\d+$/.test(currentSourceId)
+          || visualGrant.sourceId !== currentSourceId
+          || !source) {
+          reply({});
+          return;
+        }
+        reply({ video: source });
+        return;
+      }
       const grant = getWallpaperEngineCaptureGrant();
       if (!trustedFrame || !request.videoRequested || request.audioRequested || !grant || grant.requestStarted) {
         reply({});
@@ -4633,22 +4671,30 @@ function visualClipBuffer(value) {
   return null;
 }
 
-ipcMain.handle('mineradio-visual-clip-source', async (event) => {
+ipcMain.on('mineradio-visual-clip-source', (event) => {
   try {
-    if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+    if (!isTrustedMainWindowIpc(event)) {
+      event.returnValue = { ok: false, error: 'UNTRUSTED_SENDER' };
+      return;
+    }
     if (!mainWindow || mainWindow.isDestroyed() || typeof mainWindow.getMediaSourceId !== 'function') {
-      return { ok: false, error: 'VISUAL_CLIP_SOURCE_UNAVAILABLE' };
+      event.returnValue = { ok: false, error: 'VISUAL_CLIP_SOURCE_UNAVAILABLE' };
+      return;
     }
     const sourceId = String(mainWindow.getMediaSourceId() || '');
-    if (!/^window:\d+:\d+$/.test(sourceId)) return { ok: false, error: 'VISUAL_CLIP_SOURCE_UNAVAILABLE' };
+    if (!/^window:\d+:\d+$/.test(sourceId)) {
+      event.returnValue = { ok: false, error: 'VISUAL_CLIP_SOURCE_UNAVAILABLE' };
+      return;
+    }
     visualClipCaptureGrant = {
       sourceId,
-      requestStarted: false,
+      mediaPermissionStarted: false,
+      displayRequestStarted: false,
       expiresAt: Date.now() + VISUAL_CLIP_CAPTURE_GRANT_MS,
     };
-    return { ok: true, sourceId, maxWidth: 1920, maxHeight: 1080, maxFrameRate: 30 };
+    event.returnValue = { ok: true, sourceId, maxWidth: 1920, maxHeight: 1080, maxFrameRate: 30 };
   } catch (e) {
-    return { ok: false, error: e.message || 'VISUAL_CLIP_SOURCE_FAILED' };
+    event.returnValue = { ok: false, error: e.message || 'VISUAL_CLIP_SOURCE_FAILED' };
   }
 });
 
@@ -4664,15 +4710,25 @@ ipcMain.handle('mineradio-visual-clip-save', async (event, payload = {}) => {
     const requested = String(payload.defaultName || 'Mineradio-场景留影.webm').replace(/[\\/:*?"<>|]+/g, '-');
     const defaultName = requested.toLowerCase().endsWith('.webm') ? requested : `${requested}.webm`;
     const owner = getSenderWindow(event);
-    const result = await dialog.showSaveDialog(owner, {
-      title: '保存场景留影',
-      defaultPath: defaultName,
-      filters: [{ name: 'WebM 视频', extensions: ['webm'] }],
-    });
-    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
-    await fs.promises.writeFile(result.filePath, data);
-    lastVisualClipFilePath = result.filePath;
-    return { ok: true, filePath: result.filePath, fileName: path.basename(result.filePath), bytes: data.length };
+    let nextDefaultPath = defaultName;
+    let filePath = '';
+    while (!filePath) {
+      const result = await dialog.showSaveDialog(owner, {
+        title: '保存场景留影（WebM）',
+        defaultPath: nextDefaultPath,
+        filters: [{ name: 'WebM 视频', extensions: ['webm'] }],
+      });
+      if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+      const selection = resolveVisualClipSaveSelection(result.filePath);
+      if (!selection.accepted) {
+        nextDefaultPath = selection.nextDefaultPath || defaultName;
+        continue;
+      }
+      filePath = selection.filePath;
+    }
+    await fs.promises.writeFile(filePath, data);
+    lastVisualClipFilePath = filePath;
+    return { ok: true, filePath, fileName: path.basename(filePath), bytes: data.length };
   } catch (e) {
     return { ok: false, error: e.message || 'VISUAL_CLIP_SAVE_FAILED' };
   }
@@ -5195,7 +5251,7 @@ async function ensureLocalServerStarted() {
     mainServerPort = port;
     configureLocalAppPermissions();
     configureLocalServerEnvironment(port);
-    migrateLegacyAuthStorage();
+    if (!STARTUP_QA_USER_DATA_PATH) migrateLegacyAuthStorage();
     await initializeLoginEasterEggGate();
 
     const serverModulePath = path.join(__dirname, '..', 'server.js');
@@ -5474,6 +5530,7 @@ async function createWindowOnce() {
     resizable: true,
     transparent: true,
     opacity: process.env.MINERADIO_STARTUP_QA_HIDDEN === '1' ? 0 : 1,
+    skipTaskbar: process.env.MINERADIO_STARTUP_QA_HIDDEN === '1',
     backgroundColor: '#00000000',
     hasShadow: true,
     autoHideMenuBar: true,
@@ -5730,7 +5787,7 @@ async function createWindowOnce() {
   startupCompleted = true;
   showMainWindowSafely(win, 'navigation-complete');
   writeStartupState('ready', { readyAt: Date.now(), port: mainServerPort || Number(process.env.PORT) || 3000 });
-  const qaExitMs = Math.max(0, Math.min(10000, Number(process.env.MINERADIO_STARTUP_QA_EXIT_MS) || 0));
+  const qaExitMs = Math.max(0, Math.min(60000, Number(process.env.MINERADIO_STARTUP_QA_EXIT_MS) || 0));
   if (qaExitMs) {
     setTimeout(() => {
       appQuitting = true;

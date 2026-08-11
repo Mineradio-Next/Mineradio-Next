@@ -18074,7 +18074,7 @@ body.panel-reordering .mini-queue-item.is-reordering {
 }
 
 .visual-clip-countdown.pulse span {
-  animation: visual-clip-count 780ms cubic-bezier(.16, 1, .3, 1)
+  animation: visual-clip-count 940ms cubic-bezier(.16, 1, .3, 1)
 }
 
 @keyframes visual-clip-dot {
@@ -18086,6 +18086,12 @@ body.panel-reordering .mini-queue-item.is-reordering {
   from { opacity: 0; transform: scale(1.16) }
   28% { opacity: 1 }
   to { opacity: .08; transform: scale(.90) }
+}
+
+@keyframes visual-clip-count-reduced {
+  from { opacity: 0 }
+  28% { opacity: 1 }
+  to { opacity: .08 }
 }
 
 @media (max-width:520px) {
@@ -18104,12 +18110,14 @@ body.panel-reordering .mini-queue-item.is-reordering {
 
 @media (prefers-reduced-motion:reduce) {
   .visual-clip-control[data-phase="countdown"] .visual-clip-mark i,
-  .visual-clip-control[data-phase="recording"] .visual-clip-mark i,
-  .visual-clip-countdown.pulse span {
+  .visual-clip-control[data-phase="recording"] .visual-clip-mark i {
     animation: none
   }
 
-  .visual-clip-countdown,
+  .visual-clip-countdown.pulse span {
+    animation: visual-clip-count-reduced 940ms ease
+  }
+
   .visual-clip-progress b {
     transition-duration: .01ms
   }

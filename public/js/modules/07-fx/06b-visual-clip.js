@@ -41,8 +41,8 @@ function visualClipDefaultName(now) {
 
 function visualClipSupported() {
   var api = visualClipApi();
-  return !!(api && typeof api.getVisualClipSource === 'function' && typeof api.saveVisualClip === 'function' &&
-    navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function' && window.MediaRecorder);
+  return !!(api && typeof api.beginVisualClipCapture === 'function' && typeof api.saveVisualClip === 'function' &&
+    navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function' && window.MediaRecorder);
 }
 
 function visualClipErrorText(error) {
@@ -145,21 +145,16 @@ function visualClipDelay(ms) {
 
 async function openVisualClipStream() {
   var api = visualClipApi();
-  var source = await api.getVisualClipSource();
-  if (!source || source.ok !== true || !source.sourceId) throw new Error(source && source.error || 'VISUAL_CLIP_SOURCE_UNAVAILABLE');
-  var stream = await navigator.mediaDevices.getUserMedia({
-    audio: false,
-    video: {
-      mandatory: {
-        chromeMediaSource: 'desktop',
-        chromeMediaSourceId: String(source.sourceId),
-        maxWidth: Math.min(1920, Number(source.maxWidth) || 1920),
-        maxHeight: Math.min(1080, Number(source.maxHeight) || 1080),
-        maxFrameRate: Math.min(30, Number(source.maxFrameRate) || 30)
-      }
-    }
-  });
-  if (!stream || !stream.getVideoTracks || !stream.getVideoTracks().length) throw new Error('VISUAL_CLIP_STREAM_EMPTY');
+  var capture = api.beginVisualClipCapture();
+  if (!capture || capture.ok !== true || !capture.captureKey) throw new Error(capture && capture.error || 'VISUAL_CLIP_SOURCE_UNAVAILABLE');
+  var pending = window[capture.captureKey];
+  try { delete window[capture.captureKey]; } catch (_e) {}
+  if (!pending || typeof pending.then !== 'function') throw new Error('VISUAL_CLIP_SOURCE_UNAVAILABLE');
+  var stream = await pending;
+  if (!stream || !stream.getVideoTracks || !stream.getVideoTracks().length) {
+    visualClipStopTracks(stream);
+    throw new Error('VISUAL_CLIP_STREAM_EMPTY');
+  }
   return stream;
 }
 
@@ -176,10 +171,10 @@ async function runVisualClipCountdown(session) {
       overlay.setAttribute('aria-hidden', 'false');
     }
     visualClipSetStatus(second + ' 秒后开始 · 可收起控制台');
-    await visualClipDelay(780);
+    await visualClipDelay(940);
   }
   visualClipHideCountdown();
-  await visualClipDelay(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 40 : 240);
+  await visualClipDelay(180);
   return session === visualClipRuntime.session && visualClipRuntime.phase === 'countdown';
 }
 

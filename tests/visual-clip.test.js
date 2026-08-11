@@ -8,6 +8,7 @@ const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const modulePath = path.join(root, 'public', 'js', 'modules', '07-fx', '06b-visual-clip.js');
+const { resolveVisualClipSaveSelection } = require('../desktop/visual-clip-save-path');
 
 function classList() {
   const values = new Set();
@@ -34,7 +35,7 @@ function makeElement() {
   };
 }
 
-function makeRuntime(saveResult = { ok: true, fileName: 'clip.webm' }) {
+function makeRuntime(saveResult = { ok: true, fileName: 'clip.webm' }, options = {}) {
   const elements = {};
   [
     'visual-clip-control', 'visual-clip-status', 'visual-clip-start', 'visual-clip-finish',
@@ -52,7 +53,7 @@ function makeRuntime(saveResult = { ok: true, fileName: 'clip.webm' }) {
   };
   const stream = {
     getTracks() { return [track]; },
-    getVideoTracks() { return [track]; },
+    getVideoTracks() { return options.emptyVideoTracks ? [] : [track]; },
   };
 
   class FakeMediaRecorder {
@@ -73,7 +74,10 @@ function makeRuntime(saveResult = { ok: true, fileName: 'clip.webm' }) {
   }
 
   const desktopWindow = {
-    async getVisualClipSource() { return { ok: true, sourceId: 'window:1:0', maxWidth: 1920, maxHeight: 1080, maxFrameRate: 30 }; },
+    beginVisualClipCapture() {
+      window.__testVisualClipCapture = Promise.resolve(stream);
+      return { ok: true, captureKey: '__testVisualClipCapture' };
+    },
     async saveVisualClip(payload) { savePayload = payload; return saveResult; },
     async showLastVisualClip() { return { ok: true }; },
   };
@@ -86,7 +90,7 @@ function makeRuntime(saveResult = { ok: true, fileName: 'clip.webm' }) {
   const context = vm.createContext({
     window,
     MediaRecorder: FakeMediaRecorder,
-    navigator: { mediaDevices: { async getUserMedia() { return stream; } } },
+    navigator: { mediaDevices: { async getDisplayMedia() { return stream; } } },
     document: { getElementById(id) { return elements[id] || null; } },
     Blob,
     Uint8Array,
@@ -153,27 +157,98 @@ test('finish sends bounded binary WebM data through the dedicated bridge', async
   assert.equal(runtime.context.visualClipRuntime.savedFileName, 'clip.webm');
 });
 
-test('Electron wiring exposes only the current window source and a narrow WebM save IPC', () => {
+test('an invalid display stream releases every track before reporting the error', async () => {
+  const runtime = makeRuntime(undefined, { emptyVideoTracks: true });
+  await assert.rejects(runtime.context.openVisualClipStream(), /VISUAL_CLIP_STREAM_EMPTY/);
+  assert.equal(runtime.getStoppedTracks(), 1);
+});
+
+test('save selection confirms the final WebM path instead of silently replacing an extension', () => {
+  assert.deepEqual(resolveVisualClipSaveSelection('C:\\Clips\\scene.webm'), {
+    accepted: true,
+    filePath: 'C:\\Clips\\scene.webm',
+    nextDefaultPath: 'C:\\Clips\\scene.webm',
+  });
+  assert.deepEqual(resolveVisualClipSaveSelection('C:\\Clips\\scene.mp4'), {
+    accepted: false,
+    nextDefaultPath: 'C:\\Clips\\scene.webm',
+  });
+  assert.deepEqual(resolveVisualClipSaveSelection('C:\\Clips\\scene'), {
+    accepted: false,
+    nextDefaultPath: 'C:\\Clips\\scene.webm',
+  });
+});
+
+test('Electron wiring binds display capture to the current window and narrows WebM IPC', () => {
   const main = fs.readFileSync(path.join(root, 'desktop', 'main.js'), 'utf8');
   const preload = fs.readFileSync(path.join(root, 'desktop', 'preload.js'), 'utf8');
+  const visualClipModule = fs.readFileSync(modulePath, 'utf8');
   const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
   const loader = fs.readFileSync(path.join(root, 'public', 'js', 'index-loader.js'), 'utf8');
   const workspace = fs.readFileSync(path.join(root, 'public', 'js', 'modules', '07-fx', '09-console-workspace.js'), 'utf8');
-  const sourceHandler = main.slice(main.indexOf("ipcMain.handle('mineradio-visual-clip-source'"), main.indexOf("ipcMain.handle('mineradio-visual-clip-save'"));
+  const sourceHandler = main.slice(main.indexOf("ipcMain.on('mineradio-visual-clip-source'"), main.indexOf("ipcMain.handle('mineradio-visual-clip-save'"));
+  const permissionHandlers = main.slice(main.indexOf('ses.setPermissionCheckHandler'), main.indexOf('ses.setDisplayMediaRequestHandler'));
+  const displayHandler = main.slice(main.indexOf('ses.setDisplayMediaRequestHandler'), main.indexOf('function sendWindowState'));
+  const saveHandler = main.slice(main.indexOf("ipcMain.handle('mineradio-visual-clip-save'"), main.indexOf("ipcMain.handle('mineradio-visual-clip-show-last'"));
 
   assert.match(sourceHandler, /isTrustedMainWindowIpc\(event\)/);
   assert.match(sourceHandler, /mainWindow\.getMediaSourceId\(\)/);
-  assert.match(sourceHandler, /requestStarted:\s*false/);
+  assert.match(sourceHandler, /event\.returnValue/);
+  assert.match(sourceHandler, /mediaPermissionStarted:\s*false/);
+  assert.match(sourceHandler, /displayRequestStarted:\s*false/);
   assert.match(main, /VISUAL_CLIP_CAPTURE_GRANT_MS\s*=\s*10000/);
-  assert.match(main, /isTrustedVisualClipMediaPermission[\s\S]{0,900}mediaTypes\.some\(\(value\) => value\.includes\('audio'\)\)/);
-  assert.match(main, /visualClipGrant\.requestStarted[\s\S]{0,160}callback\(false\)[\s\S]{0,160}callback\(true\)/);
   assert.doesNotMatch(sourceHandler, /desktopCapturer\.getSources/);
+  assert.match(visualClipModule, /navigator\.mediaDevices\.getDisplayMedia/);
+  assert.doesNotMatch(visualClipModule, /chromeMediaSource|chromeMediaSourceId|getUserMedia/);
+  assert.match(permissionHandlers, /permission === 'display-capture'[\s\S]{0,180}isTrustedVisualClipDisplayCapturePermission/);
+  assert.match(permissionHandlers, /permission === 'media'[\s\S]{0,260}isTrustedVisualClipMediaPermission\(webContents, origin, details, true\)/);
+  assert.match(permissionHandlers, /visualGrant\.mediaPermissionStarted !== true/);
+  assert.match(displayHandler, /const visualGrant = getVisualClipCaptureGrant\(\)/);
+  assert.match(displayHandler, /desktopCapturer\.getSources\(\{[\s\S]{0,180}types: \['window'\]/);
+  assert.match(displayHandler, /candidate\.id \|\| ''\) === currentSourceId/);
+  assert.match(displayHandler, /visualGrant\.sourceId !== currentSourceId/);
   assert.match(main, /VISUAL_CLIP_MAX_BYTES\s*=\s*32 \* 1024 \* 1024/);
   assert.match(main, /filters:\s*\[\{ name: 'WebM 视频', extensions: \['webm'\] \}\]/);
-  assert.match(preload, /getVisualClipSource:[\s\S]{0,120}mineradio-visual-clip-source/);
-  assert.match(preload, /saveVisualClip:[\s\S]{0,120}mineradio-visual-clip-save/);
+  assert.match(saveHandler, /while \(!filePath\)[\s\S]{0,600}resolveVisualClipSaveSelection\(result\.filePath\)/);
+  assert.match(saveHandler, /if \(!selection\.accepted\)[\s\S]{0,160}continue/);
+  assert.match(saveHandler, /filePath = selection\.filePath/);
+  assert.match(preload, /function beginVisualClipCapture\(\)[\s\S]{0,180}sendSync\('mineradio-visual-clip-source'\)/);
+  assert.match(preload, /contextBridge\.executeInMainWorld\([\s\S]{0,500}navigator\.mediaDevices\.getDisplayMedia/);
+  assert.doesNotMatch(preload, /getVisualClipSource:/);
+  assert.match(preload, /function saveVisualClip\(payload\)[\s\S]{0,500}bytes\.byteLength > VISUAL_CLIP_MAX_BYTES/);
+  assert.match(preload, /ipcRenderer\.invoke\('mineradio-visual-clip-save'/);
   assert.match(html, /id="visual-clip-control"/);
   assert.match(loader, /06b-visual-clip\.js/);
   assert.match(workspace, /key: 'visual-clip'[\s\S]{0,180}fxConsoleItem\('visual-clip-control'/);
-  assert.doesNotMatch(html + fs.readFileSync(modulePath, 'utf8'), /LX Music|LXMusic|lx-music/i);
+  assert.doesNotMatch(html + visualClipModule, /LX Music|LXMusic|lx-music/i);
+  assert.match(visualClipModule, /visualClipDelay\(940\)[\s\S]{0,140}visualClipDelay\(180\)/);
+});
+
+test('live capture QA is isolated and restores every emulated UI state', () => {
+  const main = fs.readFileSync(path.join(root, 'desktop', 'main.js'), 'utf8');
+  const liveCheck = fs.readFileSync(path.join(root, 'scripts', 'check-visual-clip-live.js'), 'utf8');
+
+  assert.match(main, /skipTaskbar:\s*process\.env\.MINERADIO_STARTUP_QA_HIDDEN === '1'/);
+  assert.match(liveCheck, /fs\.mkdtempSync\(path\.join\(os\.tmpdir\(\), 'mineradio-visual-clip-qa-'\)\)/);
+  assert.match(liveCheck, /MINERADIO_RUNTIME_NAME:\s*runtimeName/);
+  assert.match(liveCheck, /MINERADIO_STARTUP_QA_USER_DATA:\s*userDataPath/);
+  assert.match(liveCheck, /MINERADIO_STARTUP_QA_HIDDEN:\s*'1'/);
+  assert.match(liveCheck, /MINERADIO_APP_USER_MODEL_ID:/);
+  assert.match(liveCheck, /spawn\(electronPath, \[`--remote-debugging-port=\$\{port\}`, appRoot\]/);
+  assert.doesNotMatch(liveCheck, /process\.argv\[2\]/);
+  assert.match(liveCheck, /panelClass:[\s\S]{0,500}groupClass:[\s\S]{0,500}diyMode:/);
+  assert.match(liveCheck, /finally \{[\s\S]{0,180}Emulation\.clearDeviceMetricsOverride/);
+  assert.match(liveCheck, /Emulation\.setEmulatedMedia', \{ features: \[\] \}/);
+  assert.match(liveCheck, /panel\.className = state\.panelClass/);
+  assert.match(liveCheck, /group\.className = state\.groupClass/);
+  assert.match(liveCheck, /desktopWindow\.close\('exit'\)/);
+  assert.match(liveCheck, /process\.once\('exit', cleanupQaRootOnExit\)/);
+  assert.match(liveCheck, /if \(!child \|\| childExited \|\| child\.exitCode != null\) \{[\s\S]{0,100}cleanupQaRoot\(\)/);
+  assert.match(liveCheck, /CDP_CALL_TIMEOUT_MS\s*=\s*9000/);
+  assert.match(liveCheck, /const recording = await evaluate\([\s\S]{0,8000}\}\)\(\)`, 30000\)/);
+  assert.match(liveCheck, /MINERADIO_STARTUP_QA_EXIT_MS:\s*'45000'/);
+  assert.match(liveCheck, /function rejectPending\(error\)[\s\S]{0,160}pending\.clear\(\)/);
+  assert.match(liveCheck, /socket\.addEventListener\('close',[\s\S]{0,120}rejectPending/);
+  assert.match(liveCheck, /CDP \$\{method\} timed out/);
+  assert.match(liveCheck, /await requestNormalChildExit\(child\)/);
 });

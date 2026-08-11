@@ -14,6 +14,7 @@ test('startup QA isolates its disposable userData away from the real profile', (
   assert.match(mainText, /MINERADIO_STARTUP_QA_HIDDEN !== '1'/);
   assert.match(mainText, /path\.isAbsolute\(value\)/);
   assert.match(mainText, /STARTUP_QA_USER_DATA_PATH \|\| path\.join\(app\.getPath\('appData'\), APP_NAME\)/);
+  assert.match(mainText, /if \(!STARTUP_QA_USER_DATA_PATH\) migrateLegacyAuthStorage\(\)/);
   assert.match(quickCheckText, /path\.join\(process\.env\.TEMP \|\| appData, 'mineradio-startup-qa'\)/);
   assert.match(quickCheckText, /MINERADIO_STARTUP_QA_USER_DATA:\s*qaUserData/);
   assert.match(quickCheckText, /removeOwnedStartupQaDirectory\(qaUserData, qaUserDataParent, runtimeName\)/);
