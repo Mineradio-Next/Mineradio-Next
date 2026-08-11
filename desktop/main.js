@@ -4519,6 +4519,7 @@ ipcMain.handle('mineradio-export-login-cookie', async (_event, provider) => {
 
 ipcMain.handle('mineradio-export-json-file', async (event, payload = {}) => {
   try {
+    if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
     const owner = getSenderWindow(event);
     const defaultName = String(payload.defaultName || 'mineradio-export.json').replace(/[\\/:*?"<>|]+/g, '-');
     const result = await dialog.showSaveDialog(owner, {
@@ -4528,6 +4529,7 @@ ipcMain.handle('mineradio-export-json-file', async (event, payload = {}) => {
     });
     if (result.canceled || !result.filePath) return { ok: false, canceled: true };
     const text = typeof payload.text === 'string' ? payload.text : JSON.stringify(payload.data || {}, null, 2);
+    if (Buffer.byteLength(text, 'utf8') > 32 * 1024 * 1024) return { ok: false, error: 'JSON_FILE_TOO_LARGE' };
     fs.writeFileSync(result.filePath, text, 'utf8');
     return { ok: true, filePath: result.filePath };
   } catch (e) {
@@ -4582,6 +4584,7 @@ ipcMain.handle('mineradio-export-playlist-file', async (event, payload = {}) => 
 
 ipcMain.handle('mineradio-import-json-file', async (event) => {
   try {
+    if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
     const owner = getSenderWindow(event);
     const result = await dialog.showOpenDialog(owner, {
       title: '导入 Mineradio 存档',
@@ -4590,6 +4593,7 @@ ipcMain.handle('mineradio-import-json-file', async (event) => {
     });
     if (result.canceled || !result.filePaths || !result.filePaths[0]) return { ok: false, canceled: true };
     const filePath = result.filePaths[0];
+    if (fs.statSync(filePath).size > 32 * 1024 * 1024) return { ok: false, error: 'JSON_FILE_TOO_LARGE' };
     const text = fs.readFileSync(filePath, 'utf8');
     return { ok: true, filePath, text };
   } catch (e) {

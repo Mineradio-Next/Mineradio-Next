@@ -12132,7 +12132,7 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
 
 .user-archive-tools {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
   gap: 6px;
   width: 100%
 }
@@ -12325,6 +12325,199 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
   background: rgba(255, 255, 255, .025);
   border-color: rgba(255, 255, 255, .05);
   color: rgba(255, 255, 255, .42)
+}
+
+.full-backup-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1460;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(0, 0, 0, .48);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px)
+}
+
+.full-backup-modal.show {
+  display: flex;
+  animation: fullBackupFadeIn .18s ease-out both
+}
+
+.full-backup-dialog {
+  width: min(610px, calc(100vw - 36px));
+  max-height: min(680px, calc(100vh - 44px));
+  overflow: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: linear-gradient(180deg, rgba(14, 15, 20, .96), rgba(5, 6, 8, .96));
+  box-shadow: 0 32px 110px rgba(0, 0, 0, .62), inset 0 1px 0 rgba(255, 255, 255, .08);
+  padding: 18px;
+  color: #fff;
+  animation: fullBackupDialogIn .22s cubic-bezier(.2, .8, .2, 1) both
+}
+
+.full-backup-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08)
+}
+
+.full-backup-title {
+  font-size: 16px;
+  font-weight: 800
+}
+
+.full-backup-sub {
+  margin-top: 5px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, .48)
+}
+
+.full-backup-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  background: rgba(255, 255, 255, .04);
+  color: rgba(255, 255, 255, .66);
+  font: 18px/1 var(--font-sans);
+  cursor: pointer;
+  transition: background .18s, color .18s
+}
+
+.full-backup-close:hover {
+  background: rgba(255, 255, 255, .09);
+  color: #fff
+}
+
+.full-backup-summary {
+  display: grid;
+  gap: 12px;
+  padding: 15px 0
+}
+
+.full-backup-source,
+.full-backup-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .025);
+  font-size: 11px;
+  color: rgba(255, 255, 255, .48)
+}
+
+.full-backup-source strong,
+.full-backup-total strong {
+  color: rgba(255, 255, 255, .88);
+  font-weight: 780
+}
+
+.full-backup-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px
+}
+
+.full-backup-stat {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(var(--fc-accent-rgb), .16);
+  border-radius: 10px;
+  background: rgba(var(--fc-accent-rgb), .04)
+}
+
+.full-backup-stat span {
+  overflow: hidden;
+  color: rgba(255, 255, 255, .48);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.full-backup-stat strong {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 820
+}
+
+.full-backup-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, .08)
+}
+
+.full-backup-merge-note {
+  max-width: 330px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, .40)
+}
+
+.full-backup-actions {
+  display: flex;
+  gap: 8px
+}
+
+.full-backup-actions button {
+  height: 31px;
+  min-width: 76px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .04);
+  color: rgba(255, 255, 255, .68);
+  font: 760 11px/1 var(--font-sans);
+  cursor: pointer;
+  transition: background .18s, border-color .18s, color .18s, transform .18s
+}
+
+.full-backup-actions button:hover {
+  color: #fff;
+  transform: translateY(-1px)
+}
+
+.full-backup-actions button.primary {
+  border-color: rgba(var(--fc-accent-rgb), .32);
+  background: rgba(var(--fc-accent-rgb), .14);
+  color: #fff
+}
+
+@keyframes fullBackupFadeIn {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+
+@keyframes fullBackupDialogIn {
+  from { opacity: 0; transform: translateY(8px) scale(.985) }
+  to { opacity: 1; transform: translateY(0) scale(1) }
+}
+
+@media (max-width: 620px) {
+  .full-backup-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+  .full-backup-foot { align-items: stretch; flex-direction: column }
+  .full-backup-merge-note { max-width: none }
+  .full-backup-actions { justify-content: flex-end }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .full-backup-modal.show,
+  .full-backup-dialog { animation: none }
 }
 
 /* --- 主滑块 --- */

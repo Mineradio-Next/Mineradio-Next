@@ -1147,6 +1147,8 @@ function renderUserFxArchives() {
     '<button class="fx-mini-btn ghost" type="button" onclick="createUserFxArchive()">新建</button>' +
     '<button class="fx-mini-btn ghost" type="button" onclick="importUserFxArchiveFromShareCodePrompt()">粘贴码</button>' +
     '<button class="fx-mini-btn ghost" type="button" onclick="importUserFxArchiveFromDialog()">导入 JSON</button>' +
+    '<button class="fx-mini-btn ghost" type="button" onclick="exportMineradioFullBackup()">完整备份</button>' +
+    '<button class="fx-mini-btn ghost" type="button" onclick="importMineradioFullBackup()">完整恢复</button>' +
     '</div>' +
     '</div>';
   var shareBox =

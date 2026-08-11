@@ -5409,11 +5409,11 @@ function checkFirstLaunchDefaultsAndSplashGuard() {
     fail('public-repo splash motion speed and the independent fast click-entry gate must stay decoupled');
   }
   if (!/\.user-archive-toolbar\s*\{[\s\S]{0,220}display:\s*grid;[\s\S]{0,160}grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(css)
-    || !/\.user-archive-tools\s*\{[\s\S]{0,180}display:\s*grid;[\s\S]{0,160}grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/.test(css)
+    || !/\.user-archive-tools\s*\{[\s\S]{0,180}display:\s*grid;[\s\S]{0,160}grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(76px,\s*1fr\)\)/.test(css)
     || !/\.user-archive-tools \.fx-mini-btn\s*\{[\s\S]{0,180}width:\s*100%;[\s\S]{0,160}white-space:\s*nowrap/.test(css)) {
-    fail('user archive actions must stay in one balanced three-column row');
+    fail('user archive actions must stay in one balanced responsive grid');
   }
-  console.log(`[OK] ${keys.length} captured defaults match; splash motion is 5.2s/4.2s while entry stays ready at 1.5s/0.65s; archive actions stay in one row.`);
+  console.log(`[OK] ${keys.length} captured defaults match; splash motion is 5.2s/4.2s while entry stays ready at 1.5s/0.65s; archive actions use a balanced responsive grid.`);
 }
 
 async function main() {
