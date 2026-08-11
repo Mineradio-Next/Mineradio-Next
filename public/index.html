@@ -1754,14 +1754,37 @@
     </div>
 
     <div id="custom-lyric-modal" class="modal-mask">
-      <div class="modal custom-lyric-modal">
-        <h2>自定义歌词</h2>
+      <div class="modal custom-lyric-modal lyric-editor-modal">
+        <h2>歌词工作台</h2>
         <div class="custom-lyric-track">
           <div id="custom-lyric-title" class="custom-lyric-title">当前歌曲</div>
-          <div id="custom-lyric-sub" class="custom-lyric-sub">支持 LRC 时间轴，也可以直接输入纯文本歌词</div>
+          <div id="custom-lyric-sub" class="custom-lyric-sub">原文、翻译与罗马音统一校时</div>
         </div>
-        <textarea id="custom-lyric-input" class="custom-lyric-input" spellcheck="false"
-          placeholder="[00:12.00] 第一行歌词&#10;[00:16.50] 第二行歌词&#10;&#10;没有时间轴也可以，每一行会按歌曲时长自动铺开"></textarea>
+        <div class="lyric-editor-toolbar">
+          <button class="modal-btn" type="button" onclick="loadCurrentLyricsIntoEditor()">载入当前歌词</button>
+          <button class="modal-btn" type="button" onclick="addLyricEditorLine()">添加一行</button>
+          <label class="lyric-editor-offset-control">
+            <span>整轨偏移</span>
+            <input id="lyric-editor-offset" type="number" step="0.05" value="0" aria-label="整轨偏移秒数">
+            <span>秒</span>
+            <button class="modal-btn" type="button" onclick="applyLyricEditorOffset()">应用</button>
+          </label>
+        </div>
+        <label class="lyric-editor-drag-control">
+          <span>微调</span>
+          <input id="lyric-editor-drag" type="range" min="-5" max="5" step="0.05" value="0"
+            oninput="dragLyricEditorTimeline(this.value)" onchange="finishLyricEditorTimelineDrag(this)">
+          <output id="lyric-editor-drag-value">0.00s</output>
+        </label>
+        <div class="lyric-editor-hint">歌曲播放时点击“校时”，会把该行对齐到当前播放位置。</div>
+        <div class="lyric-editor-head" aria-hidden="true">
+          <span>校时</span><span>时间</span><span>原文</span><span>翻译</span><span>罗马音</span><span></span>
+        </div>
+        <div id="lyric-editor-rows" class="lyric-editor-rows"></div>
+        <div class="lyric-editor-export">
+          <button class="modal-btn" type="button" onclick="exportCurrentLyrics(false)">导出 LRC</button>
+          <button class="modal-btn" type="button" onclick="exportCurrentLyrics(true)">导出增强 LRC</button>
+        </div>
         <div id="custom-lyric-status" class="custom-lyric-status"></div>
         <div class="btn-row">
           <button class="modal-btn" onclick="deleteCustomLyricForCurrent()">删除</button>

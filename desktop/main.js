@@ -4535,6 +4535,30 @@ ipcMain.handle('mineradio-export-json-file', async (event, payload = {}) => {
   }
 });
 
+ipcMain.handle('mineradio-export-text-file', async (event, payload = {}) => {
+  try {
+    if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+    const owner = getSenderWindow(event);
+    const extension = ['lrc', 'elrc', 'txt'].includes(String(payload.extension || '').toLowerCase())
+      ? String(payload.extension).toLowerCase()
+      : 'txt';
+    const text = typeof payload.text === 'string' ? payload.text : '';
+    if (Buffer.byteLength(text, 'utf8') > 5 * 1024 * 1024) return { ok: false, error: 'TEXT_FILE_TOO_LARGE' };
+    const requestedName = String(payload.defaultName || `Mineradio.${extension}`).replace(/[\\/:*?"<>|]+/g, '-');
+    const defaultName = requestedName.toLowerCase().endsWith(`.${extension}`) ? requestedName : `${requestedName}.${extension}`;
+    const result = await dialog.showSaveDialog(owner, {
+      title: String(payload.title || '导出文本文件').slice(0, 80),
+      defaultPath: defaultName,
+      filters: [{ name: String(payload.filterName || extension.toUpperCase()).slice(0, 40), extensions: [extension] }],
+    });
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    fs.writeFileSync(result.filePath, text, 'utf8');
+    return { ok: true, filePath: result.filePath };
+  } catch (e) {
+    return { ok: false, error: e.message || 'TEXT_FILE_EXPORT_FAILED' };
+  }
+});
+
 ipcMain.handle('mineradio-export-playlist-file', async (event, payload = {}) => {
   try {
     const owner = getSenderWindow(event);
