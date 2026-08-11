@@ -31,6 +31,7 @@ function makeNode(kind) {
 function makeAudioContext() {
   return {
     currentTime: 0,
+    sampleRate: 12000,
     createGain() {
       const node = makeNode('gain');
       node.gain = makeParam(1);
@@ -51,6 +52,26 @@ function makeAudioContext() {
       node.attack = makeParam(0);
       node.release = makeParam(0);
       return node;
+    },
+    createConvolver() {
+      const node = makeNode('convolver');
+      node.buffer = null;
+      return node;
+    },
+    createChannelSplitter() {
+      return makeNode('splitter');
+    },
+    createChannelMerger() {
+      return makeNode('merger');
+    },
+    createBuffer(channels, length, sampleRate) {
+      const data = Array.from({ length: channels }, () => new Float32Array(length));
+      return {
+        numberOfChannels: channels,
+        length,
+        sampleRate,
+        getChannelData(channel) { return data[channel]; },
+      };
     },
   };
 }
@@ -83,27 +104,95 @@ test('normalizes corrupt state and keeps five EQ bands', () => {
   assert.deepEqual(Array.from(state.gains), [0, 0, 0, 0, 0]);
   assert.equal(state.preset, 'flat');
   assert.equal(state.enabled, false);
+  assert.equal(state.ambience, 'off');
+  assert.equal(state.ambienceAmount, 0);
+  assert.equal(state.width, 1);
+  assert.equal(state.protection, true);
   assert.equal(context.listeningEffectsState.gains.length, 5);
+
+  const invalidWidth = context.normalizeListeningEffectsState({ enabled: true, preset: 'flat', width: 'broken' });
+  assert.equal(invalidWidth.width, 1);
+  assert.equal(invalidWidth.enabled, false);
 });
 
-test('builds and applies a five-band graph with compressor protection', () => {
+test('builds and applies EQ, ambience, width, and peak protection in one graph', () => {
   const { context } = makeContext();
   const audioContext = makeAudioContext();
-  context.listeningEffectsState = context.normalizeListeningEffectsState({ enabled: true, preset: 'bass' });
+  context.listeningEffectsState = context.normalizeListeningEffectsState({
+    enabled: true,
+    preset: 'bass',
+    ambience: 'room',
+    ambienceAmount: 0.14,
+    width: 1.3,
+    protection: true,
+  });
   const graph = context.createListeningEffectsGraph(audioContext);
   assert.ok(graph);
   assert.equal(graph.filters.length, 5);
   assert.equal(graph.filters[0].kind, 'filter');
+  assert.equal(graph.convolver.kind, 'convolver');
+  assert.ok(graph.convolver.buffer);
+  assert.equal(graph.convolver.buffer.numberOfChannels, 2);
+  assert.equal(graph.widthInput.kind, 'gain');
+  assert.equal(graph.widthInput.channelCount, 2);
+  assert.equal(graph.widthInput.channelCountMode, 'explicit');
+  assert.equal(graph.widthInput.channelInterpretation, 'speakers');
+  assert.strictEqual(graph.ambienceMix.connections[0], graph.widthInput);
+  assert.strictEqual(graph.widthInput.connections[0], graph.splitter);
+  assert.equal(graph.widthGains.length, 4);
   assert.equal(graph.compressor.kind, 'compressor');
   assert.strictEqual(graph.input.connections[0], graph.filters[0]);
-  assert.strictEqual(graph.filters[4].connections[0], graph.compressor);
+  assert.strictEqual(graph.filters[4].connections[0], graph.dry);
+  assert.strictEqual(graph.dry.connections[0], graph.ambienceMix);
+  assert.strictEqual(graph.merger.connections[0], graph.compressor);
   assert.equal(graph.filters[0].gain.value, 5);
   assert.equal(graph.filters[2].gain.value, 0);
-  assert.equal(graph.compressor.ratio.value, 2.2);
+  assert.equal(graph.wet.gain.value, 0.14);
+  assert.deepEqual(Array.from(graph.widthGains, (node) => Number(node.gain.value.toFixed(2))), [1.15, -0.15, -0.15, 1.15]);
+  assert.equal(graph.compressor.ratio.value, 12);
   context.listeningEffectsState.enabled = false;
   context.applyListeningEffectsToGraph(graph, true);
   assert.equal(graph.filters[0].gain.value, 0);
+  assert.equal(graph.wet.gain.value, 0);
+  assert.deepEqual(Array.from(graph.widthGains, (node) => node.gain.value), [1, 0, 0, 1]);
   assert.equal(graph.compressor.ratio.value, 1);
+});
+
+test('normalizes spatial controls while the master switch remains authoritative', () => {
+  const { context } = makeContext();
+  const state = context.normalizeListeningEffectsState({
+    enabled: true,
+    preset: 'flat',
+    ambience: 'missing',
+    ambienceAmount: 4,
+    width: 9,
+    protection: true,
+  });
+  assert.equal(state.enabled, true);
+  assert.equal(state.ambience, 'off');
+  assert.equal(state.ambienceAmount, 0);
+  assert.equal(state.width, 1.4);
+  assert.equal(state.protection, true);
+
+  const protectionOnly = context.normalizeListeningEffectsState({ enabled: true, preset: 'flat', protection: true });
+  assert.equal(protectionOnly.enabled, false);
+
+  const bypass = context.normalizeListeningEffectsState({ enabled: false, preset: 'flat', ambience: 'hall', width: 1.2 });
+  assert.equal(bypass.enabled, false);
+  assert.equal(bypass.ambience, 'hall');
+  assert.equal(bypass.ambienceAmount, 0.18);
+  assert.equal(bypass.width, 1.2);
+});
+
+test('returning width to 100 percent disables an otherwise flat effect and persists it', () => {
+  const { context, store } = makeContext();
+  context.listeningEffectsState = context.normalizeListeningEffectsState({ enabled: true, preset: 'flat', width: 1.2 });
+  context.updateListeningWidth(1);
+  assert.equal(context.listeningEffectsState.width, 1);
+  assert.equal(context.listeningEffectsState.enabled, false);
+  const saved = JSON.parse(store.get('mineradio-listening-effects-v1'));
+  assert.equal(saved.width, 1);
+  assert.equal(saved.enabled, false);
 });
 
 test('playback and cuefield graph modules reference the same effects contract', () => {
@@ -116,15 +205,33 @@ test('playback and cuefield graph modules reference the same effects contract', 
   assert.match(cuefield, /disconnectListeningEffectsGraph\(graph\.effects\)/);
 });
 
-test('updates an already prepared Cuefield graph with the latest preset', () => {
+test('updates an already prepared Cuefield graph with all listening controls', () => {
   const { context } = makeContext();
-  const active = context.createListeningEffectsGraph(makeAudioContext());
-  const prepared = context.createListeningEffectsGraph(makeAudioContext());
+  const audioContext = makeAudioContext();
+  let impulseBuilds = 0;
+  const createBuffer = audioContext.createBuffer;
+  audioContext.createBuffer = (...args) => {
+    impulseBuilds += 1;
+    return createBuffer(...args);
+  };
+  const active = context.createListeningEffectsGraph(audioContext);
+  const prepared = context.createListeningEffectsGraph(audioContext);
   context.listeningEffectsGraph = active;
   context.cuefieldAutoMixPreparedAudio = { __mineradioPreparedAudioGraph: { effects: prepared } };
   context.setListeningEffectsPreset('vocal');
+  context.setListeningAmbience('room');
+  context.updateListeningAmbienceAmount(0.16);
+  context.updateListeningWidth(1.2);
   assert.deepEqual(Array.from(active.filters, (filter) => filter.gain.value), [-3, -1, 2, 4, 2]);
   assert.deepEqual(Array.from(prepared.filters, (filter) => filter.gain.value), [-3, -1, 2, 4, 2]);
+  assert.equal(active.wet.gain.value, 0.16);
+  assert.equal(prepared.wet.gain.value, 0.16);
+  assert.deepEqual(Array.from(active.widthGains, (node) => Number(node.gain.value.toFixed(2))), [1.1, -0.1, -0.1, 1.1]);
+  assert.deepEqual(Array.from(prepared.widthGains, (node) => Number(node.gain.value.toFixed(2))), [1.1, -0.1, -0.1, 1.1]);
+  assert.equal(active.compressor.ratio.value, 12);
+  assert.equal(prepared.compressor.ratio.value, 12);
+  assert.strictEqual(active.convolver.buffer, prepared.convolver.buffer);
+  assert.equal(impulseBuilds, 1);
 });
 
 console.log('OK listening-effects');

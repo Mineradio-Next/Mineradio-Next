@@ -49,6 +49,11 @@ var FX_CONSOLE_LAYOUT = [
         fxConsoleItem('audio-eq-1k', '1 kHz', '均衡器 中频'),
         fxConsoleItem('audio-eq-4k', '4 kHz', '均衡器 高频 人声'),
         fxConsoleItem('audio-eq-12k', '12 kHz', '均衡器 高频 空气'),
+        fxConsoleItem('listening-space-section', '空间听感', '环境 近场 房间 音乐厅 混响 声场'),
+        fxConsoleItem('listening-ambience-presets', '空间环境', '关闭 近场 小房间 音乐厅'),
+        fxConsoleItem('audio-ambience-amount', '空间感', '环境 混响 干湿比例'),
+        fxConsoleItem('audio-stereo-width', '声场宽度', '立体声 宽度 空间'),
+        fxConsoleItem('t-listeningProtection', '削峰保护', '动态保护 防削波 limiter', false),
         fxConsoleItem('listening-effects-status', '播放状态', '已应用 原声直出 回退', false)
       ] },
       { key: 'output', title: '播放输出', hint: '音频输出设备和路由面板', items: [

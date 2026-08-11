@@ -1109,6 +1109,20 @@
           <div class="fx-slider"><label>1 kHz</label><input id="audio-eq-1k" data-listening-band-index="2" type="range" min="-9" max="9" step="0.5"><output></output></div>
           <div class="fx-slider"><label>4 kHz</label><input id="audio-eq-4k" data-listening-band-index="3" type="range" min="-9" max="9" step="0.5"><output></output></div>
           <div class="fx-slider"><label>12 kHz</label><input id="audio-eq-12k" data-listening-band-index="4" type="range" min="-9" max="9" step="0.5"><output></output></div>
+          <div class="fx-section-label" id="listening-space-section">空间听感</div>
+          <div class="fx-seg listening-ambience-presets" id="listening-ambience-presets" role="group" aria-label="空间环境">
+            <button type="button" data-listening-ambience="off">关闭</button>
+            <button type="button" data-listening-ambience="studio">近场</button>
+            <button type="button" data-listening-ambience="room">小房间</button>
+            <button type="button" data-listening-ambience="hall">音乐厅</button>
+          </div>
+          <div class="fx-slider"><label for="audio-ambience-amount">空间感</label><input id="audio-ambience-amount" data-listening-ambience-amount type="range" min="0" max="0.3" step="0.01"><output></output></div>
+          <div class="fx-slider"><label for="audio-stereo-width">声场宽度</label><input id="audio-stereo-width" data-listening-width type="range" min="0.7" max="1.4" step="0.01"><output></output></div>
+          <div class="fx-toggle-grid">
+            <div class="fx-toggle" id="t-listeningProtection" data-listening-protection-toggle title="抑制均衡与空间处理造成的瞬时削波">
+              <span>削峰保护</span><span class="dot"></span>
+            </div>
+          </div>
           <div id="listening-effects-status" class="listening-effects-status" data-listening-status role="status" aria-live="polite">播放后可应用听感调节</div>
           <div class="fx-section-label">输出接口</div>
           <div class="audio-output-section" id="audio-output-panel">
@@ -1571,6 +1585,20 @@
                 <label><span>1k</span><input data-listening-band-index="2" type="range" min="-9" max="9" step="0.5"><output></output></label>
                 <label><span>4k</span><input data-listening-band-index="3" type="range" min="-9" max="9" step="0.5"><output></output></label>
                 <label><span>12k</span><input data-listening-band-index="4" type="range" min="-9" max="9" step="0.5"><output></output></label>
+              </div>
+              <div class="listening-effects-mini-space">
+                <div class="listening-effects-mini-space-head">
+                  <span>空间听感</span>
+                  <button type="button" data-listening-protection-toggle role="switch" aria-label="削峰保护"><i></i>削峰</button>
+                </div>
+                <div class="listening-effects-mini-ambience" role="group" aria-label="空间环境">
+                  <button type="button" data-listening-ambience="off">关闭</button>
+                  <button type="button" data-listening-ambience="studio">近场</button>
+                  <button type="button" data-listening-ambience="room">房间</button>
+                  <button type="button" data-listening-ambience="hall">音乐厅</button>
+                </div>
+                <label><span>空间感</span><input data-listening-ambience-amount type="range" min="0" max="0.3" step="0.01"><output></output></label>
+                <label><span>宽度</span><input data-listening-width type="range" min="0.7" max="1.4" step="0.01"><output></output></label>
               </div>
               <div class="listening-effects-mini-status" data-listening-status role="status" aria-live="polite">播放后可应用听感调节</div>
             </div>

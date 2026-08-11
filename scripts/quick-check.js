@@ -4924,6 +4924,77 @@ app.whenReady().then(async () => {
       if (!persistentLyricQa.ok) failures.push('persistent multi-line lyric continuity failed: ' + JSON.stringify(persistentLyricQa));
       progressDragLyricQa = await inspectProgressDragLyricContinuity();
       if (!progressDragLyricQa.ok) failures.push('real progress drag lyric continuity failed: ' + JSON.stringify(progressDragLyricQa));
+      async function inspectSpatialListeningControls() {
+        const wrap = document.getElementById('listening-effects-control');
+        const popover = wrap && wrap.querySelector('.listening-effects-popover');
+        const previous = JSON.parse(JSON.stringify(listeningEffectsState || {}));
+        let context;
+        let graph;
+        try {
+          if (!wrap || !popover || typeof createListeningEffectsGraph !== 'function') return { ok: false, reason: 'spatial listening controls missing' };
+          wrap.classList.add('open');
+          setListeningAmbience('room');
+          updateListeningAmbienceAmount(0.14);
+          updateListeningWidth(1.25);
+          const Context = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+          context = new Context(2, 12000, 12000);
+          graph = createListeningEffectsGraph(context);
+          applyListeningEffectsToGraph(graph, true);
+          graph.output.connect(context.destination);
+          const monoSource = context.createBufferSource();
+          const monoBuffer = context.createBuffer(1, 6000, context.sampleRate);
+          const monoSamples = monoBuffer.getChannelData(0);
+          for (let index = 0; index < monoSamples.length; index++) monoSamples[index] = Math.sin(index * Math.PI * 2 * 440 / context.sampleRate) * 0.1;
+          monoSource.buffer = monoBuffer;
+          monoSource.connect(graph.input);
+          monoSource.start(0);
+          const rendered = await context.startRendering();
+          const channelRms = Array.from({ length: 2 }, (_, channel) => {
+            const samples = rendered.getChannelData(channel);
+            let energy = 0;
+            for (let index = 0; index < samples.length; index++) energy += samples[index] * samples[index];
+            return Math.sqrt(energy / samples.length);
+          });
+          const monoBalance = Math.min(channelRms[0], channelRms[1]) / Math.max(channelRms[0], channelRms[1], Number.EPSILON);
+          const rect = popover.getBoundingClientRect();
+          const roomButtons = Array.from(document.querySelectorAll('[data-listening-ambience="room"]'));
+          const widthInputs = Array.from(document.querySelectorAll('[data-listening-width]'));
+          const protectionToggles = Array.from(document.querySelectorAll('[data-listening-protection-toggle]'));
+          const widthValues = graph && graph.widthGains ? graph.widthGains.map(node => Number(node.gain.value.toFixed(3))) : [];
+          const state = {
+            ambience: listeningEffectsState.ambience,
+            amount: listeningEffectsState.ambienceAmount,
+            width: listeningEffectsState.width,
+            enabled: listeningEffectsState.enabled
+          };
+          const checks = {
+            popoverWithinViewport: rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight,
+            noPageOverflow: document.documentElement.scrollWidth <= innerWidth + 1,
+            roomControlsSynced: roomButtons.length === 2 && roomButtons.every(button => button.classList.contains('active')),
+            widthControlsSynced: widthInputs.length === 2 && widthInputs.every(input => Math.abs(Number(input.value) - 1.25) < 0.001),
+            protectionControlsPresent: protectionToggles.length === 2,
+            graphReady: !!(graph && graph.convolver && graph.convolver.buffer && graph.widthGains && graph.widthGains.length === 4),
+            graphValuesReady: widthValues.length === 4 && Math.abs(widthValues[0] - 1.125) < 0.005 && Math.abs(widthValues[1] + 0.125) < 0.005,
+            wetReady: !!(graph && graph.wet && Math.abs(graph.wet.gain.value - 0.14) < 0.005),
+            monoStereoReady: channelRms[0] > 0.01 && channelRms[1] > 0.01 && monoBalance > 0.9,
+            stateReady: state.enabled && state.ambience === 'room' && Math.abs(state.amount - 0.14) < 0.002 && Math.abs(state.width - 1.25) < 0.002
+          };
+          return { ok: Object.values(checks).every(Boolean), checks, rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height }, state, widthValues, channelRms, monoBalance };
+        } catch (error) {
+          return { ok: false, error: String(error && error.stack || error) };
+        } finally {
+          wrap && wrap.classList.remove('open');
+          if (graph) disconnectListeningEffectsGraph(graph);
+          if (context && typeof context.close === 'function' && context.state !== 'closed') {
+            try { await context.close(); } catch (error) {}
+          }
+          listeningEffectsState = normalizeListeningEffectsState(previous);
+          saveListeningEffectsState();
+          updateListeningEffectsControls();
+        }
+      }
+      const spatialListeningQa = await inspectSpatialListeningControls();
+      if (!spatialListeningQa.ok) failures.push('spatial listening graph or compact controls failed: ' + JSON.stringify(spatialListeningQa));
       async function inspectAudioGraphMediaHandoff() {
         if (audio || audioCtx || source) return { ok: true, skipped: 'renderer already owns an audio graph' };
         const deckA = new Audio();
@@ -4965,6 +5036,7 @@ app.whenReady().then(async () => {
         persistentLyricQa,
         progressDragLyricQa,
         searchGlassQa,
+        spatialListeningQa,
         audioGraphHandoffQa,
         render: perf && perf.render,
         viewport: runtime && runtime.viewport
@@ -5017,6 +5089,7 @@ try {
     const qa = payload.result || {};
     const render = qa.render || {};
     const searchGlass = qa.searchGlassQa || {};
+    const spatialListening = qa.spatialListeningQa || {};
     const lyricTextureQuality = qa.lyricTextureQualityQa || {};
     const lyricQualityCache = qa.lyricQualityCacheQa || {};
     const fixedFpsCadence = qa.fixedFpsCadenceQa || {};
@@ -5031,6 +5104,7 @@ try {
     console.log(`     persistentLyrics: root=${persistentLyrics.rootId || 'n/a'}, sameTrackOutgoing=${persistentLyrics.maxSameTrackOutgoing}, upload/frame=${persistentLyrics.maxUploadConsumed}, indexLag=${persistentLyrics.maxIndexLag}, residentPrimary=${persistentLyrics.maxResidentPrimary}, runway=${persistentLyrics.minimumForwardRunway}, logicalWidth=${persistentLyrics.maxLogicalRowWidth}, fontDrift=${Math.round((persistentLyrics.maxGlyphWorldDrift || 0) * 1000) / 10}%, activeScale=${Math.round((persistentLyrics.minActiveScale || 0) * 1000) / 1000}`);
     console.log(`     progressDragLyrics: root=${progressDragLyrics.rootId || 'n/a'}, commit=${Math.round(progressDragLyrics.textCommitMs || 0)}ms, previewGap=${!!progressDragLyrics.previewDroppedBeforeReady}, samples=${progressDragLyrics.continuousSamples || 0}, moving=${progressDragLyrics.movingFrames || 0}, snaps=${progressDragLyrics.snapFrames || 0}, reverse=${progressDragLyrics.reverseFrames || 0}, trackRows/frame=${Math.round((progressDragLyrics.maxTrackRowsPerFrame || 0) * 1000) / 1000}, visualRows/frame=${Math.round((progressDragLyrics.maxVisualRowsPerFrame || 0) * 1000) / 1000}, corridor=${progressDragLyrics.presentationLinesVisited || 0} lines/${progressDragLyrics.corridorMissingTextFrames || 0} blank, join=${Math.round((progressDragLyrics.maxJoinError || 0) * 1000) / 1000}, upload/frame=${progressDragLyrics.maxUploadConsumed}`);
     console.log(`     searchGlass: boxDirect=${afterPaint.directFilter || 'n/a'}, boxBefore=${afterPaint.glassFilter || 'n/a'}, pillDirect=${afterPaint.pillFilter || 'n/a'}`);
+    console.log(`     spatialListening: ${spatialListening.state && spatialListening.state.ambience || 'n/a'} ${spatialListening.state && Math.round(spatialListening.state.amount * 100) || 0}% wet, ${spatialListening.state && Math.round(spatialListening.state.width * 100) || 0}% width, popover=${spatialListening.rect && Math.round(spatialListening.rect.width) || 0}x${spatialListening.rect && Math.round(spatialListening.rect.height) || 0}`);
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -5355,7 +5429,7 @@ function checkFxConsoleWorkspaceGuard() {
   if (!/node\.parentNode === panel/.test(workspace)) fail('visual console old-shell cleanup can remove reparented controls');
   if (!/FX_CONSOLE_HISTORY_LIMIT\s*=\s*40/.test(workspace) || !/fxConsoleChangedKeys/.test(workspace)) fail('scoped session history guard is missing');
   if (!/home:\s*1[\s\S]*sound:\s*1[\s\S]*interface:\s*1[\s\S]*lyrics:\s*1[\s\S]*motion:\s*1[\s\S]*shelf:\s*1[\s\S]*system:\s*1/.test(panel)) fail('visual console tab allow-list is incomplete');
-  if (!loader.includes("js/modules/05-playback/08a-listening-effects.js") || !/id="listening-effects-control"/.test(html) || !/data-listening-band-index="4"/.test(html) || !/key:\s*'sound'/.test(workspace)) fail('listening effects module, simple-mode entry, five-band controls, or sound tab is incomplete');
+  if (!loader.includes("js/modules/05-playback/08a-listening-effects.js") || !/id="listening-effects-control"/.test(html) || !/data-listening-band-index="4"/.test(html) || !/data-listening-ambience="hall"/.test(html) || !/data-listening-width/.test(html) || !/data-listening-protection-toggle/.test(html) || !/function buildListeningAmbienceImpulse/.test(fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '05-playback', '08a-listening-effects.js'), 'utf8')) || !/key:\s*'sound'/.test(workspace)) fail('listening effects module, spatial controls, five-band controls, or sound tab is incomplete');
   if (!/\.fx-console-toolbar/.test(css) || !/\.fx-console-group/.test(css) || !/prefers-reduced-motion:reduce/.test(css)) fail('visual console layout or reduced-motion styles are missing');
   if (!/fxConsoleSearchHitDelayTimer/.test(workspace) || !/outline-offset:\s*-2px/.test(css) || !/\.bg-media-actions,[\s\S]{0,160}\.wallpaper-engine-actions/.test(css)) fail('visual console search highlight or background media responsive layout is missing');
   const clarityButtonsReady = ['1', '2', '3', '4'].every(value => html.includes(`data-lyric-texture-clarity="${value}"`));

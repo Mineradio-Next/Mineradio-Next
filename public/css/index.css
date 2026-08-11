@@ -6125,6 +6125,113 @@ body.home-controls-locked #bottom-bar {
   font-size: 9px
 }
 
+.listening-effects-mini-space {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, .065)
+}
+
+.listening-effects-mini-space-head {
+  min-height: 21px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: rgba(255, 255, 255, .48);
+  font-size: 9.5px;
+  font-weight: 700
+}
+
+.listening-effects-mini-space-head button {
+  height: 21px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  border: 1px solid rgba(255, 255, 255, .075);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, .025);
+  color: rgba(255, 255, 255, .42);
+  font: inherit;
+  cursor: pointer
+}
+
+.listening-effects-mini-space-head button i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .16)
+}
+
+.listening-effects-mini-space-head button.on {
+  color: var(--fc-accent);
+  border-color: rgba(var(--fc-accent-rgb), .28);
+  background: rgba(var(--fc-accent-rgb), .07)
+}
+
+.listening-effects-mini-space-head button.on i {
+  background: var(--fc-accent);
+  box-shadow: 0 0 8px rgba(var(--fc-accent-rgb), .35)
+}
+
+.listening-effects-mini-ambience {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 8px
+}
+
+.listening-effects-mini-ambience button {
+  min-width: 0;
+  height: 25px;
+  padding: 0 2px;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, .05);
+  background: rgba(255, 255, 255, .018);
+  color: rgba(255, 255, 255, .4);
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer
+}
+
+.listening-effects-mini-ambience button:last-child {
+  border-right: 0
+}
+
+.listening-effects-mini-ambience button:hover {
+  color: rgba(255, 255, 255, .8);
+  background: rgba(255, 255, 255, .04)
+}
+
+.listening-effects-mini-ambience button.active {
+  color: var(--fc-accent);
+  background: rgba(var(--fc-accent-rgb), .09)
+}
+
+.listening-effects-mini-space>label {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+  color: rgba(255, 255, 255, .4);
+  font-size: 9px
+}
+
+.listening-effects-mini-space>label input {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--fc-accent)
+}
+
+.listening-effects-mini-space>label output {
+  text-align: right;
+  color: rgba(255, 255, 255, .38);
+  font-size: 8.5px;
+  font-variant-numeric: tabular-nums
+}
+
 .listening-effects-mini-status {
   min-height: 22px;
   display: flex;
@@ -6350,6 +6457,10 @@ body:not(.controls-visible) .lyric-timing-control::before,
 
 .listening-effects-presets {
   margin: 8px 0 10px;
+}
+
+.listening-ambience-presets {
+  margin: 7px 0 9px;
 }
 
 .listening-effects-presets button {
