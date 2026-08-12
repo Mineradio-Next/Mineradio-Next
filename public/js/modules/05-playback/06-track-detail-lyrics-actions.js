@@ -1478,6 +1478,7 @@ function markSongsLiked(songs, liked) {
     var key = songAccountStateKey(song);
     if (key) likedSongMap[key] = !!liked;
   });
+  if (liked && typeof markFavoriteCatalogSongs === 'function') markFavoriteCatalogSongs(songs, { synced: true });
 }
 function refreshSearchResultActionStates() {
   if (!playlist || !$results || !$results.children.length) return;
@@ -1497,6 +1498,7 @@ async function toggleLikeSong(song) {
     backupSourceLikedSongMap[backupStateKey] = !backupSourceLikedSongMap[backupStateKey];
     if (!backupSourceLikedSongMap[backupStateKey]) delete backupSourceLikedSongMap[backupStateKey];
     saveBackupSourceLikes();
+    if (typeof setFavoriteCatalogSong === 'function') setFavoriteCatalogSong(song, !!backupSourceLikedSongMap[backupStateKey], { synced: false });
     updateLikeButtons(song);
     safeRenderQueuePanel('backup-like-toggle', { scrollCurrent: miniQueueOpen });
     refreshSearchResultActionStates();
@@ -1519,6 +1521,7 @@ async function toggleLikeSong(song) {
   var next = !likedSongMap[stateKey];
   likeBusyMap[stateKey] = true;
   likedSongMap[stateKey] = next;
+  if (typeof setFavoriteCatalogSong === 'function') setFavoriteCatalogSong(song, next, { synced: true });
   updateLikeButtons(song);
   safeRenderQueuePanel('like-toggle-optimistic', { scrollCurrent: miniQueueOpen });
   refreshSearchResultActionStates();
@@ -1530,9 +1533,11 @@ async function toggleLikeSong(song) {
     });
     if (r && (r.error || r.success === false)) throw new Error(r.error || r.message || 'LIKE_FAILED');
     likedSongMap[stateKey] = r && r.liked != null ? !!r.liked : next;
+    if (typeof setFavoriteCatalogSong === 'function') setFavoriteCatalogSong(song, !!likedSongMap[stateKey], { synced: true });
     showToast(next ? '已加入红心喜欢' : '已取消红心');
   } catch (err) {
     likedSongMap[stateKey] = !next;
+    if (typeof setFavoriteCatalogSong === 'function') setFavoriteCatalogSong(song, !!likedSongMap[stateKey], { synced: true });
     var errorText = String(err && err.message || '');
     if (/SCOPE|PERMISSION/i.test(errorText)) {
       showToast('当前授权缺少收藏写入权限，请重新授权');

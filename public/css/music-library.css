@@ -336,6 +336,46 @@
   padding-bottom: 24px
 }
 
+.music-library-favorites { min-height: 100%; padding-bottom: 24px }
+
+.music-library-favorite-summary {
+  min-height: 124px;
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto;
+  align-items: center;
+  gap: 28px;
+  padding: 22px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, .075);
+  background: rgba(255, 255, 255, .018)
+}
+
+.music-library-favorite-summary h3,
+.music-library-favorite-summary p { margin: 0 }
+
+.music-library-favorite-summary h3 { margin-top: 5px; color: rgba(255, 255, 255, .91); font-size: 19px }
+.music-library-favorite-summary p { max-width: 620px; margin-top: 7px; color: rgba(255, 255, 255, .38); font-size: 10.5px; line-height: 1.65 }
+.music-library-favorite-warning { display: block; margin-top: 7px; color: rgba(255, 198, 112, .68); font-size: 9.5px }
+.music-library-toolbar.favorites { grid-template-columns: minmax(220px, 1fr) 116px 116px auto auto auto }
+.music-library-favorite-list { padding: 0 24px }
+
+.music-library-favorite-row {
+  min-height: 70px;
+  display: grid;
+  grid-template-columns: minmax(230px, 1.35fr) minmax(150px, .9fr) 116px 112px;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, .055);
+  animation: music-library-row-in .24s cubic-bezier(.22, .8, .25, 1) both;
+  animation-delay: min(calc(var(--row-index) * 12ms), 160ms)
+}
+
+.music-library-favorite-row:hover { background: rgba(255, 255, 255, .024) }
+.music-library-favorite-origin { min-width: 0; display: grid; gap: 4px }
+.music-library-favorite-origin strong { color: rgba(0, 214, 186, .7); font-size: 10px; font-weight: 600 }
+.music-library-favorite-origin small { overflow: hidden; color: rgba(255, 255, 255, .3); font-size: 9px; text-overflow: ellipsis; white-space: nowrap }
+.music-library-favorite-row .music-library-row-actions button.liked { color: #ff7588; background: rgba(255, 88, 112, .09) }
+.music-library-favorite-row .heart-svg { width: 14px; height: 14px; fill: currentColor }
+
 .music-library-history-summary {
   min-height: 124px;
   display: grid;
@@ -1299,7 +1339,11 @@
   .music-library-offline-metrics { justify-content: flex-start }
   .music-library-offline-row { grid-template-columns: minmax(210px, 1.4fr) minmax(130px, 1fr) 92px 70px }
   .music-library-history-summary { grid-template-columns: 1fr; gap: 18px }
+  .music-library-favorite-summary { grid-template-columns: 1fr; gap: 18px }
   .music-library-history-metrics { justify-content: flex-start }
+  .music-library-toolbar.favorites { grid-template-columns: minmax(220px, 1fr) 116px 116px }
+  .music-library-toolbar.favorites .music-library-command { grid-column: auto }
+  .music-library-favorite-row { grid-template-columns: minmax(210px, 1.25fr) minmax(130px, .8fr) 104px 108px }
   .music-library-toolbar.history { grid-template-columns: minmax(220px, 1fr) 128px 128px }
   .music-library-toolbar.history .music-library-command { grid-column: 1 / -1; justify-self: start }
   .music-library-history-row { grid-template-columns: minmax(210px, 1.25fr) minmax(130px, .8fr) minmax(140px, .8fr) 100px }
@@ -1313,6 +1357,8 @@
   .music-library-tabs::-webkit-scrollbar { display: none }
   .music-library-tabs button { flex: 0 0 auto; white-space: nowrap }
   .music-library-toolbar { position: static; grid-template-columns: 1fr; padding-inline: 16px }
+  .music-library-toolbar.favorites { grid-template-columns: 1fr }
+  .music-library-toolbar.favorites .music-library-command { grid-column: 1 }
   .music-library-batchbar { align-items: flex-start; flex-direction: column; padding-inline: 16px }
   .music-library-batch-actions { justify-content: flex-start }
   .music-library-table { padding-inline: 16px }
@@ -1348,9 +1394,14 @@
   .music-library-offline-row .music-library-meta,
   .music-library-offline-row .music-library-offline-file { display: none }
   .music-library-history-summary { padding-inline: 18px }
+  .music-library-favorite-summary { padding-inline: 18px }
   .music-library-history-metrics { justify-content: space-between }
   .music-library-history-metrics > span { min-width: 0; flex: 1; padding-inline: 8px }
   .music-library-history-list { padding-inline: 16px }
+  .music-library-favorite-list { padding-inline: 16px }
+  .music-library-favorite-row { grid-template-columns: minmax(0, 1fr) 100px }
+  .music-library-favorite-row .music-library-meta,
+  .music-library-favorite-origin { display: none }
   .music-library-history-row { grid-template-columns: minmax(0, 1fr) minmax(90px, .48fr) 100px }
   .music-library-history-row .music-library-meta,
   .music-library-history-time { display: none }
@@ -1367,5 +1418,6 @@
   .music-library-playlist-item,
   .music-library-playlist-track,
   .music-library-history-row,
+  .music-library-favorite-row,
   .music-library-tabs button::after { animation: none !important; transition: none !important }
 }

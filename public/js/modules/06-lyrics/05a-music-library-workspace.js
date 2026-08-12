@@ -11,6 +11,9 @@ var musicLibraryWorkspaceState = {
   historyVisible: MUSIC_LIBRARY_BATCH_SIZE,
   historyRange: 'all',
   historyProvider: 'all',
+  favoriteVisible: MUSIC_LIBRARY_BATCH_SIZE,
+  favoriteProvider: 'all',
+  favoriteScope: 'all',
   loading: false,
   confirmAction: '',
   confirmUntil: 0
@@ -92,6 +95,7 @@ function ensureMusicLibraryWorkspace() {
       '<nav class="music-library-tabs" role="tablist" aria-label="音乐库视图">' +
         '<button type="button" data-library-tab="local" role="tab">本地音乐</button>' +
         '<button type="button" data-library-tab="playlists" role="tab">我的歌单</button>' +
+        '<button type="button" data-library-tab="favorites" role="tab">我的收藏</button>' +
         '<button type="button" data-library-tab="history" role="tab">最近播放</button>' +
         '<button type="button" data-library-tab="offline" role="tab">离线音乐</button>' +
         '<button type="button" data-library-tab="health" role="tab">曲库健康</button>' +
@@ -420,9 +424,10 @@ function renderMusicLibraryWorkspace(reason) {
   var summary = document.getElementById('music-library-summary');
   if (summary) summary.textContent = tab === 'local'
     ? ((persistentLocalLibraryTracks || []).length + ' 首本地音乐 · ' + Object.keys(musicLibraryWorkspaceState.selected).filter(function (id) { return musicLibraryWorkspaceState.selected[id]; }).length + ' 首已选')
-    : (tab === 'playlists' ? (localFilePlaylists.length + ' 个本地歌单') : (tab === 'history' ? ((listenStatsState.history || []).length + ' 条本机收听记录') : (tab === 'offline' ? ((offlineMusicState.snapshot.count || 0) + ' 首离线音乐 · ' + offlineMusicBytesLabel(offlineMusicState.snapshot.bytes || 0)) : (tab === 'health' ? '检查重复音乐与失效索引' : '导入音乐、歌单文件或平台分享链接'))));
+    : (tab === 'playlists' ? (localFilePlaylists.length + ' 个本地歌单') : (tab === 'favorites' ? ((typeof favoriteCatalogEntries !== 'undefined' ? favoriteCatalogEntries.length : 0) + ' 首收藏歌曲') : (tab === 'history' ? ((listenStatsState.history || []).length + ' 条本机收听记录') : (tab === 'offline' ? ((offlineMusicState.snapshot.count || 0) + ' 首离线音乐 · ' + offlineMusicBytesLabel(offlineMusicState.snapshot.bytes || 0)) : (tab === 'health' ? '检查重复音乐与失效索引' : '导入音乐、歌单文件或平台分享链接')))));
   if (tab === 'local') renderMusicLibraryLocal();
   else if (tab === 'playlists') renderMusicLibraryPlaylists();
+  else if (tab === 'favorites' && typeof renderMusicLibraryFavorites === 'function') renderMusicLibraryFavorites();
   else if (tab === 'history') renderMusicLibraryHistory();
   else if (tab === 'offline') renderMusicLibraryOffline();
   else if (tab === 'health' && typeof renderMusicLibraryHealth === 'function') renderMusicLibraryHealth();
@@ -461,10 +466,11 @@ function loadMusicLibraryTracks() {
 function openMusicLibraryWorkspace(tab) {
   var mask = ensureMusicLibraryWorkspace();
   musicLibraryWorkspaceState.open = true;
-  musicLibraryWorkspaceState.tab = /^(local|playlists|history|offline|health|import)$/.test(String(tab || '')) ? String(tab) : musicLibraryWorkspaceState.tab;
+  musicLibraryWorkspaceState.tab = /^(local|playlists|favorites|history|offline|health|import)$/.test(String(tab || '')) ? String(tab) : musicLibraryWorkspaceState.tab;
   musicLibraryWorkspaceState.visible = MUSIC_LIBRARY_BATCH_SIZE;
   musicLibraryWorkspaceState.playlistVisible = MUSIC_LIBRARY_BATCH_SIZE;
   musicLibraryWorkspaceState.historyVisible = MUSIC_LIBRARY_BATCH_SIZE;
+  musicLibraryWorkspaceState.favoriteVisible = MUSIC_LIBRARY_BATCH_SIZE;
   mask.classList.add('show');
   mask.setAttribute('aria-hidden', 'false');
   document.body.classList.add('music-library-open');
@@ -473,6 +479,7 @@ function openMusicLibraryWorkspace(tab) {
   Promise.resolve(localPlaylistCatalogReady).then(function () { refreshMusicLibraryWorkspace('catalog-ready'); });
   loadMusicLibraryTracks();
   if (musicLibraryWorkspaceState.tab === 'offline') refreshOfflineMusicSnapshot(true);
+  if (musicLibraryWorkspaceState.tab === 'favorites' && typeof refreshUnifiedFavoriteCatalog === 'function') refreshUnifiedFavoriteCatalog(false);
   if (musicLibraryWorkspaceState.tab === 'health' && typeof loadMusicLibraryHealth === 'function') loadMusicLibraryHealth(false);
   requestAnimationFrame(function () {
     var focus = mask.querySelector('[data-library-tab].active');
@@ -564,9 +571,40 @@ function handleMusicLibraryClick(event) {
     musicLibraryWorkspaceState.visible = MUSIC_LIBRARY_BATCH_SIZE;
     musicLibraryWorkspaceState.playlistVisible = MUSIC_LIBRARY_BATCH_SIZE;
     musicLibraryWorkspaceState.historyVisible = MUSIC_LIBRARY_BATCH_SIZE;
+    musicLibraryWorkspaceState.favoriteVisible = MUSIC_LIBRARY_BATCH_SIZE;
     renderMusicLibraryWorkspace('tab');
     if (musicLibraryWorkspaceState.tab === 'health' && typeof loadMusicLibraryHealth === 'function') loadMusicLibraryHealth(false);
     if (musicLibraryWorkspaceState.tab === 'offline') refreshOfflineMusicSnapshot(true);
+    if (musicLibraryWorkspaceState.tab === 'favorites' && typeof refreshUnifiedFavoriteCatalog === 'function') refreshUnifiedFavoriteCatalog(false);
+    return;
+  }
+  var favoriteRefresh = event.target.closest('[data-favorite-refresh]');
+  if (favoriteRefresh) { refreshUnifiedFavoriteCatalog(true); return; }
+  var favoritePlay = event.target.closest('[data-favorite-play]');
+  if (favoritePlay) {
+    var favoritePlayEntry = favoriteCatalogEntry(favoritePlay.getAttribute('data-favorite-play'));
+    if (favoritePlayEntry) playMusicLibraryTracks([favoritePlayEntry.song]);
+    return;
+  }
+  var favoriteNext = event.target.closest('[data-favorite-next]');
+  if (favoriteNext) {
+    var favoriteNextEntry = favoriteCatalogEntry(favoriteNext.getAttribute('data-favorite-next'));
+    if (favoriteNextEntry) { queueSongNext(favoriteNextEntry.song); showToast('已设为下一首：' + (favoriteNextEntry.song.name || favoriteNextEntry.song.title || '歌曲')); }
+    return;
+  }
+  var favoriteDetail = event.target.closest('[data-favorite-detail]');
+  if (favoriteDetail) {
+    var favoriteDetailEntry = favoriteCatalogEntry(favoriteDetail.getAttribute('data-favorite-detail'));
+    if (favoriteDetailEntry) {
+      closeMusicLibraryWorkspace();
+      openTrackDetailModal('song', favoriteDetailEntry.song);
+    }
+    return;
+  }
+  var favoriteLike = event.target.closest('[data-favorite-like]');
+  if (favoriteLike) {
+    var favoriteLikeEntry = favoriteCatalogEntry(favoriteLike.getAttribute('data-favorite-like'));
+    if (favoriteLikeEntry) toggleLikeSong(favoriteLikeEntry.song);
     return;
   }
   var historyPlay = event.target.closest('[data-history-play]');
@@ -698,6 +736,9 @@ function handleMusicLibraryClick(event) {
   } else if (action === 'remove-selected') removeMusicLibrarySelectedTracks();
   else if (action === 'more-local') { musicLibraryWorkspaceState.visible += MUSIC_LIBRARY_BATCH_SIZE; renderMusicLibraryWorkspace('more-local'); }
   else if (action === 'more-history') { musicLibraryWorkspaceState.historyVisible += MUSIC_LIBRARY_BATCH_SIZE; renderMusicLibraryWorkspace('more-history'); }
+  else if (action === 'more-favorites') { musicLibraryWorkspaceState.favoriteVisible += MUSIC_LIBRARY_BATCH_SIZE; renderMusicLibraryWorkspace('more-favorites'); }
+  else if (action === 'play-favorites') playMusicLibraryTracks(favoriteFilteredEntries().map(function (entry) { return entry.song; }));
+  else if (action === 'queue-favorites') queueMusicLibraryTracks(favoriteFilteredEntries().map(function (entry) { return entry.song; }));
   else if (action === 'more-playlist') { musicLibraryWorkspaceState.playlistVisible += MUSIC_LIBRARY_BATCH_SIZE; renderMusicLibraryWorkspace('more-playlist'); }
   else if (action === 'rename-playlist') {
     var selectedPlaylist = musicLibrarySelectedPlaylist();
@@ -727,6 +768,7 @@ function handleMusicLibraryInput(event) {
   musicLibraryWorkspaceState.query = event.target.value;
   musicLibraryWorkspaceState.visible = MUSIC_LIBRARY_BATCH_SIZE;
   musicLibraryWorkspaceState.historyVisible = MUSIC_LIBRARY_BATCH_SIZE;
+  musicLibraryWorkspaceState.favoriteVisible = MUSIC_LIBRARY_BATCH_SIZE;
   var selectionStart = event.target.selectionStart;
   renderMusicLibraryWorkspace('search');
   requestAnimationFrame(function () {
@@ -742,6 +784,18 @@ function handleMusicLibraryChange(event) {
     musicLibraryWorkspaceState.historyRange = event.target.value || 'all';
     musicLibraryWorkspaceState.historyVisible = MUSIC_LIBRARY_BATCH_SIZE;
     renderMusicLibraryWorkspace('history-range');
+    return;
+  }
+  if (event.target.id === 'music-library-favorite-scope') {
+    musicLibraryWorkspaceState.favoriteScope = event.target.value || 'all';
+    musicLibraryWorkspaceState.favoriteVisible = MUSIC_LIBRARY_BATCH_SIZE;
+    renderMusicLibraryWorkspace('favorite-scope');
+    return;
+  }
+  if (event.target.id === 'music-library-favorite-provider') {
+    musicLibraryWorkspaceState.favoriteProvider = event.target.value || 'all';
+    musicLibraryWorkspaceState.favoriteVisible = MUSIC_LIBRARY_BATCH_SIZE;
+    renderMusicLibraryWorkspace('favorite-provider');
     return;
   }
   if (event.target.id === 'music-library-history-provider') {
@@ -779,6 +833,9 @@ function handleMusicLibraryScroll(event) {
   } else if (musicLibraryWorkspaceState.tab === 'history' && musicLibraryWorkspaceState.historyVisible < musicLibraryHistoryEntries().length) {
     musicLibraryWorkspaceState.historyVisible += MUSIC_LIBRARY_BATCH_SIZE;
     renderMusicLibraryWorkspace('scroll-more-history');
+  } else if (musicLibraryWorkspaceState.tab === 'favorites' && musicLibraryWorkspaceState.favoriteVisible < favoriteFilteredEntries().length) {
+    musicLibraryWorkspaceState.favoriteVisible += MUSIC_LIBRARY_BATCH_SIZE;
+    renderMusicLibraryWorkspace('scroll-more-favorites');
   }
 }
 

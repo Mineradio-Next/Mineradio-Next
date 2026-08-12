@@ -45,6 +45,7 @@ test('collects only present allowlisted settings and keeps raw storage strings',
     'mineradio-listening-effects-v1': '{"enabled":true}',
     'mineradio-music-radio-favorites-v1': '["daily","rock"]',
     'mineradio-listen-stats-v1': '{"history":[{"key":"song:1"}]}',
+    'mineradio-favorite-catalog-v1': '[{"key":"netease:1"}]',
     'mineradio-login-cookie-export-v1': 'sensitive',
     'mineradio-search-history': '["ignored"]'
   });
@@ -55,11 +56,12 @@ test('collects only present allowlisted settings and keeps raw storage strings',
   assert.equal(result.payload.exportedAt, 1234);
   assert.equal(result.payload.categories.library['mineradio-local-playlist-files-v1'], '[{"id":1}]');
   assert.equal(result.payload.categories.library['mineradio-listen-stats-v1'], '{"history":[{"key":"song:1"}]}');
+  assert.equal(result.payload.categories.library['mineradio-favorite-catalog-v1'], '[{"key":"netease:1"}]');
   assert.equal(result.payload.categories.lyrics['mineradio-custom-lyrics-v1'], '{"song":"line"}');
   assert.equal(result.payload.categories.preferences['mineradio-diy-player-mode-v1'], '1');
   assert.equal(result.payload.categories.preferences['mineradio-listening-effects-v1'], '{"enabled":true}');
   assert.equal(result.payload.categories.preferences['mineradio-music-radio-favorites-v1'], '["daily","rock"]');
-  assert.equal(result.summary.total, 6);
+  assert.equal(result.summary.total, 7);
   assert.doesNotMatch(JSON.stringify(result.payload), /sensitive|search-history/);
 });
 
