@@ -57,6 +57,8 @@ test('player spectrum is wired as a low-load native player surface', () => {
   assert.match(html, /id="player-spectrum-canvas"/);
   assert.match(html, /id="player-spectrum-toggle"/);
   assert.match(css, /\.player-spectrum-canvas\s*\{[\s\S]*position:\s*absolute[\s\S]*pointer-events:\s*none/);
+  assert.match(css, /\.player-spectrum-canvas\s*\{[\s\S]*top:\s*-7px/);
+  assert.match(css, /\.player-spectrum-canvas\.enabled\s*\{[\s\S]*opacity:\s*\.96/);
   assert.match(loader, /08a-listening-effects\.js'[\s\S]*08b-player-spectrum\.js'/);
   assert.match(chrome, /\['player-spectrum-toggle', '播放频谱'\]/);
   assert.match(source, /typeof frequencyData !== 'undefined' \? frequencyData : null/);
@@ -69,6 +71,10 @@ test('player spectrum is wired as a low-load native player surface', () => {
   assert.match(source, /addEventListener\('play'[\s\S]*playerSpectrumSettled = false/);
   assert.match(source, /prefers-reduced-motion:\s*reduce/);
   assert.match(source, /active \? 34 : 110/);
+  assert.match(source, /baselineY = size\.height \* 0\.62/);
+  assert.match(source, /maxHeight = size\.height \* 0\.60/);
+  assert.match(source, /globalAlpha = active \? 0\.66 : 0\.24/);
+  assert.doesNotMatch(source, /context\.strokeStyle = palette\.light/);
   assert.doesNotMatch(html, />[^<]*LX[^<]*</i);
 });
 

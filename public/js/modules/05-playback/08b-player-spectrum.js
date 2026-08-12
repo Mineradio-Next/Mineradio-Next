@@ -143,32 +143,26 @@ function drawPlayerSpectrum() {
 
   context.clearRect(0, 0, size.width, size.height);
   var palette = playerSpectrumPalette();
-  var baselineY = size.height * 0.69;
+  // Keep the bars above the progress track so both signals stay readable.
+  var baselineY = size.height * 0.62;
   var side = size.width * 0.075;
   var available = size.width - side * 2;
   var gap = Math.max(1.2 * size.ratio, available * 0.0036);
   var barWidth = Math.max(1.5 * size.ratio, (available - gap * (PLAYER_SPECTRUM_BAR_COUNT - 1)) / PLAYER_SPECTRUM_BAR_COUNT);
-  var maxHeight = size.height * 0.54;
+  var maxHeight = size.height * 0.60;
 
   context.save();
-  context.globalAlpha = 0.16;
-  context.strokeStyle = palette.light;
-  context.lineWidth = Math.max(0.7, size.ratio * 0.65);
-  context.beginPath();
-  context.moveTo(side, baselineY + 0.5 * size.ratio);
-  context.lineTo(size.width - side, baselineY + 0.5 * size.ratio);
-  context.stroke();
   var gradient = context.createLinearGradient(side, 0, size.width - side, 0);
   gradient.addColorStop(0, palette.primary);
   gradient.addColorStop(0.58, palette.accent);
   gradient.addColorStop(1, palette.light);
   context.fillStyle = gradient;
-  context.globalAlpha = active ? 0.47 : 0.28;
+  context.globalAlpha = active ? 0.66 : 0.24;
   context.shadowColor = palette.accent;
-  context.shadowBlur = active ? 7 * size.ratio : 0;
+  context.shadowBlur = active ? 4 * size.ratio : 0;
   for (var bar = 0; bar < PLAYER_SPECTRUM_BAR_COUNT; bar++) {
     var value = playerSpectrumBars[bar];
-    var height = Math.max(1.1 * size.ratio, Math.pow(value, 0.78) * maxHeight);
+    var height = Math.max(1.35 * size.ratio, Math.pow(value, 0.68) * maxHeight);
     var x = side + bar * (barWidth + gap);
     var y = baselineY - height;
     playerSpectrumRoundRect(context, x, y, barWidth, height, barWidth * 0.48);

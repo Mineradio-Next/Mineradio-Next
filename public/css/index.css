@@ -21361,7 +21361,7 @@ body.diy-mode #bottom-bar.stage-mode {
 .player-spectrum-canvas {
   position: absolute;
   z-index: 0;
-  top: 2px;
+  top: -7px;
   left: clamp(54px, 8%, 88px);
   width: calc(100% - clamp(108px, 16%, 176px));
   height: 34px;
@@ -21372,12 +21372,12 @@ body.diy-mode #bottom-bar.stage-mode {
 }
 
 .player-spectrum-canvas.enabled {
-  opacity: .84;
+  opacity: .96;
   transform: translateY(0)
 }
 
 .player-spectrum-canvas.settled {
-  opacity: .34
+  opacity: .26
 }
 
 #controls {
