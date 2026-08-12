@@ -11,6 +11,7 @@
     "start": "electron .",
     "test": "node --test",
     "check": "node scripts/quick-check.js --full",
+    "check:ci": "node scripts/quick-check.js",
     "security:audit": "npm audit --audit-level=high",
     "upstream:report": "node scripts/upstream-report.js",
     "maintenance:check": "node scripts/maintenance-check.js",

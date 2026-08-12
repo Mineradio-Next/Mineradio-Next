@@ -45,8 +45,8 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Full project checks
-        run: npm run check
+      - name: CI project checks
+        run: npm run check:ci
 
       - name: Dependency audit
         run: npm run security:audit

@@ -24,6 +24,8 @@ test('release metadata consistently targets Mineradio Next', () => {
   assert.equal(packageInfo.build.win.executableName, 'Mineradio-Next');
   assert.equal(packageInfo.build.publish[0].owner, 'Mineradio-Next');
   assert.equal(packageInfo.build.publish[0].repo, 'Mineradio-Next');
+  assert.equal(packageInfo.scripts.check, 'node scripts/quick-check.js --full');
+  assert.equal(packageInfo.scripts['check:ci'], 'node scripts/quick-check.js');
   assert.equal(packageInfo.mineradio.update.owner, 'Mineradio-Next');
   assert.equal(packageInfo.mineradio.update.repo, 'Mineradio-Next');
   assert.match(html, /id="update-modal-version"[^>]*>v2\.2\.0<\/div>/);
@@ -41,12 +43,13 @@ test('repository exposes guarded CI and draft release workflows', () => {
 
   assert.match(ci, /npm ci/);
   assert.match(ci, /npm test/);
-  assert.match(ci, /npm run check/);
+  assert.match(ci, /npm run check:ci/);
   assert.match(ci, /npm run security:audit/);
   assert.match(release, /tags:[\s\S]*"v\*"/);
   assert.match(release, /packageVersion[\s\S]*tagVersion/);
   assert.match(release, /draft:\s*true/);
   assert.match(release, /npm run release:checksums/);
+  assert.match(release, /npm run check:ci/);
   assert.match(release, /RELEASE_NOTES_v\$packageVersion\.md/);
   assert.match(readme, /github\.com\/Mineradio-Next\/Mineradio-Next\/releases/);
   assert.doesNotMatch(readme, /github\.com\/XxHuberrr\/Mineradio\/releases/);
