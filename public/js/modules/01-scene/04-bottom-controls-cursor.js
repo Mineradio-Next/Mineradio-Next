@@ -49,6 +49,7 @@ function setControlsHidden(hidden) {
   if (hidden && (controlsHovering || miniQueueOpen)) hidden = false;
   bar.classList.toggle('soft-hidden', !!hidden && controlsAutoHide && bar.classList.contains('visible'));
   if (hidden && typeof closeLyricTimingPopover === 'function') closeLyricTimingPopover(true);
+  if (hidden) setPlayerToolsPanelOpen(false);
   bar.style.pointerEvents = '';
   updateControlsChromeState();
 }
@@ -297,6 +298,127 @@ function applyControlsAutoHidePreference() {
     handle.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); toggleBottomControlsFromHandle(); });
   }
   updateControlsChromeState();
+})();
+
+function setPlayerToolsPanelOpen(open) {
+  var control = document.getElementById('player-tools-control');
+  var button = document.getElementById('player-tools-btn');
+  if (!control || !button) return false;
+  open = !!open;
+  control.classList.toggle('open', open);
+  button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  var bar = document.getElementById('bottom-bar');
+  if (bar) bar.classList.toggle('player-tools-open', open);
+  if (!open) {
+    var listening = document.getElementById('listening-effects-control');
+    var sleep = document.getElementById('sleep-timer-control');
+    if (listening) listening.classList.remove('open');
+    if (sleep) sleep.classList.remove('open');
+    if (typeof updateListeningEffectsPanelExpanded === 'function') updateListeningEffectsPanelExpanded();
+    var sleepButton = document.getElementById('sleep-timer-btn');
+    if (sleepButton) sleepButton.setAttribute('aria-expanded', 'false');
+  }
+  return open;
+}
+
+function togglePlayerToolsPanel(event) {
+  if (event) event.stopPropagation();
+  var control = document.getElementById('player-tools-control');
+  if (!control) return false;
+  var open = setPlayerToolsPanelOpen(!control.classList.contains('open'));
+  if (open) {
+    if (typeof closeMiniQueue === 'function') closeMiniQueue();
+    holdBottomControlsVisible(5000);
+  }
+  return open;
+}
+
+function buildPlayerExtensionRow(node, label) {
+  if (!node || !label) return null;
+  var row = document.createElement('div');
+  row.className = 'player-tool-row';
+  var text = document.createElement('span');
+  text.className = 'player-tool-label';
+  text.textContent = label;
+  row.appendChild(text);
+  row.appendChild(node);
+  return row;
+}
+
+function playerToolPopoverNudge(controlLeft, popoverWidth, viewportWidth) {
+  controlLeft = Number(controlLeft) || 0;
+  popoverWidth = Math.max(0, Number(popoverWidth) || 0);
+  viewportWidth = Math.max(0, Number(viewportWidth) || 0);
+  var targetLeft = controlLeft - 14 - popoverWidth;
+  var minLeft = 12;
+  var maxLeft = Math.max(minLeft, viewportWidth - popoverWidth - 12);
+  var constrainedLeft = Math.min(maxLeft, Math.max(minLeft, targetLeft));
+  return constrainedLeft - targetLeft;
+}
+
+function positionPlayerNestedToolPanel(control, selector) {
+  if (!control) return;
+  var popover = control.querySelector(selector);
+  if (!popover) return;
+  popover.style.setProperty('--player-tool-popover-nudge', '0px');
+  var controlRect = control.getBoundingClientRect();
+  var width = popover.offsetWidth || popover.getBoundingClientRect().width || 0;
+  var nudge = playerToolPopoverNudge(controlRect.left, width, window.innerWidth);
+  popover.style.setProperty('--player-tool-popover-nudge', nudge.toFixed(2) + 'px');
+}
+
+function positionOpenPlayerNestedTools() {
+  var listening = document.getElementById('listening-effects-control');
+  var sleep = document.getElementById('sleep-timer-control');
+  if (listening && listening.classList.contains('open')) positionPlayerNestedToolPanel(listening, '.listening-effects-popover');
+  if (sleep && sleep.classList.contains('open')) positionPlayerNestedToolPanel(sleep, '.sleep-timer-popover');
+}
+
+(function initPlayerChromeFoundation() {
+  var standard = document.getElementById('player-standard-tools');
+  var original = document.getElementById('player-original-tools');
+  var extensions = document.getElementById('player-extension-slot');
+  if (!standard || !original || !extensions) return;
+
+  ['play-mode-btn', 'lyric-timing-control', 'mini-queue-btn', 'volume-control'].forEach(function (id) {
+    var node = document.getElementById(id);
+    if (node) standard.appendChild(node);
+  });
+  ['controls-hide-btn', 'immersive-btn'].forEach(function (id) {
+    var node = document.getElementById(id);
+    if (node) original.appendChild(node);
+  });
+  var fullscreen = document.querySelector('.fullscreen-toggle-btn');
+  if (fullscreen) original.appendChild(fullscreen);
+
+  [
+    ['cuefield-automix-btn', '智能衔接'],
+    ['listening-effects-control', '听感调节'],
+    ['sleep-timer-control', '定时停播']
+  ].forEach(function (entry) {
+    var node = document.getElementById(entry[0]);
+    var row = buildPlayerExtensionRow(node, entry[1]);
+    if (row) extensions.appendChild(row);
+  });
+  var autoMix = document.getElementById('cuefield-automix-btn');
+  if (autoMix) {
+    autoMix.title = '智能衔接';
+    autoMix.setAttribute('aria-label', '智能衔接');
+  }
+
+  document.addEventListener('click', function (event) {
+    var control = document.getElementById('player-tools-control');
+    if (control && !control.contains(event.target)) setPlayerToolsPanelOpen(false);
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    var control = document.getElementById('player-tools-control');
+    if (!control || !control.classList.contains('open')) return;
+    setPlayerToolsPanelOpen(false);
+    var button = document.getElementById('player-tools-btn');
+    if (button) button.focus();
+  });
+  window.addEventListener('resize', positionOpenPlayerNestedTools);
 })();
 
 function isCursorAutoHideMode() {

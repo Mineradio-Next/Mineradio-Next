@@ -108,33 +108,35 @@
           </svg>
           <input id="search-input" type="text" placeholder="搜索歌曲、歌手..." autocomplete="off" spellcheck="false">
         </div>
-        <div id="search-mode-tabs" class="search-mode-tabs" role="tablist" aria-label="Search mode">
-          <button id="search-mode-song" class="active" type="button" onclick="setSearchMode('song')"
-            aria-selected="true">All</button>
-          <button id="search-mode-netease" type="button" onclick="setSearchMode('netease')"
-            aria-selected="false">NE</button>
-          <button id="search-mode-qq" type="button" onclick="setSearchMode('qq')" aria-selected="false">QQ</button>
-          <button id="search-mode-kugou" type="button" onclick="setSearchMode('kugou')" aria-selected="false">KG</button>
-          <button id="search-mode-qishui" type="button" onclick="setSearchMode('qishui')" aria-selected="false">QS</button>
-          <button id="search-mode-spotify" type="button" onclick="setSearchMode('spotify')" aria-selected="false">SP</button>
-          <button id="search-mode-kuwo" type="button" onclick="setSearchMode('kuwo')" aria-selected="false"
-            aria-hidden="true" hidden>KW</button>
-          <button id="search-mode-migu" type="button" onclick="setSearchMode('migu')" aria-selected="false"
-            aria-hidden="true" hidden>MG</button>
-          <button id="search-mode-podcast" type="button" onclick="setSearchMode('podcast')"
-            aria-selected="false">Podcast</button>
+        <div id="search-workbench" class="search-workbench">
+          <div id="search-mode-tabs" class="search-mode-tabs" role="tablist" aria-label="Search mode">
+            <button id="search-mode-song" class="active" type="button" onclick="setSearchMode('song')"
+              aria-selected="true">All</button>
+            <button id="search-mode-netease" type="button" onclick="setSearchMode('netease')"
+              aria-selected="false">NE</button>
+            <button id="search-mode-qq" type="button" onclick="setSearchMode('qq')" aria-selected="false">QQ</button>
+            <button id="search-mode-kugou" type="button" onclick="setSearchMode('kugou')" aria-selected="false">KG</button>
+            <button id="search-mode-qishui" type="button" onclick="setSearchMode('qishui')" aria-selected="false">QS</button>
+            <button id="search-mode-spotify" type="button" onclick="setSearchMode('spotify')" aria-selected="false">SP</button>
+            <button id="search-mode-kuwo" type="button" onclick="setSearchMode('kuwo')" aria-selected="false"
+              aria-hidden="true" hidden>KW</button>
+            <button id="search-mode-migu" type="button" onclick="setSearchMode('migu')" aria-selected="false"
+              aria-hidden="true" hidden>MG</button>
+            <button id="search-mode-podcast" type="button" onclick="setSearchMode('podcast')"
+              aria-selected="false">Podcast</button>
+          </div>
+          <div id="search-context" class="search-context" aria-live="polite" hidden>
+            <span class="search-context-kicker">SEARCH / 当前检索</span>
+            <strong id="search-context-title">等待输入</strong>
+            <span id="search-context-meta" class="search-context-meta"></span>
+          </div>
+          <div id="search-content-tabs" class="search-content-tabs" role="tablist" aria-label="搜索内容筛选" hidden>
+            <button type="button" role="tab" data-search-content-filter="all" aria-selected="true">全部</button>
+            <button type="button" role="tab" data-search-content-filter="original" aria-selected="false">原版优先</button>
+            <button type="button" role="tab" data-search-content-filter="version" aria-selected="false">伴奏 / 版本</button>
+          </div>
+          <div id="search-results"></div>
         </div>
-        <div id="search-context" class="search-context" aria-live="polite" hidden>
-          <span class="search-context-kicker">SEARCH / 当前检索</span>
-          <strong id="search-context-title">等待输入</strong>
-          <span id="search-context-meta" class="search-context-meta"></span>
-        </div>
-        <div id="search-content-tabs" class="search-content-tabs" role="tablist" aria-label="搜索内容筛选" hidden>
-          <button type="button" role="tab" data-search-content-filter="all" aria-selected="true">全部</button>
-          <button type="button" role="tab" data-search-content-filter="original" aria-selected="false">原版优先</button>
-          <button type="button" role="tab" data-search-content-filter="version" aria-selected="false">伴奏 / 版本</button>
-        </div>
-        <div id="search-results"></div>
       </div>
       <div id="upload-actions">
         <button id="music-library-btn" class="icon-btn" type="button" onclick="openMusicLibraryWorkspace('local')" title="打开音乐库" aria-label="打开音乐库">
@@ -1478,9 +1480,13 @@
         </div>
         <div id="mini-queue-list" class="mini-queue-list"></div>
       </div>
-      <div id="progress-bar">
-        <div id="progress-fill"></div>
-        <div id="progress-thumb" aria-hidden="true"></div>
+      <div id="progress-row">
+        <span id="current-time-display" class="progress-time" aria-label="当前播放时间">0:00</span>
+        <div id="progress-bar">
+          <div id="progress-fill"></div>
+          <div id="progress-thumb" aria-hidden="true"></div>
+        </div>
+        <span id="time-display" class="progress-time" aria-label="歌曲总时长">0:00</span>
       </div>
       <div id="controls">
         <div class="control-cluster actions">
@@ -1554,6 +1560,26 @@
             </svg></button>
         </div>
         <div class="control-cluster modes">
+          <div id="player-standard-tools" class="control-tool-group" aria-label="播放工具"></div>
+          <span class="control-tool-divider" aria-hidden="true"></span>
+          <div id="player-original-tools" class="control-tool-group" aria-label="窗口控制"></div>
+          <span class="control-tool-divider" aria-hidden="true"></span>
+          <div id="player-tools-control" class="player-tools-control">
+            <button id="player-tools-btn" class="ctrl-btn" type="button" onclick="togglePlayerToolsPanel(event)"
+              title="播放器工具" aria-label="播放器工具" aria-haspopup="dialog" aria-expanded="false">
+              <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h10M18 7h2" />
+                <path d="M4 17h2M10 17h10" />
+                <circle cx="16" cy="7" r="2" />
+                <circle cx="8" cy="17" r="2" />
+              </svg>
+            </button>
+            <div id="player-tools-panel" class="player-tools-panel" role="dialog" aria-labelledby="player-tools-head"
+              onclick="event.stopPropagation()">
+              <div id="player-tools-head" class="player-tools-head">播放器工具</div>
+              <div id="player-extension-slot" class="player-extension-slot"></div>
+            </div>
+          </div>
           <div id="lyric-timing-control" class="lyric-timing-control">
             <button id="lyrics-toggle-btn" class="ctrl-btn lyrics-toggle-btn" onclick="toggleLyricsPanel()" title="歌词"><span
                 class="lyrics-word-icon">词</span></button>
@@ -1607,7 +1633,10 @@
             </button>
             <div class="listening-effects-popover" onclick="event.stopPropagation()">
               <div class="listening-effects-popover-head">
-                <span>听感调节</span>
+                <div class="listening-effects-head-copy">
+                  <strong>听感调节</strong>
+                  <small>均衡与空间</small>
+                </div>
                 <button class="listening-effects-inline-toggle" type="button" data-listening-toggle role="switch" aria-label="听感调节开关">
                   <span>启用</span><i></i>
                 </button>
@@ -1688,7 +1717,6 @@
               <path d="M3 17v4h4" />
               <path d="M21 17v4h-4" />
             </svg></button>
-          <div id="time-display">0:00 / 0:00</div>
         </div>
       </div>
     </div>

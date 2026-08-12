@@ -64,6 +64,7 @@ test('search content filters separate studio and derivative versions without cha
 
 test('top search adds context and working local filters without another search entry', () => {
   assert.equal((html.match(/id="search-area"/g) || []).length, 1);
+  assert.match(html, /id="search-workbench"/);
   assert.match(html, /id="search-context"/);
   assert.match(html, /data-search-content-filter="all"/);
   assert.match(html, /data-search-content-filter="original"/);
@@ -73,5 +74,16 @@ test('top search adds context and working local filters without another search e
   assert.match(search, /searchMusicRenderState\.allSongs/);
   assert.match(css, /\.search-content-tabs button\.active/);
   assert.match(search, /function searchBackdropNeedsDepth/);
-  assert.match(css, /#search-area\.search-backdrop-deep #search-results\.show/);
+  assert.match(search, /classList\.toggle\('has-search-surface', hasVisibleResults\)/);
+  assert.match(css, /#search-area\.has-search-surface\.search-backdrop-deep \.search-workbench::before/);
+});
+
+test('search clarity uses a shared light lower surface instead of a dark result panel', () => {
+  assert.match(css, /#search-area\.has-search-surface\.peek \.search-workbench::before/);
+  assert.match(css, /#search-area\.has-search-surface\.search-backdrop-deep \.search-workbench::before/);
+  assert.match(css, /backdrop-filter: blur\(64px\)[^;]*brightness\(\.66\)/);
+  assert.match(css, /#search-area\.search-backdrop-deep\.peek #search-box::after/);
+  assert.match(css, /#search-area\.has-search-surface #search-results\.show[\s\S]*?width: 100%[\s\S]*?margin-left: 0[\s\S]*?background: transparent !important/);
+  assert.doesNotMatch(css, /--search-lower-bleed|margin-left:\s*calc\(0px - var\(--search/);
+  assert.doesNotMatch(css, /#search-area\.search-backdrop-deep #search-results\.show:not\(\.search-history-surface\)[\s\S]{0,600}rgba\([^)]*, \.9[0-9]\)/);
 });

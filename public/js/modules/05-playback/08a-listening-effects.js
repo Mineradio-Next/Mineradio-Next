@@ -325,6 +325,23 @@ function listeningEffectsStatusText() {
   return parts.join(' · ');
 }
 
+function updateListeningRangeVisual(input, neutralValue) {
+  if (!input) return;
+  var min = Number(input.min);
+  var max = Number(input.max);
+  var value = Number(input.value);
+  if (!isFinite(min) || !isFinite(max) || max <= min || !isFinite(value)) return;
+  neutralValue = isFinite(Number(neutralValue)) ? Number(neutralValue) : min;
+  neutralValue = listeningEffectsClamp(neutralValue, min, max);
+  value = listeningEffectsClamp(value, min, max);
+  var valuePercent = (value - min) / (max - min) * 100;
+  var neutralPercent = (neutralValue - min) / (max - min) * 100;
+  input.style.setProperty('--listening-fill-start', Math.min(valuePercent, neutralPercent).toFixed(2) + '%');
+  input.style.setProperty('--listening-fill-end', Math.max(valuePercent, neutralPercent).toFixed(2) + '%');
+  input.style.setProperty('--listening-neutral', neutralPercent.toFixed(2) + '%');
+  input.setAttribute('data-listening-direction', value > neutralValue ? 'positive' : (value < neutralValue ? 'negative' : 'neutral'));
+}
+
 function updateListeningEffectsControls() {
   document.querySelectorAll('[data-listening-toggle]').forEach(function (toggle) {
     toggle.classList.toggle('on', listeningEffectsState.enabled);
@@ -338,6 +355,7 @@ function updateListeningEffectsControls() {
   LISTENING_EFFECTS_BANDS.forEach(function (band, index) {
     document.querySelectorAll('[data-listening-band-index="' + index + '"]').forEach(function (input) {
       input.value = listeningEffectsState.gains[index];
+      updateListeningRangeVisual(input, 0);
       var output = input.parentElement && input.parentElement.querySelector('output');
       if (output) {
         var value = Number(listeningEffectsState.gains[index]) || 0;
@@ -352,11 +370,13 @@ function updateListeningEffectsControls() {
   });
   document.querySelectorAll('[data-listening-ambience-amount]').forEach(function (input) {
     input.value = listeningEffectsState.ambienceAmount;
+    updateListeningRangeVisual(input, 0);
     var output = input.parentElement && input.parentElement.querySelector('output');
     if (output) output.textContent = Math.round(listeningEffectsState.ambienceAmount * 100) + '%';
   });
   document.querySelectorAll('[data-listening-width]').forEach(function (input) {
     input.value = listeningEffectsState.width;
+    updateListeningRangeVisual(input, 1);
     var output = input.parentElement && input.parentElement.querySelector('output');
     if (output) output.textContent = Math.round(listeningEffectsState.width * 100) + '%';
   });
@@ -492,7 +512,11 @@ function bindListeningEffectsControls() {
   var wrap = document.getElementById('listening-effects-control');
   if (wrap && !wrap.__listeningEffectsPanelBound) {
     wrap.__listeningEffectsPanelBound = true;
-    wrap.addEventListener('mouseenter', function () { wrap.classList.add('open'); updateListeningEffectsPanelExpanded(); });
+    wrap.addEventListener('mouseenter', function () {
+      wrap.classList.add('open');
+      updateListeningEffectsPanelExpanded();
+      if (typeof positionPlayerNestedToolPanel === 'function') positionPlayerNestedToolPanel(wrap, '.listening-effects-popover');
+    });
     wrap.addEventListener('mouseleave', function () { wrap.classList.remove('open'); updateListeningEffectsPanelExpanded(); });
     document.addEventListener('click', function (event) {
       if (!wrap.contains(event.target)) { wrap.classList.remove('open'); updateListeningEffectsPanelExpanded(); }
@@ -515,4 +539,7 @@ function toggleListeningEffectsPanel(event) {
   if (volume) volume.classList.remove('open');
   wrap.classList.toggle('open');
   updateListeningEffectsPanelExpanded();
+  if (wrap.classList.contains('open') && typeof positionPlayerNestedToolPanel === 'function') {
+    positionPlayerNestedToolPanel(wrap, '.listening-effects-popover');
+  }
 }

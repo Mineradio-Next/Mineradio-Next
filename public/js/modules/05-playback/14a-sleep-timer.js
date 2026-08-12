@@ -115,6 +115,9 @@ function toggleSleepTimerPanel(event) {
     if (node !== control) node.classList.remove('open');
   });
   setSleepTimerPanelOpen(nextOpen);
+  if (nextOpen && typeof positionPlayerNestedToolPanel === 'function') {
+    positionPlayerNestedToolPanel(control, '.sleep-timer-popover');
+  }
 }
 
 function sleepTimerCancelUpcomingTransitions(reason) {

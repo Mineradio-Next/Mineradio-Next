@@ -112,6 +112,7 @@ function syncSearchAreaResultState() {
   syncSearchBackdropMode();
   var hasVisibleResults = $results.classList.contains('show') && $results.children.length > 0;
   var hasIntent = !!($input && String($input.value || '').trim()) || searchMode === 'podcast';
+  searchArea.classList.toggle('has-search-surface', hasVisibleResults);
   searchArea.classList.toggle('has-results', hasVisibleResults && hasIntent);
 }
 if (window.MutationObserver && $results) {

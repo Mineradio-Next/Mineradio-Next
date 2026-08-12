@@ -152,6 +152,14 @@ function setProgressVisual(percent) {
   if (fill) fill.style.width = percent + '%';
   if (thumb) thumb.style.left = percent + '%';
 }
+function setPlaybackClockUi(currentSec, durationSec) {
+  currentSec = Math.max(0, Number(currentSec) || 0);
+  durationSec = Math.max(0, Number(durationSec) || 0);
+  var currentTimeDisplay = document.getElementById('current-time-display');
+  var durationDisplay = document.getElementById('time-display');
+  if (currentTimeDisplay) currentTimeDisplay.textContent = formatProgramTime(currentSec);
+  if (durationDisplay) durationDisplay.textContent = durationSec > 0 ? formatProgramTime(durationSec) : '0:00';
+}
 function updatePlaybackProgressUi() {
   if (isProgressDragPreviewActive() && progressDragState.previewDuration > 0) {
     renderProgressPreview(getProgressPreviewClockSeconds(), progressDragState.previewDuration);
@@ -161,8 +169,7 @@ function updatePlaybackProgressUi() {
   var currentSec = getPlaybackCurrentSeconds();
   if (durationSec > 0 && currentSec > durationSec) currentSec = durationSec;
   setProgressVisual(durationSec > 0 ? (currentSec / durationSec * 100) : 0);
-  var timeDisplay = document.getElementById('time-display');
-  if (timeDisplay) timeDisplay.textContent = formatProgramTime(currentSec) + ' / ' + (durationSec > 0 ? formatProgramTime(durationSec) : '0:00');
+  setPlaybackClockUi(currentSec, durationSec);
 }
 
 function playbackTransitionHasAudibleNextDeck() {
@@ -255,8 +262,7 @@ function renderProgressPreview(currentSec, durationSec) {
   durationSec = Math.max(0, Number(durationSec) || 0);
   if (durationSec > 0 && currentSec > durationSec) currentSec = durationSec;
   setProgressVisual(durationSec > 0 ? (currentSec / durationSec * 100) : 0);
-  var timeDisplay = document.getElementById('time-display');
-  if (timeDisplay) timeDisplay.textContent = formatProgramTime(currentSec) + ' / ' + (durationSec > 0 ? formatProgramTime(durationSec) : '0:00');
+  setPlaybackClockUi(currentSec, durationSec);
 }
 function progressPointerPreviewFromEvent(e) {
   var durationSec = getPlaybackDurationSeconds();

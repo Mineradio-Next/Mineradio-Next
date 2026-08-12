@@ -68,8 +68,7 @@ function applyRestoredPlaybackProgressUi(snapshot) {
   var currentSec = Math.max(0, Number(snapshot.currentTime) || 0);
   if (durationSec > 0 && currentSec > durationSec) currentSec = durationSec;
   setProgressVisual(durationSec > 0 ? (currentSec / durationSec * 100) : 0);
-  var timeDisplay = document.getElementById('time-display');
-  if (timeDisplay) timeDisplay.textContent = formatProgramTime(currentSec) + ' / ' + (durationSec > 0 ? formatProgramTime(durationSec) : '0:00');
+  setPlaybackClockUi(currentSec, durationSec);
 }
 function restoreLastPlaybackSnapshot() {
   if (restoredLastPlaybackSnapshot) return false;
