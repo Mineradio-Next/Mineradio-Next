@@ -482,6 +482,13 @@ function initIdleGuideCanvas() {
 // ============================================================
 var toastTimer = null;
 function showToast(msg) {
+  if (
+    document.body.classList.contains('mini-player-mode')
+    && typeof showMiniPlayerNotice === 'function'
+  ) {
+    showMiniPlayerNotice(msg || '', '');
+    return;
+  }
   var t = document.getElementById('toast');
   if (!t) return;
   t.textContent = msg;

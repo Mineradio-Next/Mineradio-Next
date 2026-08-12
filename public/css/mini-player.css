@@ -58,6 +58,11 @@ body.mini-player-mode #mini-player {
 .mini-player-copy span { color: rgba(255,255,255,.42); font-size: 9.5px }
 #mini-player-source { flex: 0 0 auto; max-width: 62px; margin-top: 2px; overflow: hidden; color: rgba(var(--fc-accent-rgb, 101,244,191), .72); font-size: 8px; text-overflow: ellipsis; white-space: nowrap }
 #mini-player-lyric { margin: 0; color: rgba(255,255,255,.64); font-size: 10.5px; line-height: 20px }
+#mini-player-lyric.notice {
+  color: rgba(var(--fc-accent-rgb, 101,244,191), .9);
+  font-weight: 600;
+  animation: mini-player-notice-in .2s cubic-bezier(.22,.8,.25,1) both
+}
 
 #mini-player-progress { position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: end; gap: 7px; cursor: pointer; outline: none; -webkit-app-region: no-drag }
 #mini-player-progress i { position: absolute; inset: 5px 0 auto; height: 2px; overflow: hidden; background: rgba(255,255,255,.11) }
@@ -82,6 +87,7 @@ body.mini-player-mode #mini-player {
 .mini-player-volume input { width: 35px; height: 2px; accent-color: rgba(var(--fc-accent-rgb, 101,244,191), .82) }
 
 @keyframes mini-player-enter { from { opacity: 0; transform: scale(.975) } to { opacity: 1; transform: scale(1) } }
+@keyframes mini-player-notice-in { from { opacity: 0; transform: translateY(3px) } to { opacity: 1; transform: translateY(0) } }
 
 @media (max-width: 400px) {
   body.mini-player-mode #mini-player { grid-template-columns: 90px minmax(0,1fr); gap: 10px; padding: 12px }
@@ -97,5 +103,6 @@ body.mini-player-mode #mini-player {
 
 @media (prefers-reduced-motion: reduce) {
   body.mini-player-mode #mini-player { animation: none }
+  #mini-player-lyric.notice { animation: none }
   .mini-player-controls button { transition: none }
 }

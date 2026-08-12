@@ -37,7 +37,11 @@ function playbackRestrictionLooksVipLocked(song, data) {
 function playbackRestrictionMissingPlaybackKey(data) {
   data = data || {};
   var restriction = data.restriction || {};
-  return !!(data.missingPlaybackKey || restriction.missingPlaybackKey);
+  return !!(
+    data.missingPlaybackKey || restriction.missingPlaybackKey
+    || data.authorizationInvalid || restriction.authorizationInvalid
+    || data.playbackAuthorizationRejected || restriction.playbackAuthorizationRejected
+  );
 }
 function playbackRestrictionCategory(song, data) {
   var category = playbackRestrictionRawCategory(song, data);
@@ -237,6 +241,13 @@ function removeSourceFallbackCard(card) {
   }, 260);
 }
 function showSourceFallbackNotice(title, body) {
+  if (
+    document.body.classList.contains('mini-player-mode')
+    && typeof showMiniPlayerNotice === 'function'
+  ) {
+    showMiniPlayerNotice(title || '自动换源', body || '');
+    return;
+  }
   var stack = ensureSourceFallbackStack();
   if (stack) {
     var card = document.createElement('div');

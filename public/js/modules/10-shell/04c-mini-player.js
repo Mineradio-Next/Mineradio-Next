@@ -1,4 +1,11 @@
-var miniPlayerState = { active: false, alwaysOnTop: false, syncTimer: 0 };
+var miniPlayerState = {
+  active: false,
+  alwaysOnTop: false,
+  syncTimer: 0,
+  noticeText: '',
+  noticeUntil: 0,
+  noticeTimer: 0
+};
 
 function miniPlayerApi() {
   return window.desktopWindow && window.desktopWindow.isDesktop ? window.desktopWindow : null;
@@ -25,6 +32,32 @@ function miniPlayerLyricText() {
   return typeof currentLyricFallbackText === 'function' ? currentLyricFallbackText() : '让音乐留在桌面一角';
 }
 
+function clearMiniPlayerNotice() {
+  if (miniPlayerState.noticeTimer) clearTimeout(miniPlayerState.noticeTimer);
+  miniPlayerState.noticeTimer = 0;
+  miniPlayerState.noticeText = '';
+  miniPlayerState.noticeUntil = 0;
+  var lyric = document.getElementById('mini-player-lyric');
+  if (lyric) lyric.classList.remove('notice');
+  syncMiniPlayerUi();
+}
+
+function showMiniPlayerNotice(title, body) {
+  var text = [title, body].filter(Boolean).join(' · ');
+  if (!text) return;
+  if (miniPlayerState.noticeTimer) clearTimeout(miniPlayerState.noticeTimer);
+  miniPlayerState.noticeText = text;
+  miniPlayerState.noticeUntil = Date.now() + 4200;
+  var lyric = document.getElementById('mini-player-lyric');
+  if (lyric) {
+    lyric.classList.remove('notice');
+    void lyric.offsetWidth;
+    lyric.classList.add('notice');
+  }
+  miniPlayerState.noticeTimer = setTimeout(clearMiniPlayerNotice, 4200);
+  syncMiniPlayerUi();
+}
+
 function syncMiniPlayerUi() {
   if (!miniPlayerState.active) return;
   var song = miniPlayerSong();
@@ -39,7 +72,12 @@ function syncMiniPlayerUi() {
   if (title) title.textContent = song && (song.name || song.title) || 'Mineradio';
   if (artist) artist.textContent = song && song.artist || '等待播放';
   if (source) source.textContent = song && typeof songSourceLabel === 'function' ? songSourceLabel(song) : '本机';
-  if (lyric) lyric.textContent = song ? miniPlayerLyricText() : '让音乐留在桌面一角';
+  var hasNotice = !!(miniPlayerState.noticeText && miniPlayerState.noticeUntil > Date.now());
+  if (lyric) {
+    lyric.textContent = hasNotice ? miniPlayerState.noticeText : (song ? miniPlayerLyricText() : '让音乐留在桌面一角');
+    lyric.classList.toggle('notice', hasNotice);
+    lyric.title = hasNotice ? miniPlayerState.noticeText : '';
+  }
   if (cover) {
     var src = song && typeof songCoverSrc === 'function' ? songCoverSrc(song, 160) : (song && song.cover || '');
     if (src && cover.getAttribute('src') !== src) cover.setAttribute('src', src);

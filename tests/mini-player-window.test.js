@@ -102,8 +102,17 @@ test('desktop bridge and renderer reuse the existing playback owner', () => {
   assert.match(renderer, /setVolume\(this\.value, true\)/);
   assert.match(renderer, /commitProgressSeek/);
   assert.match(renderer, /stageLyricIndexForSeconds/);
+  assert.match(renderer, /function showMiniPlayerNotice\(title, body\)/);
+  assert.match(renderer, /noticeUntil > Date\.now\(\)/);
   assert.doesNotMatch(renderer, /new Audio\(|document\.createElement\(['"]audio/);
   assert.match(css, /grid-template-columns: 112px minmax\(0, 1fr\)/);
+  assert.match(css, /#mini-player-lyric\.notice/);
+  const fallback = fs.readFileSync(path.join(root, 'public/js/modules/05-playback/11-provider-fallback.js'), 'utf8');
+  const toast = fs.readFileSync(path.join(root, 'public/js/modules/09-idle-toast-libraries.js'), 'utf8');
+  assert.match(fallback, /document\.body\.classList\.contains\('mini-player-mode'\)/);
+  assert.match(fallback, /showMiniPlayerNotice\(title \|\| '自动换源', body \|\| ''\)/);
+  assert.match(toast, /document\.body\.classList\.contains\('mini-player-mode'\)/);
+  assert.match(toast, /showMiniPlayerNotice\(msg \|\| '', ''\)/);
   assert.match(loader, /04c-mini-player\.js/);
   assert.doesNotMatch(`${html}\n${renderer}\n${css}`, /\bLX\b|Mineradio-LX/i);
 });
