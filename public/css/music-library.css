@@ -579,6 +579,100 @@
   font-size: 10px
 }
 
+.music-library-playlist-detail-head.organizer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px
+}
+
+.music-library-playlist-profile {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px
+}
+
+.music-library-playlist-hero-cover {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .11);
+  border-radius: 7px;
+  color: rgba(255, 255, 255, .34);
+  background: rgba(255, 255, 255, .045);
+  font-size: 22px;
+  cursor: pointer
+}
+
+.music-library-playlist-hero-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .24s cubic-bezier(.22, .8, .25, 1), opacity .2s ease
+}
+
+.music-library-playlist-hero-cover i {
+  position: absolute;
+  inset: auto 0 0;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, .9);
+  background: rgba(3, 6, 8, .72);
+  font: normal 600 9px/1 "Noto Sans SC", sans-serif;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity .16s ease, transform .16s ease
+}
+
+.music-library-playlist-hero-cover:hover img {
+  opacity: .72;
+  transform: scale(1.045)
+}
+
+.music-library-playlist-hero-cover:hover i,
+.music-library-playlist-hero-cover:focus-visible i {
+  opacity: 1;
+  transform: translateY(0)
+}
+
+.music-library-playlist-profile-copy {
+  min-width: 0;
+  display: grid;
+  gap: 10px
+}
+
+.music-library-playlist-facts {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  color: rgba(255, 255, 255, .35);
+  font-size: 9.5px
+}
+
+.music-library-playlist-facts span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.music-library-playlist-facts span + span::before {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: 10px;
+  margin: 0 9px;
+  vertical-align: -1px;
+  background: rgba(255, 255, 255, .12)
+}
+
 .music-library-playlist-track {
   min-height: 54px;
   display: grid;
@@ -588,6 +682,243 @@
   border-bottom: 1px solid rgba(255, 255, 255, .052);
   animation: music-library-row-in .22s ease both;
   animation-delay: min(calc(var(--row-index) * 10ms), 140ms)
+}
+
+.music-library-playlist-track.organizer {
+  grid-template-columns: 25px 32px minmax(0, 1fr) 62px auto;
+  transition: border-color .14s ease, background .14s ease, opacity .14s ease, transform .14s ease
+}
+
+.music-library-playlist-track.organizer:hover {
+  background: rgba(255, 255, 255, .022)
+}
+
+.music-library-playlist-track.organizer.dragging {
+  z-index: 2;
+  border-color: rgba(0, 245, 212, .34);
+  background: rgba(0, 245, 212, .06);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .22);
+  opacity: .9;
+  transform: scale(.994)
+}
+
+.music-library-order-handle,
+.music-library-order-actions button {
+  width: 25px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, .28);
+  background: transparent;
+  cursor: grab;
+  transition: color .14s ease, background .14s ease
+}
+
+.music-library-order-handle:hover,
+.music-library-order-actions button:hover {
+  color: rgba(255, 255, 255, .82);
+  background: rgba(255, 255, 255, .055)
+}
+
+.music-library-order-handle:active {
+  cursor: grabbing
+}
+
+.music-library-order-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px
+}
+
+.music-library-order-actions button {
+  width: 28px;
+  cursor: pointer
+}
+
+.music-library-order-actions button:disabled {
+  opacity: .18;
+  pointer-events: none
+}
+
+.music-library-health {
+  min-height: 100%;
+  padding-bottom: 28px
+}
+
+.music-library-health-summary {
+  min-height: 128px;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  align-items: center;
+  gap: 26px;
+  padding: 22px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, .075);
+  background: rgba(255, 255, 255, .018)
+}
+
+.music-library-health-summary h3,
+.music-library-health-summary p,
+.music-library-health-section h4,
+.music-library-health-section p,
+.music-library-health-row p {
+  margin: 0
+}
+
+.music-library-health-summary h3 {
+  margin-top: 5px;
+  color: rgba(255, 255, 255, .9);
+  font-size: 19px
+}
+
+.music-library-health-summary p {
+  max-width: 620px;
+  margin-top: 7px;
+  color: rgba(255, 255, 255, .38);
+  font-size: 10.5px;
+  line-height: 1.65
+}
+
+.music-library-health-summary > button,
+.music-library-health-row > button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, .11);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, .68);
+  background: rgba(255, 255, 255, .04);
+  font: 600 10.5px/1 "Noto Sans SC", sans-serif;
+  cursor: pointer
+}
+
+.music-library-health-summary > button:hover,
+.music-library-health-row > button:hover {
+  border-color: rgba(0, 245, 212, .34);
+  color: #fff;
+  background: rgba(0, 245, 212, .055)
+}
+
+.music-library-health-summary > button:disabled {
+  opacity: .42;
+  pointer-events: none
+}
+
+.music-library-health-metrics {
+  display: flex;
+  align-items: center
+}
+
+.music-library-health-metrics > span {
+  min-width: 78px;
+  display: grid;
+  gap: 5px;
+  padding: 0 16px;
+  text-align: center
+}
+
+.music-library-health-metrics > span + span {
+  border-left: 1px solid rgba(255, 255, 255, .09)
+}
+
+.music-library-health-metrics strong {
+  color: rgba(255, 255, 255, .9);
+  font: 700 20px/1 "JetBrains Mono", monospace
+}
+
+.music-library-health-metrics small {
+  color: rgba(255, 255, 255, .32);
+  font-size: 9px
+}
+
+.music-library-health-section {
+  padding: 0 28px
+}
+
+.music-library-health-section > header {
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, .07)
+}
+
+.music-library-health-section h4 {
+  color: rgba(255, 255, 255, .79);
+  font-size: 13px
+}
+
+.music-library-health-section header p {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, .32);
+  font-size: 10px
+}
+
+.music-library-health-section header > span {
+  color: rgba(0, 245, 212, .62);
+  font: 600 10px/1 "JetBrains Mono", monospace
+}
+
+.music-library-health-row {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, .052);
+  animation: music-library-row-in .22s ease both
+}
+
+.music-library-health-mark {
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(244, 210, 138, .62);
+  transform: rotate(45deg)
+}
+
+.music-library-health-row > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px
+}
+
+.music-library-health-row strong {
+  overflow: hidden;
+  color: rgba(255, 255, 255, .78);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.music-library-health-row small,
+.music-library-health-row p {
+  overflow: hidden;
+  color: rgba(255, 255, 255, .31);
+  font-size: 9.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.music-library-health-row > button.armed {
+  border-color: rgba(255, 83, 103, .44);
+  color: #ff98a5;
+  background: rgba(255, 83, 103, .1)
+}
+
+.music-library-health-clear {
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, .28);
+  font-size: 10px
+}
+
+.music-library-health-clear strong {
+  color: rgba(255, 255, 255, .58);
+  font-weight: 600
 }
 
 .music-library-track-number {
@@ -662,11 +993,16 @@
   .music-library-table-head span:nth-child(4),
   .music-library-row .music-library-time { display: none }
   .music-library-playlist-layout { grid-template-columns: 230px minmax(0, 1fr) }
+  .music-library-health-summary { grid-template-columns: 1fr auto; gap: 18px }
+  .music-library-health-summary > button { grid-column: 1 / -1; justify-self: start }
 }
 
 @media (max-width: 620px) {
   .music-library-head { padding-inline: 16px }
   .music-library-tabs { gap: 18px; padding-inline: 16px }
+  .music-library-tabs { overflow-x: auto; align-items: end; scrollbar-width: none }
+  .music-library-tabs::-webkit-scrollbar { display: none }
+  .music-library-tabs button { flex: 0 0 auto; white-space: nowrap }
   .music-library-toolbar { position: static; grid-template-columns: 1fr; padding-inline: 16px }
   .music-library-batchbar { align-items: flex-start; flex-direction: column; padding-inline: 16px }
   .music-library-batch-actions { justify-content: flex-start }
@@ -676,8 +1012,22 @@
   .music-library-row .music-library-meta,
   .music-library-row .music-library-time { display: none }
   .music-library-playlist-layout { display: block }
-  .music-library-playlist-index { max-height: 220px; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .07) }
+  .music-library-playlist-index { display: block; max-height: none; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .07) }
+  .music-library-playlist-list { display: flex; gap: 6px; overflow-x: auto; padding: 7px 12px 10px }
+  .music-library-playlist-item { flex: 0 0 190px }
   .music-library-playlist-detail { padding-inline: 16px }
+  .music-library-playlist-profile { grid-template-columns: 58px minmax(0, 1fr) }
+  .music-library-playlist-hero-cover { width: 58px; height: 58px }
+  .music-library-playlist-title-edit { grid-template-columns: minmax(0, 1fr) }
+  .music-library-playlist-facts { flex-wrap: wrap; row-gap: 5px }
+  .music-library-playlist-track.organizer { grid-template-columns: 26px minmax(0, 1fr) 62px auto }
+  .music-library-order-handle { display: none }
+  .music-library-health-summary { grid-template-columns: 1fr; padding-inline: 18px }
+  .music-library-health-metrics { justify-content: space-between }
+  .music-library-health-metrics > span { min-width: 0; flex: 1; padding-inline: 8px }
+  .music-library-health-section { padding-inline: 18px }
+  .music-library-health-row { grid-template-columns: 10px minmax(0, 1fr) }
+  .music-library-health-row > button { grid-column: 2; justify-self: start; margin-bottom: 12px }
   .music-library-import-intro,
   .music-library-import-list { padding-inline: 18px }
   .music-library-import-row { grid-template-columns: 22px minmax(0, 1fr); padding: 15px 0 }

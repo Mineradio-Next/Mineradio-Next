@@ -62,6 +62,18 @@ function uniqueSongs(songs) {
   });
 }
 
+function playlistFingerprint(playlist) {
+  const songs = Array.isArray(playlist && playlist.songs) ? playlist.songs : [];
+  const identities = songs.map(song => [
+    String(song && (song.source || song.provider) || ''),
+    String(song && (song.id || song.songmid || song.hash || song.FileHash) || ''),
+  ].join('|'));
+  return crypto.createHash('sha1')
+    .update([String(playlist && playlist.id || ''), ...identities].join('\n'))
+    .digest('hex')
+    .slice(0, 16);
+}
+
 async function importNetease(id) {
   const data = await fetchJson(`https://music.163.com/api/v6/playlist/detail?id=${encodeURIComponent(id)}&n=10000&s=0`, { headers: { referer: 'https://music.163.com/' } });
   const list = data.playlist || data.result;
@@ -106,7 +118,7 @@ async function importPlaylistLink(input, preferredSource) {
   if (!provider) throw new Error('PLAYLIST_PROVIDER_REQUIRED');
   const id = playlistIdFromInput(input, provider);
   const result = provider === 'netease' ? await importNetease(id) : (provider === 'qq' ? await importQQ(id) : await importKugou(id));
-  return { ok: true, playlist: { ...result, source: 'local', importedProvider: result.provider, sourceInput: String(input || '').trim(), trackCount: result.songs.length, importedAt: Date.now(), fingerprint: crypto.createHash('sha1').update(`${result.id}|${result.songs.length}`).digest('hex').slice(0, 16) } };
+  return { ok: true, playlist: { ...result, source: 'local', importedProvider: result.provider, sourceInput: String(input || '').trim(), trackCount: result.songs.length, importedAt: Date.now(), fingerprint: playlistFingerprint(result) } };
 }
 
-module.exports = { importPlaylistLink, playlistIdFromInput, sourceKey };
+module.exports = { importPlaylistLink, playlistFingerprint, playlistIdFromInput, sourceKey };

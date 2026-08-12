@@ -388,6 +388,33 @@ class LocalMusicLibrary {
     return { ok: true, version: LOCAL_LIBRARY_VERSION, count: tracks.length, tracks };
   }
 
+  async auditTracks() {
+    const missing = [];
+    const records = this.order.map((id) => this.records.get(id)).filter(Boolean);
+    await mapWithConcurrency(records, 8, async (record) => {
+      try {
+        const stat = await fs.promises.stat(record.audioPath);
+        if (stat.isFile()) return;
+      } catch (_) {}
+      missing.push({
+        id: record.id,
+        localFileId: record.id,
+        name: record.name || path.basename(record.audioPath),
+        artist: record.artist || '本地文件',
+        localPath: record.relativePath || path.basename(record.audioPath),
+      });
+    });
+    missing.sort((a, b) => a.localPath.localeCompare(b.localPath, 'zh-CN', { numeric: true }));
+    return {
+      ok: true,
+      version: LOCAL_LIBRARY_VERSION,
+      checkedAt: Date.now(),
+      count: records.length,
+      missingCount: missing.length,
+      missing,
+    };
+  }
+
   lyricForTrack(value) {
     const id = cleanText(value, '', 64).replace(/^local:/, '').toLowerCase();
     if (!/^[a-f0-9]{24}$/.test(id)) return { ok: false, localFileId: '', lyric: '', lyricSource: '', error: 'LOCAL_TRACK_INVALID' };

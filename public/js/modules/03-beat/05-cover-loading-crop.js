@@ -163,7 +163,9 @@ function commitCustomCoverCanvas(cv, opts) {
   var out = document.createElement('canvas');
   out.width = out.height = 512;
   out.getContext('2d').drawImage(cv, 0, 0, 512, 512);
-  setCustomCoverForCurrent(coverCanvasToDataUrl(out), opts);
+  var dataUrl = coverCanvasToDataUrl(out);
+  if (opts && typeof opts.commit === 'function') opts.commit(dataUrl);
+  else setCustomCoverForCurrent(dataUrl, opts);
 }
 
 function loadCoverFromFile(file, opts) {
@@ -176,7 +178,7 @@ function loadCoverFromFile(file, opts) {
       if (Math.abs(iw - ih) <= 1) {
         commitCustomCoverCanvas(makeSquareCoverCanvas(img, 512), opts);
       } else {
-        openCoverCropModal(img, e.target.result);
+        openCoverCropModal(img, e.target.result, opts);
       }
     };
     img.src = e.target.result;
@@ -234,7 +236,7 @@ function bindCoverCropModal() {
   });
 }
 
-function openCoverCropModal(img, dataUrl) {
+function openCoverCropModal(img, dataUrl, opts) {
   bindCoverCropModal();
   var modal = document.getElementById('cover-crop-modal');
   var stage = document.getElementById('cover-crop-stage');
@@ -257,6 +259,7 @@ function openCoverCropModal(img, dataUrl) {
     lastX: 0,
     lastY: 0
   };
+  coverCropState.options = opts || null;
   openGsapModal(modal);
   requestAnimationFrame(function () {
     initCoverCropGeometry();
@@ -345,7 +348,7 @@ function commitCoverCrop() {
   var crop = currentCoverCropRect();
   if (!crop) return;
   var cv = makeSquareCoverCanvas(coverCropState.img, 512, crop);
-  commitCustomCoverCanvas(cv);
+  commitCustomCoverCanvas(cv, coverCropState.options);
   closeCoverCropModal();
 }
 

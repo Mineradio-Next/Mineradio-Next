@@ -86,6 +86,7 @@ contextBridge.exposeInMainWorld('desktopWindow', {
     return () => ipcRenderer.removeListener('mineradio-wallpaper-engine-host-bounds-changed', listener);
   },
   listLocalMusicLibrary: () => ipcRenderer.invoke('mineradio-local-library-list'),
+  auditLocalMusicLibrary: () => ipcRenderer.invoke('mineradio-local-library-audit'),
   readLocalMusicLyric: (localFileId) => ipcRenderer.invoke('mineradio-local-library-lyric', String(localFileId || '')),
   removeLocalMusicTracks: (ids) => ipcRenderer.invoke('mineradio-local-library-remove', Array.isArray(ids) ? ids : []),
   listLocalPlaylists: () => ipcRenderer.invoke('mineradio-local-playlists-list'),

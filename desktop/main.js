@@ -4542,6 +4542,15 @@ ipcMain.handle('mineradio-local-library-list', async (event) => {
   }
 });
 
+ipcMain.handle('mineradio-local-library-audit', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, count: 0, missingCount: 0, missing: [], error: 'UNTRUSTED_SENDER' };
+  try {
+    return await localMusicLibrary.auditTracks();
+  } catch (error) {
+    return { ok: false, count: 0, missingCount: 0, missing: [], error: error.message || 'LOCAL_LIBRARY_AUDIT_FAILED' };
+  }
+});
+
 ipcMain.handle('mineradio-local-library-lyric', async (event, localFileId) => {
   if (!isTrustedMainWindowIpc(event)) return { ok: false, lyric: '', lyricSource: '', error: 'UNTRUSTED_SENDER' };
   try {

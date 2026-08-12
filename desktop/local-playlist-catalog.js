@@ -52,6 +52,7 @@ function normalizedTrack(value) {
   if (Array.isArray(value.types)) track.types = value.types.slice(0, 16).map((item) => cleanText(item, 80)).filter(Boolean);
   if (value.hasLyric === true) track.hasLyric = true;
   if (value.localMissing === true) track.localMissing = true;
+  if (value.userAdded === true) track.userAdded = true;
   const meta = normalizedMeta(value.importedMeta || value.meta);
   if (Object.keys(meta).length) track.importedMeta = meta;
   return track;
@@ -76,6 +77,11 @@ function normalizedPlaylist(value, remainingTracks) {
     seen.add(key);
     songs.push(track);
   }
+  const importedProvider = cleanText(value.importedProvider, 80).toLowerCase();
+  const sourceInput = cleanText(value.sourceInput, 8000);
+  const fingerprint = cleanText(value.fingerprint, 100);
+  const rawCustomCover = cleanText(value.customCover, 512000);
+  const customCover = /^data:image\/(?:webp|png|jpe?g);base64,/i.test(rawCustomCover) ? rawCustomCover : '';
   return {
     id,
     provider: 'local',
@@ -83,10 +89,15 @@ function normalizedPlaylist(value, remainingTracks) {
     name,
     creator: cleanText(value.creator, 300) || '本地歌单',
     cover: cleanText(value.cover || value.coverImgUrl, 8000) || cleanText(songs[0] && (songs[0].picUrl || songs[0].cover), 8000),
+    ...(customCover ? { customCover } : {}),
+    ...(importedProvider ? { importedProvider } : {}),
+    ...(sourceInput ? { sourceInput } : {}),
+    ...(fingerprint ? { fingerprint } : {}),
     songs,
     trackCount: songs.length,
     importedAt: Math.max(0, Number(value.importedAt) || Date.now()),
     updatedAt: Math.max(0, Number(value.updatedAt) || Number(value.importedAt) || Date.now()),
+    syncedAt: Math.max(0, Number(value.syncedAt) || 0),
   };
 }
 

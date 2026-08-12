@@ -64,6 +64,7 @@ function normalizeLocalPlaylistSong(song) {
     normalized.additionalSourceCode = additionalSourceCode;
     normalized.type = 'backup-source';
   }
+  if (song.userAdded === true) normalized.userAdded = true;
   ['hash', 'FileHash', 'fileHash', 'strMediaMid', 'albumMid', 'copyrightId', 'lrcUrl', 'trcUrl', 'mrcUrl'].forEach(function (key) {
     if (song[key] != null && song[key] !== '') normalized[key] = song[key];
     else if (meta[key] != null && meta[key] !== '') normalized[key] = meta[key];
@@ -133,6 +134,34 @@ function saveLocalFilePlaylists() {
   return localSaved;
 }
 
+function saveLocalFilePlaylistsAndWait() {
+  if (!saveLocalFilePlaylists()) return Promise.resolve(false);
+  return Promise.resolve(localPlaylistCatalogWritePromise).then(function (result) {
+    return result !== false;
+  });
+}
+
+var localPlaylistMutationOwner = '';
+var localPlaylistMutationSequence = 0;
+
+function beginLocalPlaylistMutation(reason) {
+  if (localPlaylistMutationOwner) return '';
+  localPlaylistMutationOwner = String(reason || 'playlist') + ':' + (++localPlaylistMutationSequence);
+  return localPlaylistMutationOwner;
+}
+
+function endLocalPlaylistMutation(owner) {
+  if (localPlaylistMutationOwner === String(owner || '')) localPlaylistMutationOwner = '';
+}
+
+function finishLocalPlaylistMutationAfterWrite(owner) {
+  Promise.resolve(localPlaylistCatalogWritePromise).finally(function () { endLocalPlaylistMutation(owner); });
+}
+
+function localPlaylistMutationBusyResult(extra) {
+  return Object.assign({ ok: false, error: 'LOCAL_PLAYLIST_BUSY' }, extra || {});
+}
+
 function mergeLocalPlaylistCatalogs(primary, fallback) {
   var merged = [], positions = Object.create(null);
   (Array.isArray(primary) ? primary : []).concat(Array.isArray(fallback) ? fallback : []).forEach(function (item) {
@@ -186,10 +215,13 @@ async function importLocalPlaylistFiles(files) {
     try { imported.push(await decodeLocalPlaylistFile(files[i])); } catch (error) { failed += 1; console.warn('[LocalPlaylistImport]', error); }
   }
   if (!imported.length) { showToast('没有读取到可用的歌单文件'); return false; }
+  var mutationOwner = beginLocalPlaylistMutation('import-files');
+  if (!mutationOwner) { showToast('歌单正在保存，请稍后再试'); return false; }
   var byKey = Object.create(null);
   localFilePlaylists.concat(imported).forEach(function (item) { byKey[item.id + '|' + item.name] = item; });
   localFilePlaylists = Object.keys(byKey).map(function (key) { return byKey[key]; });
   saveLocalFilePlaylists();
+  finishLocalPlaylistMutationAfterWrite(mutationOwner);
   rebuildUserPlaylistsFromCatalog({ animate: true, preserveScroll: true, reason: 'local-playlist-import' });
   if (typeof refreshMusicLibraryWorkspace === 'function') refreshMusicLibraryWorkspace('playlist-file-import');
   showToast('已导入 ' + imported.length + ' 个歌单' + (failed ? '，失败 ' + failed + ' 个' : ''));
@@ -263,11 +295,14 @@ function openLocalPlaylistLinkImport() {
       body: JSON.stringify({ input: value, provider: provider }), timeoutMs: 30000
     }).then(function (result) {
       if (!result || !result.ok || !result.playlist) throw new Error(result && result.error || 'PLAYLIST_LINK_IMPORT_FAILED');
+      var mutationOwner = beginLocalPlaylistMutation('import-link');
+      if (!mutationOwner) throw new Error('LOCAL_PLAYLIST_BUSY');
       var imported = result.playlist;
       var found = localFilePlaylists.findIndex(function (item) { return String(item.id) === String(imported.id); });
       if (found >= 0) localFilePlaylists.splice(found, 1, imported);
       else localFilePlaylists.unshift(imported);
-      if (!saveLocalFilePlaylists()) return;
+      if (!saveLocalFilePlaylists()) { endLocalPlaylistMutation(mutationOwner); return; }
+      finishLocalPlaylistMutationAfterWrite(mutationOwner);
       rebuildUserPlaylistsFromCatalog({ animate: true, preserveScroll: true, reason: 'local-playlist-link-import' });
       if (typeof refreshMusicLibraryWorkspace === 'function') refreshMusicLibraryWorkspace('playlist-link-import');
       closeLocalPlaylistLinkImport();
@@ -286,6 +321,8 @@ function localPlaylistById(id) {
 function createLocalFilePlaylist(name) {
   name = String(name || '').trim();
   if (!name) return null;
+  var mutationOwner = beginLocalPlaylistMutation('create');
+  if (!mutationOwner) return null;
   var playlist = {
     id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     provider: 'local', source: 'local', name: name, creator: '本地歌单',
@@ -294,8 +331,10 @@ function createLocalFilePlaylist(name) {
   localFilePlaylists.unshift(playlist);
   if (!saveLocalFilePlaylists()) {
     localFilePlaylists.shift();
+    endLocalPlaylistMutation(mutationOwner);
     return null;
   }
+  finishLocalPlaylistMutationAfterWrite(mutationOwner);
   rebuildUserPlaylistsFromCatalog({ animate: true, preserveScroll: true, reason: 'local-playlist-create' });
   return playlist;
 }
@@ -308,6 +347,9 @@ function addSongToLocalFilePlaylist(id, song) {
   if (playlist.songs.some(function (item) { return localPlaylistSongKey(item) === key; })) {
     return { ok: true, duplicate: true };
   }
+  var mutationOwner = beginLocalPlaylistMutation('add-song');
+  if (!mutationOwner) return localPlaylistMutationBusyResult({ duplicate: false });
+  if (playlist.importedProvider && playlist.sourceInput) normalized.userAdded = true;
   playlist.songs.push(normalized);
   playlist.trackCount = playlist.songs.length;
   playlist.updatedAt = Date.now();
@@ -315,8 +357,10 @@ function addSongToLocalFilePlaylist(id, song) {
   if (!saveLocalFilePlaylists()) {
     playlist.songs.pop();
     playlist.trackCount = playlist.songs.length;
+    endLocalPlaylistMutation(mutationOwner);
     return { ok: false, error: 'LOCAL_PLAYLIST_SAVE_FAILED' };
   }
+  finishLocalPlaylistMutationAfterWrite(mutationOwner);
   rebuildUserPlaylistsFromCatalog({ animate: true, preserveScroll: true, reason: 'local-playlist-add-song' });
   return { ok: true, duplicate: false };
 }
@@ -331,26 +375,108 @@ function addSongsToLocalFilePlaylist(id, songs) {
     if (!normalized) return;
     var key = localPlaylistSongKey(normalized);
     if (keys[key]) { duplicates += 1; return; }
+    if (playlist.importedProvider && playlist.sourceInput) normalized.userAdded = true;
     keys[key] = true;
     playlist.songs.push(normalized);
     added += 1;
   });
   if (!added) return { ok: true, added: 0, duplicates: duplicates };
+  var mutationOwner = beginLocalPlaylistMutation('add-songs');
+  if (!mutationOwner) {
+    playlist.songs.splice(playlist.songs.length - added, added);
+    return localPlaylistMutationBusyResult({ added: 0, duplicates: duplicates });
+  }
   playlist.trackCount = playlist.songs.length;
   playlist.updatedAt = Date.now();
   if (!playlist.cover) playlist.cover = playlist.songs[0] && (playlist.songs[0].picUrl || playlist.songs[0].cover) || '';
-  if (!saveLocalFilePlaylists()) return { ok: false, added: 0, duplicates: duplicates, error: 'LOCAL_PLAYLIST_SAVE_FAILED' };
+  if (!saveLocalFilePlaylists()) { endLocalPlaylistMutation(mutationOwner); return { ok: false, added: 0, duplicates: duplicates, error: 'LOCAL_PLAYLIST_SAVE_FAILED' }; }
+  finishLocalPlaylistMutationAfterWrite(mutationOwner);
   rebuildUserPlaylistsFromCatalog({ animate: false, preserveScroll: true, reason: 'local-playlist-add-songs' });
   return { ok: true, added: added, duplicates: duplicates };
+}
+
+function localPlaylistCanSync(playlist) {
+  return !!(playlist && /^(netease|qq|kugou)$/.test(String(playlist.importedProvider || '')) && String(playlist.sourceInput || '').trim());
+}
+
+function mergeSynchronizedLocalPlaylist(existing, incoming, now) {
+  existing = existing && typeof existing === 'object' ? existing : {};
+  incoming = incoming && typeof incoming === 'object' ? incoming : {};
+  var preserveLegacyRemoteMissing = !String(existing.fingerprint || '') && !Number(existing.syncedAt || 0);
+  var remoteSongs = [], remoteKeys = Object.create(null);
+  (Array.isArray(incoming.songs) ? incoming.songs : []).forEach(function (song) {
+    var normalized = normalizeLocalPlaylistSong(song);
+    if (!normalized) return;
+    delete normalized.userAdded;
+    var key = localPlaylistSongKey(normalized);
+    if (remoteKeys[key]) return;
+    remoteKeys[key] = true;
+    remoteSongs.push(normalized);
+  });
+  var preserved = [];
+  (Array.isArray(existing.songs) ? existing.songs : []).forEach(function (song) {
+    var normalized = normalizeLocalPlaylistSong(song);
+    if (!normalized) return;
+    var key = localPlaylistSongKey(normalized);
+    if (remoteKeys[key]) return;
+    if (normalized.userAdded !== true && !preserveLegacyRemoteMissing) return;
+    // Older imported playlists did not mark manual additions. Their first
+    // refresh keeps unknown rows; later refreshes retain only explicit additions.
+    normalized.userAdded = true;
+    remoteKeys[key] = true;
+    preserved.push(normalized);
+  });
+  var syncedAt = Math.max(0, Number(now) || Date.now());
+  return Object.assign({}, existing, {
+    id: String(existing.id || incoming.id || ''),
+    name: String(existing.name || incoming.name || '导入歌单'),
+    creator: String(incoming.creator || existing.creator || '平台歌单'),
+    cover: String(incoming.cover || existing.cover || ''),
+    customCover: String(existing.customCover || ''),
+    importedProvider: String(existing.importedProvider || incoming.importedProvider || ''),
+    sourceInput: String(existing.sourceInput || incoming.sourceInput || ''),
+    fingerprint: String(incoming.fingerprint || ''),
+    songs: remoteSongs.concat(preserved),
+    trackCount: remoteSongs.length + preserved.length,
+    syncedAt: syncedAt,
+    updatedAt: syncedAt
+  });
+}
+
+async function syncLocalFilePlaylist(id) {
+  var playlist = localPlaylistById(id);
+  if (!localPlaylistCanSync(playlist)) throw new Error('PLAYLIST_SYNC_SOURCE_MISSING');
+  var result = await apiJson('/api/local-playlists/import-link', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input: playlist.sourceInput, provider: playlist.importedProvider }),
+    timeoutMs: 30000
+  });
+  if (!result || !result.ok || !result.playlist) throw new Error(result && result.error || 'PLAYLIST_SYNC_FAILED');
+  var index = localFilePlaylists.indexOf(playlist);
+  if (index < 0) throw new Error('LOCAL_PLAYLIST_NOT_FOUND');
+  var previous = JSON.parse(JSON.stringify(playlist));
+  var merged = mergeSynchronizedLocalPlaylist(playlist, result.playlist, Date.now());
+  localFilePlaylists.splice(index, 1, merged);
+  var saved = await saveLocalFilePlaylistsAndWait();
+  if (!saved) {
+    localFilePlaylists.splice(index, 1, previous);
+    throw new Error('LOCAL_PLAYLIST_SAVE_FAILED');
+  }
+  rebuildUserPlaylistsFromCatalog({ animate: false, preserveScroll: true, reason: 'local-playlist-sync' });
+  return merged;
 }
 
 function renameLocalFilePlaylist(id, name) {
   var playlist = localPlaylistById(id);
   name = String(name || '').trim().slice(0, 120);
   if (!playlist || !name) return false;
+  var mutationOwner = beginLocalPlaylistMutation('rename');
+  if (!mutationOwner) return false;
   playlist.name = name;
   playlist.updatedAt = Date.now();
-  if (!saveLocalFilePlaylists()) return false;
+  if (!saveLocalFilePlaylists()) { endLocalPlaylistMutation(mutationOwner); return false; }
+  finishLocalPlaylistMutationAfterWrite(mutationOwner);
   rebuildUserPlaylistsFromCatalog({ animate: false, preserveScroll: true, reason: 'local-playlist-rename' });
   return true;
 }
@@ -358,8 +484,11 @@ function renameLocalFilePlaylist(id, name) {
 function deleteLocalFilePlaylist(id) {
   var index = localFilePlaylists.findIndex(function (item) { return String(item.id) === String(id); });
   if (index < 0) return false;
+  var mutationOwner = beginLocalPlaylistMutation('delete');
+  if (!mutationOwner) return false;
   localFilePlaylists.splice(index, 1);
-  if (!saveLocalFilePlaylists()) return false;
+  if (!saveLocalFilePlaylists()) { endLocalPlaylistMutation(mutationOwner); return false; }
+  finishLocalPlaylistMutationAfterWrite(mutationOwner);
   rebuildUserPlaylistsFromCatalog({ animate: false, preserveScroll: true, reason: 'local-playlist-delete' });
   return true;
 }
@@ -368,11 +497,14 @@ function removeSongFromLocalFilePlaylist(id, songIndex) {
   var playlist = localPlaylistById(id);
   songIndex = Number(songIndex);
   if (!playlist || !Number.isInteger(songIndex) || songIndex < 0 || songIndex >= playlist.songs.length) return false;
+  var mutationOwner = beginLocalPlaylistMutation('remove-song');
+  if (!mutationOwner) return false;
   playlist.songs.splice(songIndex, 1);
   playlist.trackCount = playlist.songs.length;
   playlist.cover = String(playlist.songs[0] && (playlist.songs[0].picUrl || playlist.songs[0].cover) || '');
   playlist.updatedAt = Date.now();
-  if (!saveLocalFilePlaylists()) return false;
+  if (!saveLocalFilePlaylists()) { endLocalPlaylistMutation(mutationOwner); return false; }
+  finishLocalPlaylistMutationAfterWrite(mutationOwner);
   rebuildUserPlaylistsFromCatalog({ animate: false, preserveScroll: true, reason: 'local-playlist-remove-song' });
   return true;
 }

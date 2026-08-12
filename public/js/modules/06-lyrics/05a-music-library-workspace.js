@@ -89,6 +89,7 @@ function ensureMusicLibraryWorkspace() {
       '<nav class="music-library-tabs" role="tablist" aria-label="音乐库视图">' +
         '<button type="button" data-library-tab="local" role="tab">本地音乐</button>' +
         '<button type="button" data-library-tab="playlists" role="tab">我的歌单</button>' +
+        '<button type="button" data-library-tab="health" role="tab">曲库健康</button>' +
         '<button type="button" data-library-tab="import" role="tab">导入与交换</button>' +
       '</nav>' +
       '<main id="music-library-content" class="music-library-content"></main>' +
@@ -192,14 +193,15 @@ function renderMusicLibraryPlaylists() {
         '<form class="music-library-create" data-library-create-form><input id="music-library-create-name" type="text" maxlength="120" placeholder="新歌单名称" autocomplete="off"><button type="submit" title="创建歌单" aria-label="创建歌单">＋</button></form>' +
         '<div class="music-library-playlist-list">' + (localFilePlaylists.length ? localFilePlaylists.map(function (playlist, index) {
           var active = current && String(current.id) === String(playlist.id);
+          var playlistCover = playlist.customCover || playlist.cover || '';
           return '<button class="music-library-playlist-item' + (active ? ' active' : '') + '" type="button" data-library-playlist="' + escHtml(String(playlist.id || '')) + '" style="--row-index:' + index + '">' +
-            '<span class="music-library-playlist-cover">' + (playlist.cover ? '<img src="' + escHtml(playlist.cover) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>' +
+            '<span class="music-library-playlist-cover">' + (playlistCover ? '<img src="' + escHtml(playlistCover) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>' +
             '<span><strong>' + escHtml(playlist.name || '未命名歌单') + '</strong><small>' + Number(playlist.songs && playlist.songs.length || 0) + ' 首</small></span>' +
           '</button>';
         }).join('') : '<div class="music-library-empty compact"><strong>还没有本地歌单</strong><span>在上方输入名称即可创建</span></div>') + '</div>' +
       '</aside>' +
       '<section class="music-library-playlist-detail">' + (current ?
-        '<div class="music-library-playlist-detail-head">' +
+        (typeof musicLibraryPlaylistOrganizerHeadHtml === 'function' ? musicLibraryPlaylistOrganizerHeadHtml(current, songs, deleteArmed) : '<div class="music-library-playlist-detail-head">' +
           '<div class="music-library-playlist-title-edit"><input id="music-library-playlist-name" type="text" maxlength="120" value="' + escHtml(current.name || '') + '"><button type="button" data-library-action="rename-playlist">保存名称</button></div>' +
           '<div class="music-library-detail-actions">' +
             '<button type="button" class="primary" data-library-action="play-playlist"' + (songs.length ? '' : ' disabled') + '>播放</button>' +
@@ -208,9 +210,10 @@ function renderMusicLibraryPlaylists() {
             '<button type="button" class="danger' + (deleteArmed ? ' armed' : '') + '" data-library-action="delete-playlist">' + (deleteArmed ? '再次点击确认' : '删除歌单') + '</button>' +
           '</div>' +
           '<p>共 ' + songs.length + ' 首 · 歌曲文件不会随歌单删除</p>' +
-        '</div>' +
+        '</div>') +
         '<div class="music-library-playlist-tracks">' + (visible.length ? visible.map(function (song, index) {
           var armed = musicLibraryActionArmed('remove-playlist-song:' + current.id + ':' + index);
+          if (typeof musicLibraryPlaylistOrganizerRowHtml === 'function') return musicLibraryPlaylistOrganizerRowHtml(current, song, index, armed);
           return '<div class="music-library-playlist-track" style="--row-index:' + index + '">' +
             '<span class="music-library-track-number">' + String(index + 1).padStart(2, '0') + '</span>' +
             '<button type="button" class="music-library-track-copy" data-library-playlist-song="' + index + '"><strong>' + escHtml(song.name || song.title || '未知歌曲') + '</strong><small>' + escHtml(song.artist || song.singer || '未知歌手') + '</small></button>' +
@@ -223,6 +226,7 @@ function renderMusicLibraryPlaylists() {
     '</div>';
   var form = content.querySelector('[data-library-create-form]');
   if (form) form.addEventListener('submit', function (event) { event.preventDefault(); createMusicLibraryPlaylist(); });
+  if (typeof bindMusicLibraryPlaylistOrganizer === 'function') bindMusicLibraryPlaylistOrganizer(content, current, visible.length);
 }
 
 function renderMusicLibraryImport() {
@@ -253,9 +257,10 @@ function renderMusicLibraryWorkspace(reason) {
   var summary = document.getElementById('music-library-summary');
   if (summary) summary.textContent = tab === 'local'
     ? ((persistentLocalLibraryTracks || []).length + ' 首本地音乐 · ' + Object.keys(musicLibraryWorkspaceState.selected).filter(function (id) { return musicLibraryWorkspaceState.selected[id]; }).length + ' 首已选')
-    : (tab === 'playlists' ? (localFilePlaylists.length + ' 个本地歌单') : '导入音乐、歌单文件或平台分享链接');
+    : (tab === 'playlists' ? (localFilePlaylists.length + ' 个本地歌单') : (tab === 'health' ? '检查重复音乐与失效索引' : '导入音乐、歌单文件或平台分享链接'));
   if (tab === 'local') renderMusicLibraryLocal();
   else if (tab === 'playlists') renderMusicLibraryPlaylists();
+  else if (tab === 'health' && typeof renderMusicLibraryHealth === 'function') renderMusicLibraryHealth();
   else renderMusicLibraryImport();
 }
 
@@ -291,7 +296,7 @@ function loadMusicLibraryTracks() {
 function openMusicLibraryWorkspace(tab) {
   var mask = ensureMusicLibraryWorkspace();
   musicLibraryWorkspaceState.open = true;
-  musicLibraryWorkspaceState.tab = /^(local|playlists|import)$/.test(String(tab || '')) ? String(tab) : musicLibraryWorkspaceState.tab;
+  musicLibraryWorkspaceState.tab = /^(local|playlists|health|import)$/.test(String(tab || '')) ? String(tab) : musicLibraryWorkspaceState.tab;
   musicLibraryWorkspaceState.visible = MUSIC_LIBRARY_BATCH_SIZE;
   musicLibraryWorkspaceState.playlistVisible = MUSIC_LIBRARY_BATCH_SIZE;
   mask.classList.add('show');
@@ -301,6 +306,7 @@ function openMusicLibraryWorkspace(tab) {
   renderMusicLibraryWorkspace('open');
   Promise.resolve(localPlaylistCatalogReady).then(function () { refreshMusicLibraryWorkspace('catalog-ready'); });
   loadMusicLibraryTracks();
+  if (musicLibraryWorkspaceState.tab === 'health' && typeof loadMusicLibraryHealth === 'function') loadMusicLibraryHealth(false);
   requestAnimationFrame(function () {
     var focus = mask.querySelector('[data-library-tab].active');
     if (focus) focus.focus({ preventScroll: true });
@@ -390,8 +396,10 @@ function handleMusicLibraryClick(event) {
     musicLibraryWorkspaceState.visible = MUSIC_LIBRARY_BATCH_SIZE;
     musicLibraryWorkspaceState.playlistVisible = MUSIC_LIBRARY_BATCH_SIZE;
     renderMusicLibraryWorkspace('tab');
+    if (musicLibraryWorkspaceState.tab === 'health' && typeof loadMusicLibraryHealth === 'function') loadMusicLibraryHealth(false);
     return;
   }
+  if (typeof handleMusicLibraryOrganizerClick === 'function' && handleMusicLibraryOrganizerClick(event)) return;
   var play = event.target.closest('[data-library-play]');
   if (play) { playMusicLibraryTrack(play.getAttribute('data-library-play')); return; }
   var next = event.target.closest('[data-library-next]');

@@ -88,6 +88,7 @@
     'js/modules/06-lyrics/04-progress-seek.js',
     'js/modules/06-lyrics/05-upload-dragdrop.js',
     'js/modules/06-lyrics/05a-music-library-workspace.js',
+    'js/modules/06-lyrics/05b-playlist-organization.js',
     'js/modules/06-lyrics/06-lyric-timing-offset.js',
     'js/modules/07-fx/00-preset-archive-data.js',
     'js/modules/07-fx/00a-full-backup-restore.js',
