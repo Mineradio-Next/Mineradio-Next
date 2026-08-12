@@ -19,6 +19,34 @@ test('spectrum module normalizes preference and samples shared analyser data', (
   assert.equal(spectrum.sample(new Uint8Array([0, 64, 128, 255]), 1, 2) <= 1, true);
 });
 
+test('spectrum refreshes the shared analyser data before every active draw', () => {
+  const previousData = global.frequencyData;
+  const previousAnalyser = global.analyser;
+  const target = new Uint8Array(8);
+  let refreshes = 0;
+  global.frequencyData = target;
+  global.analyser = {
+    getByteFrequencyData(data) {
+      refreshes += 1;
+      data.fill(96);
+    },
+  };
+  try {
+    delete require.cache[require.resolve(spectrumPath)];
+    const spectrum = require(spectrumPath);
+    assert.strictEqual(spectrum.refreshData(true), target);
+    assert.equal(refreshes, 1);
+    assert.deepEqual(Array.from(target), Array(8).fill(96));
+    spectrum.refreshData(false);
+    assert.equal(refreshes, 1);
+  } finally {
+    if (previousData === undefined) delete global.frequencyData;
+    else global.frequencyData = previousData;
+    if (previousAnalyser === undefined) delete global.analyser;
+    else global.analyser = previousAnalyser;
+  }
+});
+
 test('player spectrum is wired as a low-load native player surface', () => {
   const source = fs.readFileSync(spectrumPath, 'utf8');
   const html = fs.readFileSync(path.join(appRoot, 'public', 'index.html'), 'utf8');
@@ -32,6 +60,7 @@ test('player spectrum is wired as a low-load native player surface', () => {
   assert.match(loader, /08a-listening-effects\.js'[\s\S]*08b-player-spectrum\.js'/);
   assert.match(chrome, /\['player-spectrum-toggle', '播放频谱'\]/);
   assert.match(source, /typeof frequencyData !== 'undefined' \? frequencyData : null/);
+  assert.match(source, /sourceAnalyser\.getByteFrequencyData\(data\)/);
   assert.doesNotMatch(source, /createAnalyser\s*\(/);
   assert.match(source, /document\.hidden[\s\S]*return 750/);
   assert.match(source, /!playerSpectrumUiVisible\(\)\) return 750/);

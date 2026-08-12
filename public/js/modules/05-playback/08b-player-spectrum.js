@@ -6,8 +6,10 @@ var playerSpectrumEnabled = readPlayerSpectrumPreference();
 var playerSpectrumFrame = 0;
 var playerSpectrumTimer = 0;
 var playerSpectrumBars = new Float32Array(PLAYER_SPECTRUM_BAR_COUNT);
+var playerSpectrumSamples = new Float32Array(PLAYER_SPECTRUM_BAR_COUNT);
 var playerSpectrumReducedMotion = false;
 var playerSpectrumSettled = true;
+var playerSpectrumPeak = 0.18;
 
 function normalizePlayerSpectrumPreference(raw) {
   if (raw === false || raw === 'false' || raw && raw.enabled === false) return false;
@@ -79,6 +81,16 @@ function playerSpectrumSample(data, index, count) {
   return Math.min(1, (average * 0.72 + peak * 0.28) / 255);
 }
 
+function refreshPlayerSpectrumData(active) {
+  var data = typeof frequencyData !== 'undefined' ? frequencyData : null;
+  var sourceAnalyser = typeof analyser !== 'undefined' ? analyser : null;
+  if (!active || !data || !sourceAnalyser || typeof sourceAnalyser.getByteFrequencyData !== 'function') return data;
+  try {
+    sourceAnalyser.getByteFrequencyData(data);
+  } catch (_) { }
+  return data;
+}
+
 function resizePlayerSpectrumCanvas(canvas) {
   var rect = canvas.getBoundingClientRect();
   var ratio = Math.min(1.75, Math.max(1, Number(window.devicePixelRatio) || 1));
@@ -107,11 +119,20 @@ function drawPlayerSpectrum() {
   if (!context) return false;
   var size = resizePlayerSpectrumCanvas(canvas);
   var active = typeof playing !== 'undefined' && playing && typeof audio !== 'undefined' && audio && !audio.paused;
-  var data = typeof frequencyData !== 'undefined' ? frequencyData : null;
+  var data = refreshPlayerSpectrumData(active);
   var motionScale = playerSpectrumReducedMotion ? 0.28 : 1;
   var settled = true;
+  var framePeak = 0;
+  for (var sampleIndex = 0; sampleIndex < PLAYER_SPECTRUM_BAR_COUNT; sampleIndex++) {
+    playerSpectrumSamples[sampleIndex] = active ? playerSpectrumSample(data, sampleIndex, PLAYER_SPECTRUM_BAR_COUNT) : 0;
+    framePeak = Math.max(framePeak, playerSpectrumSamples[sampleIndex]);
+  }
+  playerSpectrumPeak = active
+    ? Math.max(0.12, framePeak, playerSpectrumPeak * 0.965)
+    : Math.max(0.18, playerSpectrumPeak * 0.92);
   for (var index = 0; index < PLAYER_SPECTRUM_BAR_COUNT; index++) {
-    var target = active ? playerSpectrumSample(data, index, PLAYER_SPECTRUM_BAR_COUNT) * motionScale : 0;
+    var normalized = active ? Math.min(1, playerSpectrumSamples[index] / Math.max(0.12, playerSpectrumPeak * 0.82)) : 0;
+    var target = active ? Math.pow(normalized, 0.82) * motionScale : 0;
     var current = playerSpectrumBars[index] || 0;
     var easing = target > current ? 0.42 : (active ? 0.16 : 0.11);
     current += (target - current) * easing;
@@ -238,6 +259,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     normalizePreference: normalizePlayerSpectrumPreference,
     sample: playerSpectrumSample,
+    refreshData: refreshPlayerSpectrumData,
     frameDelay: playerSpectrumFrameDelay,
     palette: playerSpectrumPalette
   };
