@@ -1889,7 +1889,9 @@ async function checkProviderFallbackTerminalStateGuard() {
   if (!/function sourceFallbackProviderReady/.test(fallbackText) || !/status\.playbackKeyReady === true/.test(fallbackText) || !/function alternatePlaybackProviders/.test(fallbackText) || /if \(provider === 'netease'\) return 'qq'/.test(fallbackText)) {
     fail('automatic fallback must only select logged-in direct providers with complete playback authorization');
   }
-  if (!/SOURCE_FALLBACK_SEARCH_TIMEOUT_MS\s*=\s*6500/.test(fallbackText) || !/apiJson\(url, \{ timeoutMs: SOURCE_FALLBACK_SEARCH_TIMEOUT_MS \}\)/.test(fallbackText) || !/SOURCE_FALLBACK_RECOVERY_TIMEOUT_MS\s*=\s*20000/.test(fallbackText) || !/function awaitSourceFallbackBudget/.test(fallbackText) || (playbackText.match(/timeoutMs:\s*9000/g) || []).length < 6 || (playbackText.match(/timeoutMs:\s*14000/g) || []).length < 2 || (playbackText.match(/timeoutMs:\s*15000/g) || []).length < 2) {
+  const sharedPlaybackResolverIsBounded = /async function resolveNetworkPlaybackData[\s\S]{0,2600}timeoutMs:\s*15000[\s\S]{0,2600}timeoutMs:\s*9000[\s\S]{0,2600}timeoutMs:\s*14000/.test(playbackText)
+    && (playbackText.match(/resolveNetworkPlaybackData\(song/g) || []).length >= 3;
+  if (!/SOURCE_FALLBACK_SEARCH_TIMEOUT_MS\s*=\s*6500/.test(fallbackText) || !/apiJson\(url, \{ timeoutMs: SOURCE_FALLBACK_SEARCH_TIMEOUT_MS \}\)/.test(fallbackText) || !/SOURCE_FALLBACK_RECOVERY_TIMEOUT_MS\s*=\s*20000/.test(fallbackText) || !/function awaitSourceFallbackBudget/.test(fallbackText) || !sharedPlaybackResolverIsBounded) {
     fail('fallback search, normal source resolution, and gapless source resolution must all be time-bounded');
   }
   if (!/alternateData[\s\S]{0,220}!alternateData\.url[\s\S]{0,320}playQueue\[idx\] = committedCandidate/.test(fallbackText) || !/fallbackStarted === true[\s\S]{0,180}已自动切换音源/.test(fallbackText) || !/function restoreSourceFallbackQueueItem/.test(fallbackText)) {
@@ -1920,7 +1922,8 @@ async function checkProviderFallbackTerminalStateGuard() {
   const playbackBudget = 14000;
   if (
     !/function neteasePlaybackMatchQuery/.test(playbackText)
-    || (playbackText.match(/neteasePlaybackMatchQuery\(song\)/g) || []).length < 2
+    || !/async function resolveNetworkPlaybackData[\s\S]{0,3200}neteasePlaybackMatchQuery\(song\)/.test(playbackText)
+    || (playbackText.match(/resolveNetworkPlaybackData\(song/g) || []).length < 3
     || !/song\.resolvedNeteaseId\s*=/.test(playbackText)
     || !/data && data\.sourceMatch/.test(playbackText)
     || neteaseMatchNoticePos < 0
@@ -2482,7 +2485,8 @@ function checkQQVipStatusSyncGuard() {
   if (!/cookieIsExpired/.test(mainText) || !/qqLoginCookieCandidateScore/.test(mainText) ||
       !/QQ_VKEY_REQUEST_TIMEOUT_MS = 6000/.test(serverText) ||
       !/QQ_AUDIO_PROBE_TOTAL_MS = 6200/.test(serverText) ||
-      (playbackText.match(/timeoutMs: 15000/g) || []).length < 2) {
+      !/async function resolveNetworkPlaybackData[\s\S]{0,1600}timeoutMs:\s*15000/.test(playbackText) ||
+      (playbackText.match(/resolveNetworkPlaybackData\(song/g) || []).length < 3) {
     fail('QQ cookie selection and end-to-end playback timeout budgets must be deterministic and aligned');
   }
   if (!/providerVipAuditSameUser/.test(loginStatusText) || !/已同步/.test(loginStatusText)) {

@@ -540,7 +540,8 @@ function testDesktopReauthCookieSelectionAndBudgets() {
     vkeyBudget + audioProbeBudget < 15000,
     'the complete QQ URL handler deadline must finish before the renderer 15s request deadline'
   );
-  assert((playbackSource.match(/timeoutMs: 15000/g) || []).length >= 2);
+  assert(/function resolveNetworkPlaybackData[\s\S]{0,1200}timeoutMs: 15000/.test(playbackSource));
+  assert((playbackSource.match(/resolveNetworkPlaybackData\(song/g) || []).length >= 3);
   assert(/timeoutMs: 15000/.test(prefetchSource));
 
   assert(!/vipEvidence:\s*playbackVipEvidence/.test(serverSource));

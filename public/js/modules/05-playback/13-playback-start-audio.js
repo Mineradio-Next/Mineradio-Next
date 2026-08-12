@@ -552,10 +552,10 @@ async function retryNeteaseSourceMatchPlayback(song, data, idx, token, opts, req
   return retryStarted === true;
 }
 
-async function resolveAlbumGaplessPlaybackData(song) {
+async function resolveNetworkPlaybackData(song, qualityOverride) {
   if (!song || song.type === 'local' || song.source === 'local' || song.localUrl) return null;
   var playbackProvider = normalizePlaybackProvider(songProviderKey(song));
-  var requestedQuality = normalizePlaybackQualityForProvider(getProviderPlaybackQuality(playbackProvider), playbackProvider);
+  var requestedQuality = normalizePlaybackQualityForProvider(qualityOverride || getProviderPlaybackQuality(playbackProvider), playbackProvider);
   if (playbackProvider === 'netease' && requestedQuality === 'jymaster' && !hasProviderSvip('netease', loginStatus)) requestedQuality = 'hires';
   var runtimeQualityCap = playbackQualityCapValue(song, playbackProvider);
   if (playbackQualityAboveCap(requestedQuality, playbackProvider, runtimeQualityCap)) requestedQuality = runtimeQualityCap;
@@ -589,6 +589,10 @@ async function resolveAlbumGaplessPlaybackData(song) {
       qualityParam, { timeoutMs: 9000 });
   }
   return apiJson('/api/song/url?id=' + encodeURIComponent(song.id || '') + neteasePlaybackMatchQuery(song) + qualityParam, { timeoutMs: 14000 });
+}
+
+async function resolveAlbumGaplessPlaybackData(song) {
+  return resolveNetworkPlaybackData(song);
 }
 
 function consumeAlbumGaplessPreload(preload) {
@@ -1131,31 +1135,9 @@ async function playQueueAt(idx, opts) {
         data = opts.preloadedData;
       } else if (opts.preResolvedPlaybackData && opts.preResolvedPlaybackData.url) {
         data = opts.preResolvedPlaybackData;
-      } else if (isAdditionalSourcePlayback && typeof resolveAdditionalSourcePlayback === 'function') {
-        data = await resolveAdditionalSourcePlayback(song, requestedQuality);
-      } else if (isQQPlayback) {
-        data = await apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qqPlaybackEvidenceQuery(song) + qualityParam, { timeoutMs: 15000 });
-      } else if (isKugouPlayback) {
-        data = await apiJson('/api/kugou/song/url?hash=' + encodeURIComponent(song.hash || song.fileHash || song.audioHash || song.id || '') +
-          '&albumId=' + encodeURIComponent(song.albumId || song.album_id || '') +
-          '&albumAudioId=' + encodeURIComponent(song.albumAudioId || song.album_audio_id || song.mixSongId || '') +
-          '&mixSongId=' + encodeURIComponent(song.mixSongId || '') +
-          '&hqHash=' + encodeURIComponent(song.hqHash || song.hq_hash || '') +
-          '&sqHash=' + encodeURIComponent(song.sqHash || song.sq_hash || '') +
-          '&resHash=' + encodeURIComponent(song.resHash || song.res_hash || '') +
-          '&vipRequired=' + encodeURIComponent(song.vipRequired || song.needVip || song.onlyVipPlayable || song.only_vip_playable ? '1' : '') +
-          '&privilege=' + encodeURIComponent(song.privilege || song.Privilege || song.mediaPrivilege || song.media_privilege || '') +
-          '&fee=' + encodeURIComponent(song.fee || song.Fee || '') +
-          qualityParam, { timeoutMs: 9000 });
-      } else if (isQishuiPlayback) {
-        data = await apiJson('/api/qishui/song/url?id=' + encodeURIComponent(song.id || song.providerSongId || '') + qqPlaybackEvidenceQuery(song) + qualityParam, { timeoutMs: 9000 });
-      } else if (isSpotifyPlayback) {
-        data = await apiJson('/api/spotify/song/url?id=' + encodeURIComponent(song.id || song.providerSongId || song.spotifyId || '') +
-          '&spotifyId=' + encodeURIComponent(song.spotifyId || '') +
-          '&uri=' + encodeURIComponent(song.spotifyUri || song.uri || '') +
-          qualityParam, { timeoutMs: 9000 });
       } else {
-        data = await apiJson('/api/song/url?id=' + encodeURIComponent(song.id || '') + neteasePlaybackMatchQuery(song) + qualityParam, { timeoutMs: 14000 });
+        var offlineData = typeof resolveOfflinePlaybackData === 'function' ? await resolveOfflinePlaybackData(song) : null;
+        data = offlineData && offlineData.url ? offlineData : await resolveNetworkPlaybackData(song, requestedQuality);
       }
       if (token !== trackSwitchToken) return;
       if (

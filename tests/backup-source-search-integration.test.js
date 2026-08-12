@@ -39,10 +39,12 @@ test('backup catalogue routes preserve source identity and use the isolated API'
 });
 
 test('backup catalogue songs resolve playback and lyrics before built-in endpoints', () => {
-  const directPlayback = playbackSource.indexOf("isAdditionalSourcePlayback && typeof resolveAdditionalSourcePlayback");
-  const qqPlayback = playbackSource.indexOf('} else if (isQQPlayback)', directPlayback);
-  assert.ok(directPlayback >= 0 && qqPlayback > directPlayback);
+  const resolverStart = playbackSource.indexOf('async function resolveNetworkPlaybackData');
+  const directPlayback = playbackSource.indexOf("song.additionalSourceCode && typeof resolveAdditionalSourcePlayback", resolverStart);
+  const qqPlayback = playbackSource.indexOf("if (playbackProvider === 'qq')", directPlayback);
+  assert.ok(resolverStart >= 0 && directPlayback > resolverStart && qqPlayback > directPlayback);
   assert.match(playbackSource, /song\.additionalSourceCode[\s\S]{0,180}resolveAdditionalSourcePlayback\(song, requestedQuality\)/);
+  assert.match(playbackSource, /resolveOfflinePlaybackData\(song\)[\s\S]{0,180}resolveNetworkPlaybackData\(song, requestedQuality\)/);
   assert.match(lyricSource, /lyricResponseForSong\(candidate\.song\)/);
   assert.match(lyricSource, /refreshPersistentLyricCache\(song\)[\s\S]{0,120}lyricResponseForSong\(song\)/);
   assert.match(lyricSource, /song && song\.additionalSourceCode[\s\S]{0,160}resolveAdditionalSourceLyrics\(song\)/);

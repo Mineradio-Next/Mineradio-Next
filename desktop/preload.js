@@ -89,6 +89,17 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   auditLocalMusicLibrary: () => ipcRenderer.invoke('mineradio-local-library-audit'),
   readLocalMusicLyric: (localFileId) => ipcRenderer.invoke('mineradio-local-library-lyric', String(localFileId || '')),
   removeLocalMusicTracks: (ids) => ipcRenderer.invoke('mineradio-local-library-remove', Array.isArray(ids) ? ids : []),
+  listOfflineMusic: () => ipcRenderer.invoke('mineradio-offline-music-list'),
+  resolveOfflineMusic: (key) => ipcRenderer.invoke('mineradio-offline-music-resolve', String(key || '')),
+  downloadOfflineMusic: (payload) => ipcRenderer.invoke('mineradio-offline-music-download', payload || {}),
+  cancelOfflineMusic: (key) => ipcRenderer.invoke('mineradio-offline-music-cancel', String(key || '')),
+  removeOfflineMusic: (key) => ipcRenderer.invoke('mineradio-offline-music-remove', String(key || '')),
+  onOfflineMusicProgress: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('mineradio-offline-music-progress', listener);
+    return () => ipcRenderer.removeListener('mineradio-offline-music-progress', listener);
+  },
   listLocalPlaylists: () => ipcRenderer.invoke('mineradio-local-playlists-list'),
   saveLocalPlaylists: (playlists) => ipcRenderer.invoke('mineradio-local-playlists-save', Array.isArray(playlists) ? playlists : []),
   importLocalMusicFiles: async (files) => {

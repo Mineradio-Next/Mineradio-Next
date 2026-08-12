@@ -35,6 +35,7 @@ function applyMineradioCacheSettings(snapshot) {
   setMineradioCacheStorageText('cache-storage-chromium-size', formatMineradioCacheBytes(usage.chromiumBytes));
   setMineradioCacheStorageText('cache-storage-beatmaps-path', settings.activeBeatmapsPath || settings.beatmapsPath);
   setMineradioCacheStorageText('cache-storage-beatmaps-size', formatMineradioCacheBytes(usage.beatmapsBytes));
+  setMineradioCacheStorageText('cache-storage-offline-size', formatMineradioCacheBytes(usage.offlineMusicBytes));
   setMineradioCacheStorageText('cache-storage-wallpaper-path', settings.activeWallpaperEnginePath || settings.wallpaperEnginePath);
   setMineradioCacheStorageText('cache-storage-wallpaper-size', formatMineradioCacheBytes(usage.wallpaperEngineBytes));
   setMineradioCacheStorageText('cache-storage-userdata-path', settings.userDataPath || '系统安全数据目录');
@@ -44,8 +45,8 @@ function applyMineradioCacheSettings(snapshot) {
   setMineradioCacheStorageText(
     'cache-storage-note',
     settings.restartRequired
-      ? '歌词缓存已切换；封面、网络、音频分片、节奏分析与 WE 静音场景将在重启后改用新目录。'
-      : '歌词缓存立即生效；封面、网络、音频分片、节奏分析与 WE 静音场景已使用此目录。'
+      ? '歌词与新的离线保存已切换；封面、网络、音频分片、节奏分析与 WE 静音场景将在重启后改用新目录。'
+      : '歌词与新的离线保存立即生效；其余缓存已使用此目录。'
   );
 }
 

@@ -15,6 +15,10 @@ const {
   LocalMusicLibrary,
   registerLocalMusicScheme,
 } = require('./local-music-library');
+const {
+  OfflineMusicLibrary,
+  registerOfflineMusicScheme,
+} = require('./offline-music-library');
 const { LocalPlaylistCatalog } = require('./local-playlist-catalog');
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
@@ -45,6 +49,7 @@ const {
 
 registerWallpaperEngineScheme(protocol);
 registerLocalMusicScheme(protocol);
+registerOfflineMusicScheme(protocol);
 
 let mainWindow = null;
 let localServer = null;
@@ -330,6 +335,7 @@ function normalizeCacheSettings(value) {
     lyricsPath: path.join(rootPath, 'lyrics'),
     chromiumPath: path.join(rootPath, 'chromium'),
     beatmapsPath: path.join(rootPath, 'beatmaps'),
+    offlineMusicPath: path.join(rootPath, 'offline-music'),
     nativePath: path.join(rootPath, 'native-helper-temp'),
   };
 }
@@ -369,6 +375,7 @@ function ensureCacheDirectories(settings) {
     fs.mkdirSync(normalized.chromiumPath, { recursive: true });
     fs.mkdirSync(chromiumSessionDataPath(normalized), { recursive: true });
     fs.mkdirSync(normalized.beatmapsPath, { recursive: true });
+    fs.mkdirSync(normalized.offlineMusicPath, { recursive: true });
     fs.mkdirSync(normalized.nativePath, { recursive: true });
     return normalized;
   } catch (error) {
@@ -381,6 +388,7 @@ function ensureCacheDirectories(settings) {
     fs.mkdirSync(fallback.chromiumPath, { recursive: true });
     fs.mkdirSync(chromiumSessionDataPath(fallback), { recursive: true });
     fs.mkdirSync(fallback.beatmapsPath, { recursive: true });
+    fs.mkdirSync(fallback.offlineMusicPath, { recursive: true });
     fs.mkdirSync(fallback.nativePath, { recursive: true });
     return fallback;
   }
@@ -418,10 +426,11 @@ async function cacheSettingsSnapshot() {
   const activeNativePath = NATIVE_HELPER_TEMP_PATH;
   const wallpaperEnginePath = path.join(settings.nativePath, 'wallpaper-engine-muted-package-cache');
   const activeWallpaperEnginePath = path.join(activeNativePath, 'wallpaper-engine-muted-package-cache');
-  const [lyricsBytes, chromiumBytes, beatmapsBytes, wallpaperEngineBytes, userDataBytes] = await Promise.all([
+  const [lyricsBytes, chromiumBytes, beatmapsBytes, offlineMusicBytes, wallpaperEngineBytes, userDataBytes] = await Promise.all([
     directoryUsageBytes(settings.lyricsPath),
     directoryUsageBytes(currentChromiumPath),
     directoryUsageBytes(activeBeatmapsPath),
+    Promise.resolve(offlineMusicLibrary.listSync().bytes),
     directoryUsageBytes(activeWallpaperEnginePath),
     directoryUsageBytes(app.getPath('userData')),
   ]);
@@ -437,6 +446,7 @@ async function cacheSettingsSnapshot() {
       activeChromiumPath: currentChromiumPath,
       beatmapsPath: settings.beatmapsPath,
       activeBeatmapsPath,
+      offlineMusicPath: settings.offlineMusicPath,
       nativePath: settings.nativePath,
       activeNativePath,
       wallpaperEnginePath,
@@ -448,9 +458,10 @@ async function cacheSettingsSnapshot() {
       lyricsBytes,
       chromiumBytes,
       beatmapsBytes,
+      offlineMusicBytes,
       wallpaperEngineBytes,
       userDataBytes,
-      totalManagedBytes: lyricsBytes + chromiumBytes + beatmapsBytes + wallpaperEngineBytes,
+      totalManagedBytes: lyricsBytes + chromiumBytes + beatmapsBytes + offlineMusicBytes + wallpaperEngineBytes,
     },
   };
 }
@@ -488,6 +499,14 @@ async function pruneLyricCache() {
 }
 
 let cacheSettings = INITIAL_CACHE_SETTINGS;
+const offlineMusicLibrary = new OfflineMusicLibrary({
+  userDataPath: STABLE_USER_DATA_PATH,
+  getCacheRoot: () => cacheSettings.rootPath,
+  onProgress(payload) {
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || mainWindow.webContents.isDestroyed()) return;
+    mainWindow.webContents.send('mineradio-offline-music-progress', payload);
+  },
+});
 try {
   // `sessionData` owns Chromium cookies/storage/cache. `userData` stays on the
   // stable roaming path so changing the cache directory never logs accounts out.
@@ -4569,6 +4588,52 @@ ipcMain.handle('mineradio-local-library-remove', async (event, ids) => {
   }
 });
 
+ipcMain.handle('mineradio-offline-music-list', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, count: 0, bytes: 0, tracks: [], jobs: [], error: 'UNTRUSTED_SENDER' };
+  try {
+    return offlineMusicLibrary.listSync();
+  } catch (error) {
+    return { ok: false, count: 0, bytes: 0, tracks: [], jobs: [], error: error.code || error.message || 'OFFLINE_LIBRARY_READ_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-offline-music-resolve', async (event, key) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, hit: false, error: 'UNTRUSTED_SENDER' };
+  try {
+    return offlineMusicLibrary.resolve(String(key || ''));
+  } catch (error) {
+    return { ok: false, hit: false, error: error.code || error.message || 'OFFLINE_LIBRARY_RESOLVE_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-offline-music-download', async (event, payload = {}) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+  try {
+    return await offlineMusicLibrary.download({
+      key: String(payload && payload.key || ''),
+      url: String(payload && payload.url || ''),
+      quality: String(payload && payload.quality || ''),
+      song: payload && payload.song,
+    });
+  } catch (error) {
+    return { ok: false, error: error.code || error.message || 'OFFLINE_DOWNLOAD_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-offline-music-cancel', async (event, key) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+  return offlineMusicLibrary.cancel(String(key || ''));
+});
+
+ipcMain.handle('mineradio-offline-music-remove', async (event, key) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, count: 0, bytes: 0, tracks: [], jobs: [], error: 'UNTRUSTED_SENDER' };
+  try {
+    return await offlineMusicLibrary.remove(String(key || ''));
+  } catch (error) {
+    return { ok: false, count: 0, bytes: 0, tracks: [], jobs: [], error: error.code || error.message || 'OFFLINE_LIBRARY_REMOVE_FAILED' };
+  }
+});
+
 ipcMain.handle('mineradio-local-playlists-list', async (event) => {
   if (!isTrustedMainWindowIpc(event)) return { ok: false, count: 0, playlists: [], error: 'UNTRUSTED_SENDER' };
   try {
@@ -6024,6 +6089,11 @@ if (!gotSingleInstanceLock) {
       console.warn('[LocalMusic] media protocol unavailable:', error && error.message || error);
     }
     try {
+      await offlineMusicLibrary.installProtocol(protocol);
+    } catch (error) {
+      console.warn('[OfflineMusic] media protocol unavailable:', error && error.message || error);
+    }
+    try {
       await wallpaperEngineLibrary.installProtocol(protocol);
     } catch (error) {
       console.warn('[Wallpaper Engine] local media protocol unavailable:', error && error.message || error);
@@ -6070,6 +6140,7 @@ if (!gotSingleInstanceLock) {
     if (appQuitCleanupPromise) return;
     clearWallpaperEngineCaptureGrant();
     wallpaperEngineLibrary.dispose();
+    offlineMusicLibrary.dispose();
     stopMemoryAutoTimer();
     unregisterFullDesktopEscapeShortcut();
     unregisterMineradioGlobalHotkeys();

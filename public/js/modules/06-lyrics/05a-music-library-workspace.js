@@ -89,6 +89,7 @@ function ensureMusicLibraryWorkspace() {
       '<nav class="music-library-tabs" role="tablist" aria-label="音乐库视图">' +
         '<button type="button" data-library-tab="local" role="tab">本地音乐</button>' +
         '<button type="button" data-library-tab="playlists" role="tab">我的歌单</button>' +
+        '<button type="button" data-library-tab="offline" role="tab">离线音乐</button>' +
         '<button type="button" data-library-tab="health" role="tab">曲库健康</button>' +
         '<button type="button" data-library-tab="import" role="tab">导入与交换</button>' +
       '</nav>' +
@@ -246,6 +247,62 @@ function musicLibraryImportRow(action, title, description, command) {
   return '<section class="music-library-import-row"><span class="music-library-import-mark" aria-hidden="true"></span><div><h4>' + title + '</h4><p>' + description + '</p></div><button type="button" data-library-import="' + action + '">' + command + '</button></section>';
 }
 
+function musicLibraryOfflineEntries() {
+  var snapshot = offlineMusicState && offlineMusicState.snapshot || { tracks: [] };
+  var entries = (snapshot.tracks || []).slice();
+  var query = String(musicLibraryWorkspaceState.query || '').trim().toLowerCase();
+  if (!query) return entries;
+  return entries.filter(function (entry) {
+    var song = entry && entry.song || {};
+    return [song.name, song.title, song.artist, song.album, offlineMusicProviderLabel(song), entry.quality]
+      .join(' ').toLowerCase().indexOf(query) >= 0;
+  });
+}
+
+function musicLibraryOfflineProgressHtml(job) {
+  var received = Math.max(0, Number(job && job.receivedBytes) || 0);
+  var total = Math.max(0, Number(job && job.totalBytes) || 0);
+  var ratio = total ? Math.max(0, Math.min(100, received / total * 100)) : 0;
+  var text = job && job.status === 'resolving' ? '正在解析音源' : ('已保存 ' + offlineMusicBytesLabel(received) + (total ? (' / ' + offlineMusicBytesLabel(total)) : ''));
+  return '<div class="music-library-offline-job" data-offline-job="' + escHtml(job.key) + '">' +
+    '<div class="music-library-offline-job-copy"><strong>' + escHtml(job.song && (job.song.name || job.song.title) || '正在保存') + '</strong><small>' + escHtml(text) + '</small></div>' +
+    '<div class="music-library-offline-progress"><i style="width:' + ratio.toFixed(1) + '%"></i></div>' +
+    '<button type="button" data-offline-cancel="' + escHtml(job.key) + '">取消</button>' +
+  '</div>';
+}
+
+function renderMusicLibraryOffline() {
+  var content = document.getElementById('music-library-content');
+  if (!content) return;
+  var snapshot = offlineMusicState && offlineMusicState.snapshot || { ok: false, count: 0, bytes: 0, tracks: [], jobs: [] };
+  var entries = musicLibraryOfflineEntries();
+  var jobs = Object.keys(offlineMusicState.progress || {}).map(function (key) { return offlineMusicState.progress[key]; }).filter(Boolean);
+  var broken = entries.filter(function (entry) { return !entry.available; }).length;
+  content.innerHTML =
+    '<div class="music-library-offline">' +
+      '<section class="music-library-offline-summary">' +
+        '<div><span class="music-library-kicker">离线音乐</span><h3>' + (snapshot.ok === false ? '离线库暂不可用' : '带着音乐离开网络') + '</h3><p>这里只管理你明确保存的网络歌曲。移除离线副本不会删除歌单，也不会影响本地音乐。</p></div>' +
+        '<div class="music-library-offline-metrics"><span><strong>' + Number(snapshot.count || 0) + '</strong><small>已保存</small></span><span><strong>' + escHtml(offlineMusicBytesLabel(snapshot.bytes || 0)) + '</strong><small>磁盘占用</small></span><span><strong>' + jobs.length + '</strong><small>进行中</small></span></div>' +
+      '</section>' +
+      (jobs.length ? '<div class="music-library-offline-jobs">' + jobs.map(musicLibraryOfflineProgressHtml).join('') + '</div>' : '') +
+      '<div class="music-library-toolbar offline">' +
+        '<label class="music-library-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input id="music-library-search" type="search" value="' + escHtml(musicLibraryWorkspaceState.query) + '" placeholder="搜索离线歌曲、歌手或来源" autocomplete="off"></label>' +
+        '<span class="music-library-offline-filter">' + entries.length + ' 首' + (broken ? (' · ' + broken + ' 项需清理') : ' · 均可读取') + '</span>' +
+        '<button type="button" class="music-library-command" data-offline-refresh>刷新状态</button>' +
+      '</div>' +
+      '<div class="music-library-offline-list">' + (entries.length ? entries.map(function (entry, index) {
+        var song = entry.song || {};
+        var armed = offlineMusicState.confirmKey === entry.key && offlineMusicState.confirmUntil > Date.now();
+        return '<div class="music-library-offline-row' + (entry.available ? '' : ' broken') + '" style="--row-index:' + index + '">' +
+          '<button type="button" class="music-library-track" data-offline-play="' + escHtml(entry.key) + '"' + (entry.available ? '' : ' disabled') + '>' + musicLibraryCoverHtml(song) + '<span><strong>' + escHtml(song.name || song.title || '未知歌曲') + '</strong><small>' + escHtml(song.artist || '未知歌手') + '</small></span></button>' +
+          '<span class="music-library-meta"><strong>' + escHtml(song.album || offlineMusicProviderLabel(song)) + '</strong><small>' + escHtml(offlineMusicProviderLabel(song) + (entry.quality ? (' · ' + entry.quality) : '')) + '</small></span>' +
+          '<span class="music-library-offline-file"><strong>' + escHtml(offlineMusicBytesLabel(entry.bytes)) + '</strong><small>' + escHtml(entry.available ? offlineMusicDateLabel(entry.savedAt) : '文件不可用') + '</small></span>' +
+          '<span class="music-library-row-actions"><button type="button" data-offline-play="' + escHtml(entry.key) + '" title="播放" aria-label="播放"' + (entry.available ? '' : ' disabled') + '>▶</button><button type="button" class="danger' + (armed ? ' armed' : '') + '" data-offline-remove="' + escHtml(entry.key) + '" title="' + (armed ? '再次点击确认' : '移除离线副本') + '" aria-label="移除离线副本">×</button></span>' +
+        '</div>';
+      }).join('') : '<div class="music-library-empty"><strong>' + (offlineMusicState.loading ? '正在读取离线音乐…' : (musicLibraryWorkspaceState.query ? '没有匹配的离线歌曲' : '还没有离线音乐')) + '</strong><span>播放网络歌曲时，在歌曲详情中选择“保存离线”</span></div>') + '</div>' +
+    '</div>';
+}
+
 function renderMusicLibraryWorkspace(reason) {
   var mask = ensureMusicLibraryWorkspace();
   var tab = musicLibraryWorkspaceState.tab;
@@ -257,9 +314,10 @@ function renderMusicLibraryWorkspace(reason) {
   var summary = document.getElementById('music-library-summary');
   if (summary) summary.textContent = tab === 'local'
     ? ((persistentLocalLibraryTracks || []).length + ' 首本地音乐 · ' + Object.keys(musicLibraryWorkspaceState.selected).filter(function (id) { return musicLibraryWorkspaceState.selected[id]; }).length + ' 首已选')
-    : (tab === 'playlists' ? (localFilePlaylists.length + ' 个本地歌单') : (tab === 'health' ? '检查重复音乐与失效索引' : '导入音乐、歌单文件或平台分享链接'));
+    : (tab === 'playlists' ? (localFilePlaylists.length + ' 个本地歌单') : (tab === 'offline' ? ((offlineMusicState.snapshot.count || 0) + ' 首离线音乐 · ' + offlineMusicBytesLabel(offlineMusicState.snapshot.bytes || 0)) : (tab === 'health' ? '检查重复音乐与失效索引' : '导入音乐、歌单文件或平台分享链接')));
   if (tab === 'local') renderMusicLibraryLocal();
   else if (tab === 'playlists') renderMusicLibraryPlaylists();
+  else if (tab === 'offline') renderMusicLibraryOffline();
   else if (tab === 'health' && typeof renderMusicLibraryHealth === 'function') renderMusicLibraryHealth();
   else renderMusicLibraryImport();
 }
@@ -296,7 +354,7 @@ function loadMusicLibraryTracks() {
 function openMusicLibraryWorkspace(tab) {
   var mask = ensureMusicLibraryWorkspace();
   musicLibraryWorkspaceState.open = true;
-  musicLibraryWorkspaceState.tab = /^(local|playlists|health|import)$/.test(String(tab || '')) ? String(tab) : musicLibraryWorkspaceState.tab;
+  musicLibraryWorkspaceState.tab = /^(local|playlists|offline|health|import)$/.test(String(tab || '')) ? String(tab) : musicLibraryWorkspaceState.tab;
   musicLibraryWorkspaceState.visible = MUSIC_LIBRARY_BATCH_SIZE;
   musicLibraryWorkspaceState.playlistVisible = MUSIC_LIBRARY_BATCH_SIZE;
   mask.classList.add('show');
@@ -306,6 +364,7 @@ function openMusicLibraryWorkspace(tab) {
   renderMusicLibraryWorkspace('open');
   Promise.resolve(localPlaylistCatalogReady).then(function () { refreshMusicLibraryWorkspace('catalog-ready'); });
   loadMusicLibraryTracks();
+  if (musicLibraryWorkspaceState.tab === 'offline') refreshOfflineMusicSnapshot(true);
   if (musicLibraryWorkspaceState.tab === 'health' && typeof loadMusicLibraryHealth === 'function') loadMusicLibraryHealth(false);
   requestAnimationFrame(function () {
     var focus = mask.querySelector('[data-library-tab].active');
@@ -393,10 +452,32 @@ function handleMusicLibraryClick(event) {
   var tab = event.target.closest('[data-library-tab]');
   if (tab) {
     musicLibraryWorkspaceState.tab = tab.getAttribute('data-library-tab');
+    musicLibraryWorkspaceState.query = '';
     musicLibraryWorkspaceState.visible = MUSIC_LIBRARY_BATCH_SIZE;
     musicLibraryWorkspaceState.playlistVisible = MUSIC_LIBRARY_BATCH_SIZE;
     renderMusicLibraryWorkspace('tab');
     if (musicLibraryWorkspaceState.tab === 'health' && typeof loadMusicLibraryHealth === 'function') loadMusicLibraryHealth(false);
+    if (musicLibraryWorkspaceState.tab === 'offline') refreshOfflineMusicSnapshot(true);
+    return;
+  }
+  var offlinePlay = event.target.closest('[data-offline-play]');
+  if (offlinePlay) { playOfflineMusicEntry(offlinePlay.getAttribute('data-offline-play')); return; }
+  var offlineCancel = event.target.closest('[data-offline-cancel]');
+  if (offlineCancel) { cancelOfflineMusicDownload(offlineCancel.getAttribute('data-offline-cancel')); return; }
+  var offlineRefresh = event.target.closest('[data-offline-refresh]');
+  if (offlineRefresh) { refreshOfflineMusicSnapshot(true); return; }
+  var offlineRemove = event.target.closest('[data-offline-remove]');
+  if (offlineRemove) {
+    var removeKey = offlineRemove.getAttribute('data-offline-remove');
+    if (offlineMusicState.confirmKey !== removeKey || offlineMusicState.confirmUntil <= Date.now()) {
+      offlineMusicState.confirmKey = removeKey;
+      offlineMusicState.confirmUntil = Date.now() + 4200;
+      renderMusicLibraryWorkspace('offline-remove-arm');
+      return;
+    }
+    offlineMusicState.confirmKey = '';
+    offlineMusicState.confirmUntil = 0;
+    removeOfflineMusicEntry(removeKey);
     return;
   }
   if (typeof handleMusicLibraryOrganizerClick === 'function' && handleMusicLibraryOrganizerClick(event)) return;

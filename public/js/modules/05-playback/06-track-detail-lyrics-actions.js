@@ -697,6 +697,7 @@ function openTrackDetailModal(type, songOverride) {
       '</div>' +
       '<div class="detail-chip-row">' +
       '<span class="detail-chip">' + escHtml(songSourceLabel(song)) + '</span>' +
+      (offlineMusicIsEligible(song) ? '<button id="detail-offline-action" class="detail-chip action" type="button" onclick="saveCurrentSongOffline(event)">保存离线</button>' : '') +
       (song.type !== 'podcast-radio' ? '<button id="detail-backing-track-action" class="detail-chip action" type="button" onclick="findCurrentBackingTrack(event)">查找伴奏</button>' : '') +
       (isSongLiked(song) ? '<span class="detail-chip">红心喜欢</span>' : '') +
       (getCustomCoverForSong(song) ? '<span class="detail-chip">自定义封面</span>' : '') +
@@ -711,6 +712,7 @@ function openTrackDetailModal(type, songOverride) {
   }
   bindTrackDetailScrollers();
   if (typeof setBackingTrackActionBusy === 'function') setBackingTrackActionBusy(!!backingTrackSearchBusy);
+  if (typeof syncCurrentOfflineAction === 'function') syncCurrentOfflineAction(song);
   openGsapModal(document.getElementById('track-detail-modal'));
 }
 function openArtistDetailForSong(song) {
