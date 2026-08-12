@@ -352,12 +352,12 @@ function renderMusicLibraryHealth() {
   var health = musicLibraryOrganizerState.health;
   if (!health || health.error) {
     var failed = health && health.error;
-    content.innerHTML = '<div class="music-library-health"><section class="music-library-health-summary"><div><span class="music-library-kicker">LIBRARY HEALTH</span><h3>' + (failed ? '检查未完成' : '正在检查曲库') + '</h3><p>' + (failed ? '未能读取完整的曲库状态，当前不会显示“正常”结论，也不会执行清理。' : '正在核对本地索引和源文件状态，请稍候。') + '</p></div><button type="button" data-library-organizer="health-refresh"' + (musicLibraryOrganizerState.healthLoading ? ' disabled' : '') + '>' + (musicLibraryOrganizerState.healthLoading ? '检查中…' : '重新检查') + '</button></section></div>';
+    content.innerHTML = '<div class="music-library-health"><section class="music-library-health-summary"><div><span class="music-library-kicker">曲库检查</span><h3>' + (failed ? '检查未完成' : '正在检查曲库') + '</h3><p>' + (failed ? '未能读取完整的曲库状态，当前不会显示“正常”结论，也不会执行清理。' : '正在核对本地索引和源文件状态，请稍候。') + '</p></div><button type="button" data-library-organizer="health-refresh"' + (musicLibraryOrganizerState.healthLoading ? ' disabled' : '') + '>' + (musicLibraryOrganizerState.healthLoading ? '检查中…' : '重新检查') + '</button></section></div>';
     return;
   }
   var duplicateExtra = health.duplicates.reduce(function (sum, group) { return sum + Math.max(0, group.length - 1); }, 0);
   content.innerHTML = '<div class="music-library-health">' +
-    '<section class="music-library-health-summary"><div><span class="music-library-kicker">LIBRARY HEALTH</span><h3>曲库状态</h3><p>检查只读取文件状态；清理操作只移除 Mineradio 索引，不会删除磁盘文件。</p></div>' +
+    '<section class="music-library-health-summary"><div><span class="music-library-kicker">曲库检查</span><h3>曲库状态</h3><p>检查只读取文件状态；清理操作只移除 Mineradio 索引，不会删除磁盘文件。</p></div>' +
       '<div class="music-library-health-metrics"><span><strong>' + (persistentLocalLibraryTracks || []).length + '</strong><small>索引歌曲</small></span><span><strong>' + duplicateExtra + '</strong><small>可能重复</small></span><span><strong>' + health.missing.length + '</strong><small>失效索引</small></span></div>' +
       '<button type="button" data-library-organizer="health-refresh"' + (musicLibraryOrganizerState.healthLoading ? ' disabled' : '') + '>' + (musicLibraryOrganizerState.healthLoading ? '检查中…' : '重新检查') + '</button>' +
     '</section>' +

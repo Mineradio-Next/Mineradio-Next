@@ -83,7 +83,7 @@ function ensureMusicLibraryWorkspace() {
   mask.innerHTML =
     '<section class="music-library-workspace">' +
       '<header class="music-library-head">' +
-        '<div class="music-library-heading"><span class="music-library-kicker">YOUR MUSIC</span><h2 id="music-library-title">音乐库</h2><p id="music-library-summary">整理本地音乐与歌单</p></div>' +
+        '<div class="music-library-heading"><span class="music-library-kicker">我的音乐</span><h2 id="music-library-title">音乐库</h2><p id="music-library-summary">整理本地音乐与歌单</p></div>' +
         '<button class="music-library-close" type="button" data-library-close title="关闭音乐库" aria-label="关闭音乐库">×</button>' +
       '</header>' +
       '<nav class="music-library-tabs" role="tablist" aria-label="音乐库视图">' +
@@ -233,7 +233,7 @@ function renderMusicLibraryImport() {
   var content = document.getElementById('music-library-content');
   if (!content) return;
   content.innerHTML =
-    '<div class="music-library-import-intro"><span class="music-library-kicker">BRING YOUR MUSIC</span><h3>把音乐带进来，也能随时带走</h3><p>导入只建立索引，不移动或修改原文件。歌单默认使用 Mineradio 自己的格式导出，同时兼容读取旧格式。</p></div>' +
+    '<div class="music-library-import-intro"><span class="music-library-kicker">导入与交换</span><h3>把音乐带进来，也能随时带走</h3><p>导入只建立索引，不移动或修改原文件。歌单默认使用 Mineradio 自己的格式导出，同时兼容读取旧格式。</p></div>' +
     '<div class="music-library-import-list">' +
       musicLibraryImportRow('song', '导入歌曲', '选择一首或多首 MP3、FLAC、WAV、OGG、M4A、AAC 或 OPUS', '选择歌曲') +
       musicLibraryImportRow('folder', '导入文件夹', '保留文件夹层级，用于本地音乐中的文件夹筛选', '选择文件夹') +

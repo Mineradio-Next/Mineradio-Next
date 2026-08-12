@@ -28,6 +28,28 @@ var $input = document.getElementById('search-input');
 var $results = document.getElementById('search-results');
 var $loading = document.getElementById('loading-overlay');
 var SEARCH_CONTENT_FILTERS = ['all', 'original', 'version'];
+var searchSurfaceHideTimer = null;
+
+function hideSearchSurfaceWhenIdle() {
+  var searchArea = document.getElementById('search-area');
+  if (!$results || !searchArea) return;
+  if (searchSurfaceHideTimer) clearTimeout(searchSurfaceHideTimer);
+  searchSurfaceHideTimer = setTimeout(function () {
+    searchSurfaceHideTimer = null;
+    var active = document.activeElement;
+    if (searchArea.contains(active) || searchArea.matches(':hover')) return;
+    $results.classList.remove('show', 'search-history-surface');
+    syncSearchAreaResultState();
+    if (!emptyHomeActive) setPeek(searchArea, false, 'search');
+  }, 72);
+}
+
+function hideSearchSurfaceImmediately() {
+  if (searchSurfaceHideTimer) { clearTimeout(searchSurfaceHideTimer); searchSurfaceHideTimer = null; }
+  if (!$results) return;
+  $results.classList.remove('show', 'search-history-surface');
+  syncSearchAreaResultState();
+}
 function searchContentFilterLabel(filter) {
   return filter === 'original' ? '原版优先' : (filter === 'version' ? '伴奏 / 版本' : '全部');
 }
@@ -482,6 +504,7 @@ $input.addEventListener('input', function () {
   searchTimer = setTimeout(function () { doSearch(q); }, 180);
 });
 $input.addEventListener('focus', function () {
+  if (searchSurfaceHideTimer) { clearTimeout(searchSurfaceHideTimer); searchSurfaceHideTimer = null; }
   var searchArea = document.getElementById('search-area');
   if (searchArea) setPeek(searchArea, true, 'search');
   if (!$input.value.trim()) {
@@ -490,6 +513,7 @@ $input.addEventListener('focus', function () {
     $results.classList.add('show');
   }
 });
+$input.addEventListener('blur', hideSearchSurfaceWhenIdle);
 var searchBoxEl = document.getElementById('search-box');
 if (searchBoxEl) {
   searchBoxEl.addEventListener('click', function () {
@@ -545,9 +569,14 @@ $results.addEventListener('scroll', function () {
 document.addEventListener('click', function (e) {
   var searchArea = document.getElementById('search-area');
   if (!searchArea.contains(e.target)) {
-    $results.classList.remove('show');
+    hideSearchSurfaceImmediately();
     if (!emptyHomeActive) setPeek(searchArea, false, 'search');
   }
+});
+var searchAreaEl = document.getElementById('search-area');
+if (searchAreaEl) searchAreaEl.addEventListener('pointerleave', function (event) {
+  if (event.relatedTarget && searchAreaEl.contains(event.relatedTarget)) return;
+  if (document.activeElement !== $input) hideSearchSurfaceWhenIdle();
 });
 updateSearchModeTabs();
 
