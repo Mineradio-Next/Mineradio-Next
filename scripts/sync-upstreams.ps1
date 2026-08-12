@@ -53,12 +53,24 @@ function Invoke-GitFetch {
     )
 
     $arguments = @(
-        '-C', ('"{0}"' -f $Repository),
+        '-C', $Repository,
         '-c', 'http.lowSpeedLimit=1',
         '-c', 'http.lowSpeedTime=20',
         'fetch', '--depth=1', '--no-tags', $Url, $Refspec
     )
-    $process = Start-Process -FilePath 'git.exe' -ArgumentList $arguments -NoNewWindow -PassThru
+    $quotedArguments = $arguments | ForEach-Object {
+        '"{0}"' -f ($_ -replace '"', '\"')
+    }
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = 'git.exe'
+    $startInfo.Arguments = $quotedArguments -join ' '
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) {
+        throw "Unable to start git fetch for $Repository"
+    }
 
     if (-not $process.WaitForExit($FetchTimeoutSeconds * 1000)) {
         Write-Warning "Fetch exceeded ${FetchTimeoutSeconds}s; stopping PID $($process.Id)."
@@ -135,6 +147,14 @@ if ($DryRun) {
     exit 0
 }
 
+Write-Host 'Generating upstream maintenance report...'
+$reportArgs = @('scripts/upstream-report.js', '--output', 'reports/upstream/latest.md')
+$reportOutput = @(& node @reportArgs 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    throw "Upstream report failed before lock update:`n$($reportOutput -join [Environment]::NewLine)"
+}
+Write-Host ($reportOutput -join [Environment]::NewLine)
+
 $originalCommit = Invoke-GitText -Repository $projectRoot -Arguments @('rev-parse', 'refs/remotes/upstream-original/main')
 $lxCommit = Invoke-GitText -Repository $projectRoot -Arguments @('rev-parse', 'refs/remotes/upstream-lx/main')
 
@@ -153,7 +173,11 @@ $lock = [ordered]@{
     }
 }
 
-$json = $lock | ConvertTo-Json -Depth 4
+$json = $lock | ConvertTo-Json -Depth 4 -Compress
+$json = $json | & node -e "let input='';process.stdin.setEncoding('utf8');process.stdin.on('data',chunk=>input+=chunk);process.stdin.on('end',()=>process.stdout.write(JSON.stringify(JSON.parse(input),null,2)));"
+if ($LASTEXITCODE -ne 0) {
+    throw 'Unable to normalize upstream lock JSON'
+}
 $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($lockPath, $json + [Environment]::NewLine, $utf8WithoutBom)
 

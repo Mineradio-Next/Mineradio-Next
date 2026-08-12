@@ -9,6 +9,11 @@
   "private": true,
   "scripts": {
     "start": "electron .",
+    "test": "node --test",
+    "check": "node scripts/quick-check.js --full",
+    "security:audit": "npm audit --audit-level=high",
+    "upstream:report": "node scripts/upstream-report.js",
+    "maintenance:check": "node scripts/maintenance-check.js",
     "build:win": "electron-builder --win nsis",
     "build:win:dir": "electron-builder --win dir",
     "build:win:internal-beta": "electron-builder --config electron-builder.internal-beta.json --win nsis --publish never"
@@ -110,7 +115,7 @@
     "music-metadata": "11.14.0"
   },
   "devDependencies": {
-    "electron": "^42.4.1",
+    "electron": "^42.9.0",
     "electron-builder": "^26.15.3",
     "rcedit": "^5.0.2"
   }
