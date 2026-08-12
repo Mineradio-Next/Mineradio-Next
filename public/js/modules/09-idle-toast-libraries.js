@@ -501,78 +501,66 @@ function showToast(msg) {
 
 var visualGuideSteps = [
   {
-    target: 'stage',
-    kicker: '01 / Welcome',
-    title: 'Mineradio 是用来听歌的视觉播放器',
-    body: '它不是单纯歌单页：搜索或导入一首歌后，封面、歌词、粒子和镜头会跟着音乐一起动。'
+    selector: '#search-box',
+    kicker: '01 / Search',
+    title: '搜索会保留你当前的音乐场景',
+    body: '输入歌名、歌手或关键词，可筛选原版、伴奏等版本；关闭结果后仍回到原来的页面。'
   },
   {
-    selector: '#search-box',
-    kicker: '02 / Play',
-    title: '从搜索或导入开始',
-    body: '输入歌名、歌手或关键词即可播放；如果有本地音乐，也可以用导入入口直接放进舞台。'
+    selector: '.home-ranking-entry',
+    kicker: '02 / Discover',
+    title: '首页不只是推荐几首歌',
+    body: '音乐发现集中提供推荐、榜单与来源状态，音乐电台则按场景、风格和能量连续生成队列。'
+  },
+  {
+    selectors: ['#music-library-btn', '[data-home-tone="library"]'],
+    kicker: '03 / Library',
+    title: '收藏与本地音乐统一放进音乐库',
+    body: '本地歌曲、歌单整理、收藏、播放历史和离线内容都从这里进入，不再散落在播放器周围。'
   },
   {
     selector: '#bottom-bar',
-    kicker: '03 / Control',
-    title: '播放以后看底部控制台',
-    body: '播放、切歌、进度、队列和歌词都集中在底部，先把它当作一个正常播放器使用就可以。'
+    kicker: '04 / Player',
+    title: '核心播放控制始终留在底部',
+    body: '上一首、播放、下一首、进度、歌词、队列和音量都会常驻；播放过程中不需要切换工作区。'
   },
   {
-    selector: '#user-btn',
-    kicker: '04 / Account',
-    title: '登录只是为了同步你的音乐库',
-    body: '登录后会同步歌单、红心和播客；不登录也可以搜索和播放，不会强制卡住你。'
-  },
-  {
-    target: 'shelf',
-    kicker: '05 / Visual',
-    title: '进阶视觉都放在舞台周围',
-    body: '右侧 3D 歌单架和 DIY 玩家模式是进阶入口；先播放一首歌，再慢慢调视觉效果。'
-  },
-  {
-    selector: '#diy-mode-btn',
-    kicker: '06 / DIY',
-    title: '高级功能在 DIY 玩家模式',
-    body: '视觉控制台、上传/封面、自定义歌词、音质和更多面板都会在这里展开。'
+    selector: '#player-tools-btn',
+    kicker: '05 / Tools',
+    title: '扩展播放能力收在播放器工具里',
+    body: '播放调节、智能衔接、定时停播、听感调节和频谱都在这里；视觉控制仍由独立的视觉控制台负责。'
   }
 ];
 var visualGuideStepsDiy = [
   {
-    selector: '#diy-mode-btn',
-    kicker: '01 / DIY',
-    title: 'DIY 玩家模式已展开',
-    body: '这里可以随时切回默认模式。DIY 模式会显示完整控制台、上传、视觉面板和高级调参。'
-  },
-  {
     selector: '#search-box',
-    kicker: '02 / Search',
-    title: '搜索源和导入入口会展开',
-    body: '顶部搜索支持更多来源切换，上传歌曲、封面等入口也会在 DIY 模式中显示。'
+    kicker: '01 / Search',
+    title: '搜索与来源筛选仍然保持独立',
+    body: '顶部搜索支持来源和版本筛选；上传歌曲、封面等创作入口会在 DIY 模式中显示。'
   },
   {
     selector: '#playlist-panel',
-    kicker: '03 / Library',
-    title: '左侧是完整歌单和队列',
-    body: '靠近左侧边缘可以打开歌单/队列面板，在这里管理队列、个人歌单和播客。'
+    kicker: '02 / Queue',
+    title: '侧边面板用于当前队列',
+    body: '靠近左侧边缘可以快速查看队列和歌单；完整整理、历史与本地音乐仍由音乐库负责。'
   },
   {
     selector: '#fx-panel',
-    kicker: '04 / Visual Lab',
-    title: '右侧是视觉控制台',
-    body: '靠近右下角或点击视觉按钮，可以调节粒子、歌词、镜头、3D 歌单架和更多视觉参数。'
+    kicker: '03 / Visual Lab',
+    title: '视觉控制台只处理画面',
+    body: '靠近右下角或点击视觉按钮，可以调节粒子、歌词、镜头、3D 歌单架和其他视觉参数。'
   },
   {
-    selector: '#quality-control',
-    kicker: '05 / Controls',
-    title: '高级播放控制会补全',
-    body: '音质、播放顺序、收藏、歌词源和更多按钮会在 DIY 模式中完整显示。'
+    selector: '#player-tools-btn',
+    kicker: '04 / Player Tools',
+    title: '播放工具不会被 DIY 挤进去',
+    body: '听感、播放调节、智能衔接、定时停播和频谱始终使用底部独立入口。'
   },
   {
-    target: 'shelf',
-    kicker: '06 / Shelf',
-    title: '3D 歌单架支持直接打开',
-    body: '右侧的 3D 歌单架会在靠近时半透明浮现，点击卡片可打开歌单，点卡片里的播放按钮可直接播放整张歌单。'
+    selectors: ['#music-library-btn', '[data-home-tone="library"]'],
+    kicker: '05 / Library',
+    title: '需要整理时回到音乐库',
+    body: '收藏、本地音乐、播放历史、歌单整理和离线内容都有固定工作区，不需要在视觉面板里寻找。'
   }
 ];
 function activeVisualGuideSteps() {
@@ -635,10 +623,24 @@ function prepareVisualGuideStep(step) {
   else if (playlistPanel && !visualGuideState.plWasPeek) setPeek(playlistPanel, false, 'pl');
   if (step && step.selector === '#fx-panel') setPeek(fxPanel, true, 'fx');
   else if (fxPanel && !visualGuideState.fxWasPeek) setPeek(fxPanel, false, 'fx');
-  if (step && (step.selector === '#bottom-bar' || step.selector === '#mini-queue-btn' || step.selector === '#immersive-btn' || step.selector === '#quality-control')) {
+  if (step && (step.selector === '#bottom-bar' || step.selector === '#mini-queue-btn' || step.selector === '#immersive-btn' || step.selector === '#quality-control' || step.selector === '#player-tools-btn')) {
     if (bottom) bottom.classList.add('visible');
     revealBottomControls(1500);
   }
+}
+function visibleVisualGuideTarget(selectors) {
+  var list = Array.isArray(selectors) ? selectors : [selectors];
+  for (var i = 0; i < list.length; i++) {
+    if (!list[i]) continue;
+    var candidate = document.querySelector(list[i]);
+    if (!candidate) continue;
+    var style = window.getComputedStyle(candidate);
+    var rect = candidate.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > .08) {
+      return { element: candidate, rect: rect };
+    }
+  }
+  return null;
 }
 function scheduleVisualGuidePositioning() {
   requestAnimationFrame(positionVisualGuideStep);
@@ -665,13 +667,7 @@ function showVisualGuideStep(index) {
   scheduleVisualGuidePositioning();
 }
 function guideTargetRect(step) {
-  if (step && step.target === 'stage') {
-    var stageW = Math.min(620, Math.max(260, innerWidth - 72));
-    var stageH = Math.min(310, Math.max(178, innerHeight * 0.34));
-    var stageLeft = innerWidth * 0.5 - stageW * 0.5;
-    var stageTop = Math.max(116, innerHeight * 0.32 - stageH * 0.5);
-    return { left: stageLeft, top: stageTop, width: stageW, height: stageH, right: stageLeft + stageW, bottom: stageTop + stageH };
-  }
+  if (!step || step.target === 'overview') return null;
   if (step && step.target === 'shelf' && typeof shelfCueRect === 'function') {
     var shelfRect = shelfCueRect();
     var shelfLeft = shelfRect.left;
@@ -705,18 +701,9 @@ function guideTargetRect(step) {
     layoutFullscreenDiyZone();
     document.body.classList.add('fullscreen-diy-peek');
   }
-  var target = step && step.selector ? document.querySelector(useFullscreenDiyTarget ? '#fullscreen-diy-btn' : step.selector) : null;
-  if (target) {
-    var style = window.getComputedStyle(target);
-    var rect = target.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden') return rect;
-  }
-  if (step && step.selector === '#diy-mode-btn') {
-    var fallbackRight = Math.max(116, innerWidth - 26);
-    var fallbackTop = 16;
-    return { left: fallbackRight - 88, top: fallbackTop, width: 88, height: 38, right: fallbackRight, bottom: fallbackTop + 38 };
-  }
-  return { left: innerWidth * 0.5 - 120, top: innerHeight * 0.5 - 40, width: 240, height: 80, right: innerWidth * 0.5 + 120, bottom: innerHeight * 0.5 + 40 };
+  var selectors = useFullscreenDiyTarget ? ['#fullscreen-diy-btn'] : (step.selectors || [step.selector]);
+  var target = visibleVisualGuideTarget(selectors);
+  return target ? target.rect : null;
 }
 function positionVisualGuideStep() {
   if (!visualGuideActive) return;
@@ -726,7 +713,22 @@ function positionVisualGuideStep() {
   if (!guide || !ring || !card) return;
   var step = activeVisualGuideSteps()[visualGuideStep];
   var rect = guideTargetRect(step);
+  var hasTarget = !!rect;
+  ring.classList.toggle('no-target', !hasTarget);
+  ring.setAttribute('aria-hidden', hasTarget ? 'false' : 'true');
   ring.classList.toggle('shelf-target', !!(step && step.target === 'shelf'));
+  var cardW = Math.min(326, innerWidth - 32);
+  var cardH = card.offsetHeight || 190;
+  if (!hasTarget) {
+    card.style.left = Math.max(16, (innerWidth - cardW) / 2) + 'px';
+    card.style.top = Math.max(60, Math.min(innerHeight - cardH - 16, (innerHeight - cardH) * .46)) + 'px';
+    var overviewScrim = guide.querySelector('.visual-guide-scrim');
+    if (overviewScrim) {
+      overviewScrim.style.setProperty('--gx', '50%');
+      overviewScrim.style.setProperty('--gy', '42%');
+    }
+    return;
+  }
   var pad = step && step.target === 'shelf' ? 14 : (step && step.selector === '#bottom-bar' ? 10 : 8);
   var left = Math.max(12, rect.left - pad);
   var top = Math.max(12, rect.top - pad);
@@ -742,13 +744,13 @@ function positionVisualGuideStep() {
     scrim.style.setProperty('--gx', ((rect.left + rect.width / 2) / Math.max(1, innerWidth) * 100).toFixed(2) + '%');
     scrim.style.setProperty('--gy', ((rect.top + rect.height / 2) / Math.max(1, innerHeight) * 100).toFixed(2) + '%');
   }
-  var cardW = Math.min(326, innerWidth - 32);
-  var cardH = card.offsetHeight || 170;
   var cardLeft = rect.left + rect.width / 2 - cardW / 2;
   cardLeft = Math.max(16, Math.min(innerWidth - cardW - 16, cardLeft));
   var below = rect.bottom + 18;
   var above = rect.top - cardH - 18;
-  var cardTop = below + cardH < innerHeight - 16 ? below : Math.max(16, above);
+  var safeTop = document.body.classList.contains('desktop-shell') ? 56 : 16;
+  var cardTop = below + cardH < innerHeight - 16 ? below : Math.max(safeTop, above);
+  if (cardTop + cardH > innerHeight - 16) cardTop = Math.max(safeTop, innerHeight - cardH - 16);
   card.style.left = cardLeft + 'px';
   card.style.top = cardTop + 'px';
 }

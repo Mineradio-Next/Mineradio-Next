@@ -144,7 +144,8 @@ const APP_PACKAGE_INFO = (() => {
   }
 })();
 const APP_METADATA = APP_PACKAGE_INFO.mineradio || {};
-const APP_NAME = process.env.MINERADIO_RUNTIME_NAME || APP_METADATA.runtimeName || APP_PACKAGE_INFO.productName || 'Mineradio';
+const APP_NAME = process.env.MINERADIO_RUNTIME_NAME || APP_METADATA.runtimeName || APP_PACKAGE_INFO.productName || 'Mineradio Next';
+const APP_DATA_DIRECTORY_NAME = APP_METADATA.dataDirectoryName || APP_METADATA.runtimeName || 'Mineradio';
 const APP_USER_MODEL_ID = process.env.MINERADIO_APP_USER_MODEL_ID || APP_METADATA.appUserModelId || (APP_PACKAGE_INFO.build && APP_PACKAGE_INFO.build.appId) || 'com.mineradio.desktop';
 const APP_ICON_ICO = path.join(__dirname, '..', 'build', 'icon.ico');
 const CURRENT_FX_AUTOSAVE_FILE = 'current-fx-autosave.json';
@@ -181,7 +182,7 @@ const STARTUP_QA_USER_DATA_PATH = (() => {
   if (process.env.MINERADIO_STARTUP_QA_HIDDEN !== '1' || !value || !path.isAbsolute(value)) return '';
   return path.resolve(value);
 })();
-const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || path.join(app.getPath('appData'), APP_NAME);
+const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || path.join(app.getPath('appData'), APP_DATA_DIRECTORY_NAME);
 fs.mkdirSync(STABLE_USER_DATA_PATH, { recursive: true });
 app.setPath('userData', STABLE_USER_DATA_PATH);
 const INITIAL_CACHE_SETTINGS = ensureCacheDirectories(readCacheSettings());
@@ -352,7 +353,7 @@ function chromiumSessionDataPath(settings) {
   const chromiumRoot = settings && settings.chromiumPath
     ? settings.chromiumPath
     : normalizeCacheSettings(null).chromiumPath;
-  return path.join(chromiumRoot, APP_NAME);
+  return path.join(chromiumRoot, APP_DATA_DIRECTORY_NAME);
 }
 
 function readCacheSettings() {

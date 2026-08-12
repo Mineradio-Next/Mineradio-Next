@@ -1370,7 +1370,7 @@ function checkPersistentCacheStorageGuard() {
   const cssText = fs.readFileSync(path.join(appRoot, 'public', 'css', 'index.css'), 'utf8');
   const setNameAt = mainText.indexOf('app.setName(APP_NAME)');
   const firstUserDataLookupAt = mainText.indexOf("app.getPath('appData')");
-  if (!/const CACHE_SETTINGS_FILE/.test(mainText) || !/const LYRIC_CACHE_MAX_BYTES = 96 \* 1024 \* 1024/.test(mainText) || !/function defaultCacheRootPath\(\)/.test(mainText) || !/path\.join\(dDrive, 'MineradioCache'\)/.test(mainText) || setNameAt < 0 || firstUserDataLookupAt < 0 || setNameAt > firstUserDataLookupAt || !/const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH \|\| path\.join\(app\.getPath\('appData'\), APP_NAME\)/.test(mainText) || !/app\.setPath\('userData', STABLE_USER_DATA_PATH\)/.test(mainText) || !/app\.setPath\('sessionData', chromiumSessionDataPath\(cacheSettings\)\)/.test(mainText) || !/const currentChromiumPath = app\.getPath\('sessionData'\)/.test(mainText) || !/MINERADIO_BEAT_CACHE_DIR = cacheSettings\.beatmapsPath/.test(mainText) || !/nativePath:\s*path\.join\(rootPath, 'native-helper-temp'\)/.test(mainText) || !/const NATIVE_HELPER_TEMP_PATH = INITIAL_CACHE_SETTINGS\.nativePath/.test(mainText) || !/activeWallpaperEnginePath/.test(mainText) || !/wallpaperEngineBytes/.test(mainText)) {
+  if (!/const CACHE_SETTINGS_FILE/.test(mainText) || !/const LYRIC_CACHE_MAX_BYTES = 96 \* 1024 \* 1024/.test(mainText) || !/function defaultCacheRootPath\(\)/.test(mainText) || !/path\.join\(dDrive, 'MineradioCache'\)/.test(mainText) || setNameAt < 0 || firstUserDataLookupAt < 0 || setNameAt > firstUserDataLookupAt || !/const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH \|\| path\.join\(app\.getPath\('appData'\), APP_DATA_DIRECTORY_NAME\)/.test(mainText) || !/const APP_DATA_DIRECTORY_NAME/.test(mainText) || !/app\.setPath\('userData', STABLE_USER_DATA_PATH\)/.test(mainText) || !/app\.setPath\('sessionData', chromiumSessionDataPath\(cacheSettings\)\)/.test(mainText) || !/const currentChromiumPath = app\.getPath\('sessionData'\)/.test(mainText) || !/MINERADIO_BEAT_CACHE_DIR = cacheSettings\.beatmapsPath/.test(mainText) || !/nativePath:\s*path\.join\(rootPath, 'native-helper-temp'\)/.test(mainText) || !/const NATIVE_HELPER_TEMP_PATH = INITIAL_CACHE_SETTINGS\.nativePath/.test(mainText) || !/activeWallpaperEnginePath/.test(mainText) || !/wallpaperEngineBytes/.test(mainText)) {
     fail('desktop cache settings must keep app-owned userData stable and route Chromium sessionData plus beatmaps to the configurable cache root');
   }
   if (!/function migrateMisplacedAppOwnedFiles\(\)/.test(mainText) || !/APP_OWNED_MIGRATION_FILES/.test(mainText) || !/process\.env\.QISHUI_COOKIE_FILE = path\.join\(STABLE_USER_DATA_PATH, '\.qishui-cookie'\)/.test(mainText) || !/process\.env\.SPOTIFY_TOKEN_FILE = path\.join\(STABLE_USER_DATA_PATH, '\.spotify-token\.json'\)/.test(mainText)) {
@@ -5596,9 +5596,8 @@ function checkFirstLaunchDefaultsAndSplashGuard() {
     || /elapsed\s*\*\s*3\.32/.test(splashText)
     || !/setTimeout\(markSplashReadyToEnter,\s*650\)/.test(splashText)
     || !/setTimeout\(markSplashReadyToEnter,\s*1500\)/.test(splashText)
-    || !/\.splash-word-mine\s*\{[\s\S]{0,160}animation:\s*splash-mine-in 5200ms/.test(css)
-    || !/\.splash-word-radio\s*\{[\s\S]{0,420}animation:\s*splash-radio-in 5200ms/.test(css)
-    || !/\.splash-word-i::after\s*\{[\s\S]{0,480}animation:\s*splash-i-dot-pop 4200ms/.test(css)
+    || !/\.splash-brand-copy\s*\{[\s\S]{0,520}animation:\s*splash-brand-copy-in 1200ms/.test(css)
+    || !/\.splash-brand-copy::after\s*\{[\s\S]{0,640}animation:\s*splash-wordmark-scan 1050ms/.test(css)
     || !/\.splash-signal-line\s*\{[\s\S]{0,500}animation:\s*splash-signal-line 4200ms/.test(css)
     || !/\.splash-signal-line::after\s*\{[\s\S]{0,420}animation:\s*splash-signal-blip 4200ms/.test(css)
     || !/\.splash-sub\s*\{[\s\S]{0,260}animation:\s*splash-sub-in 4200ms/.test(css)) {
@@ -5609,7 +5608,7 @@ function checkFirstLaunchDefaultsAndSplashGuard() {
     || !/\.user-archive-tools \.fx-mini-btn\s*\{[\s\S]{0,180}width:\s*100%;[\s\S]{0,160}white-space:\s*nowrap/.test(css)) {
     fail('user archive actions must stay in one balanced responsive grid');
   }
-  console.log(`[OK] ${keys.length} captured defaults match; splash motion is 5.2s/4.2s while entry stays ready at 1.5s/0.65s; archive actions use a balanced responsive grid.`);
+  console.log(`[OK] ${keys.length} captured defaults match; brand motion settles in 1.4s while entry stays ready at 1.5s/0.65s; archive actions use a balanced responsive grid.`);
 }
 
 async function main() {

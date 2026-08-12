@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Mineradio Next</title>
+  <desc id="desc">A frost-white eighth note with mineral mint and ice cyan edge shadows on a graphite tile.</desc>
+  <defs>
+    <linearGradient id="tile" x1="88" y1="48" x2="430" y2="466" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#18262d"/>
+      <stop offset="0.52" stop-color="#0a1215"/>
+      <stop offset="1" stop-color="#05090b"/>
+    </linearGradient>
+    <radialGradient id="lift" cx="0" cy="0" r="1" gradientTransform="translate(135 70) rotate(48) scale(250)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff" stop-opacity="0.11"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-35%" y="-35%" width="170%" height="190%">
+      <feDropShadow dx="0" dy="18" stdDeviation="17" flood-color="#000000" flood-opacity="0.38"/>
+    </filter>
+  </defs>
+  <rect x="7" y="7" width="498" height="498" rx="132" fill="url(#tile)"/>
+  <rect x="7.5" y="7.5" width="497" height="497" rx="131.5" fill="url(#lift)" stroke="#dff7f1" stroke-opacity="0.13"/>
+  <g transform="translate(78 70) scale(2.8)" filter="url(#shadow)">
+    <g data-small-hide="true" transform="translate(-4 4)" fill="#55ddb5"><ellipse cx="38" cy="93" rx="30.5" ry="23.5" transform="rotate(-13 38 93)"/><path d="M58 30h18v62H58V30Zm18 0c16.5 1.7 30.8 8.8 40.2 20.4l-12.9 11.2C97.2 52.7 88 47.4 76 45.8V30Z"/></g>
+    <g data-small-hide="true" transform="translate(4 -3)" fill="#58c9e8"><ellipse cx="38" cy="93" rx="30.5" ry="23.5" transform="rotate(-13 38 93)"/><path d="M58 30h18v62H58V30Zm18 0c16.5 1.7 30.8 8.8 40.2 20.4l-12.9 11.2C97.2 52.7 88 47.4 76 45.8V30Z"/></g>
+    <g fill="#f4f8f7"><ellipse cx="38" cy="93" rx="30.5" ry="23.5" transform="rotate(-13 38 93)"/><path d="M58 30h18v62H58V30Zm18 0c16.5 1.7 30.8 8.8 40.2 20.4l-12.9 11.2C97.2 52.7 88 47.4 76 45.8V30Z"/></g>
+  </g>
+</svg>

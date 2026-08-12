@@ -99,6 +99,10 @@ test('nested player tools stay inside narrow and wide viewports', () => {
   });
   assert.match(css, /right:\s*calc\(100% \+ 14px - var\(--player-tool-popover-nudge, 0px\)\)/);
   assert.match(css, /max-height:\s*calc\(100vh - 24px\);[\s\S]*overflow-y:\s*auto/);
+  assert.match(css, /max-width:\s*calc\(100vw - 24px\);[\s\S]*overflow-x:\s*hidden;[\s\S]*overflow-y:\s*auto/);
+  assert.match(css, /\.player-tools-panel \.listening-effects-popover,[\s\S]*box-sizing:\s*border-box/);
+  assert.match(css, /\.player-tools-panel \.listening-effects-popover > \*,[\s\S]*max-width:\s*100%/);
+  assert.match(css, /\.player-tools-panel \.listening-effects-control::after[\s\S]*right:\s*calc\(100% \+ 7px\)/);
   assert.match(chrome, /--player-tool-popover-y[\s\S]*window\.innerHeight/);
   assert.match(chrome, /--player-tools-panel-y[\s\S]*window\.innerHeight/);
   assert.match(css, /\.player-tools-panel \.listening-effects-control::before[\s\S]*width:\s*18px/);

@@ -1,9 +1,9 @@
 {
   "name": "mineradio",
-  "productName": "Mineradio",
+  "productName": "Mineradio Next",
   "version": "2.1.0",
   "description": "Windows 沉浸式音乐播放器，融合桌面模式、歌词舞台、粒子视觉和 3D 歌单架。",
-  "author": "Mineradio",
+  "author": "Mineradio-Next",
   "license": "GPL-3.0-only",
   "main": "desktop/main.js",
   "private": true,
@@ -14,13 +14,15 @@
     "security:audit": "npm audit --audit-level=high",
     "upstream:report": "node scripts/upstream-report.js",
     "maintenance:check": "node scripts/maintenance-check.js",
+    "brand:assets": "node scripts/generate-brand-assets.js",
     "build:win": "electron-builder --win nsis",
     "build:win:dir": "electron-builder --win dir",
     "build:win:internal-beta": "electron-builder --config electron-builder.internal-beta.json --win nsis --publish never"
   },
   "build": {
-    "appId": "com.mineradio.desktop",
-    "productName": "Mineradio",
+    "appId": "com.mineradio.next",
+    "productName": "Mineradio Next",
+    "electronDist": "node_modules/electron/dist",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -53,7 +55,7 @@
     ],
     "asar": false,
     "win": {
-      "executableName": "Mineradio",
+      "executableName": "Mineradio-Next",
       "icon": "build/icon.ico",
       "signAndEditExecutable": false,
       "target": [
@@ -71,28 +73,30 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Mineradio",
+      "shortcutName": "Mineradio Next",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "installerSidebar": "build/installerSidebar.bmp",
       "uninstallerSidebar": "build/installerSidebar.bmp",
       "installerHeader": "build/installerHeader.bmp",
       "include": "build/installer.nsh",
-      "artifactName": "Mineradio-${version}-Setup.${ext}"
+      "artifactName": "Mineradio-Next-${version}-Setup.${ext}"
     },
     "publish": [
       {
         "provider": "github",
-        "owner": "XxHuberrr",
-        "repo": "Mineradio"
+        "owner": "Mineradio-Next",
+        "repo": "Mineradio-Next"
       }
     ]
   },
   "mineradio": {
+    "dataDirectoryName": "Mineradio",
+    "appUserModelId": "com.mineradio.next",
     "update": {
       "provider": "github",
-      "owner": "XxHuberrr",
-      "repo": "Mineradio",
+      "owner": "Mineradio-Next",
+      "repo": "Mineradio-Next",
       "preview": false,
       "preferMirrors": true,
       "mirrors": [
