@@ -111,6 +111,7 @@ function resetPlaybackAudioGraphForSourceSwitch(reason) {
     audioSourceMedia = audio;
     audio.__mineradioMediaSourceBound = true;
     preparedGraph.adopted = true;
+    try { delete audio.__mineradioPreparedAudioGraph; } catch (_) { }
     audioReady = true;
     if (typeof applyListeningEffectsToGraph === 'function') applyListeningEffectsToGraph(listeningEffectsGraph, false);
     if (typeof ensurePlaybackPitchGraph === 'function') ensurePlaybackPitchGraph(playbackPitchGraph);

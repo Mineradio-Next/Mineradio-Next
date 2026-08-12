@@ -758,9 +758,58 @@ function bindAudioOutputMirrorEvents(media) {
     media.addEventListener(name, function () { syncAudioOutputMirrors(name); });
   });
 }
+function disposeAudioOutputMirrorGraph(mirror) {
+  var graph = mirror && mirror.__mineradioMirrorAudioGraph;
+  if (!graph) return;
+  if (typeof disconnectPlaybackPitchGraph === 'function') disconnectPlaybackPitchGraph(graph.pitch);
+  [graph.source, graph.gainNode].forEach(function (node) { try { if (node) node.disconnect(); } catch (_) { } });
+  try { if (graph.context && graph.context.state !== 'closed') graph.context.close().catch(function () { }); } catch (_) { }
+  try { delete mirror.__mineradioMirrorAudioGraph; } catch (_) { }
+}
+async function ensureAudioOutputMirrorGraph(mirror, sinkId) {
+  if (!mirror) return null;
+  var existing = mirror.__mineradioMirrorAudioGraph;
+  if (existing && existing.context && existing.context.state !== 'closed') {
+    if (typeof existing.context.setSinkId === 'function') await existing.context.setSinkId(sinkId);
+    if (typeof ensurePlaybackPitchGraph === 'function') ensurePlaybackPitchGraph(existing.pitch);
+    return existing;
+  }
+  var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) return null;
+  var context = null;
+  var graph = null;
+  try {
+    context = new AudioContextCtor();
+    if (typeof context.setSinkId !== 'function' || typeof context.createMediaElementSource !== 'function') {
+      try { context.close().catch(function () { }); } catch (_) { }
+      return null;
+    }
+    await context.setSinkId(sinkId);
+    graph = { context: context, source: context.createMediaElementSource(mirror), gainNode: context.createGain(), pitch: null };
+    if (typeof createPlaybackPitchGraph === 'function') {
+      graph.pitch = createPlaybackPitchGraph(context);
+      if (graph.pitch) graph.pitch.optional = true;
+    }
+    if (graph.pitch && graph.pitch.input && graph.pitch.output) {
+      graph.source.connect(graph.pitch.input);
+      graph.pitch.output.connect(graph.gainNode);
+    } else {
+      graph.source.connect(graph.gainNode);
+    }
+    graph.gainNode.connect(context.destination);
+    mirror.__mineradioMirrorAudioGraph = graph;
+    if (typeof ensurePlaybackPitchGraph === 'function') ensurePlaybackPitchGraph(graph.pitch);
+    return graph;
+  } catch (error) {
+    if (graph) [graph.source, graph.gainNode].forEach(function (node) { try { if (node) node.disconnect(); } catch (_) { } });
+    try { if (context && context.state !== 'closed') await context.close(); } catch (_) { }
+    return null;
+  }
+}
 function removeAudioOutputMirror(id) {
   var mirror = audioOutputMirrorElements && audioOutputMirrorElements[id];
   if (mirror) {
+    disposeAudioOutputMirrorGraph(mirror);
     try { mirror.pause(); } catch (e) { }
     try { mirror.removeAttribute('src'); mirror.load(); } catch (e) { }
     delete audioOutputMirrorElements[id];
@@ -775,13 +824,20 @@ function clearAudioOutputMirrors() {
   }
 }
 async function applyAudioOutputMirrorSink(mirror, sinkId) {
-  if (!mirror || typeof mirror.setSinkId !== 'function') {
+  if (!mirror) {
     markAudioOutputMirrorRuntime(sinkId, 'unsupported', '内核不支持');
     return false;
   }
   try {
     markAudioOutputMirrorRuntime(sinkId, 'sink-pending', '正在选择设备');
-    await mirror.setSinkId(sinkId);
+    var graph = await ensureAudioOutputMirrorGraph(mirror, sinkId);
+    if (!graph) {
+      if (typeof mirror.setSinkId !== 'function') throw new Error('audio output routing unsupported');
+      await mirror.setSinkId(sinkId);
+      if (typeof playbackTuning !== 'undefined' && playbackTuning.pitch !== 0 && typeof disablePlaybackPitch === 'function') {
+        disablePlaybackPitch('mirror-output');
+      }
+    }
     markAudioOutputMirrorRuntime(sinkId, 'sink-ready', '设备已选');
     return true;
   } catch (e) {
@@ -821,7 +877,8 @@ function syncAudioOutputMirrors(reason) {
       mirror.preload = 'auto';
       mirror.muted = !!audio.muted;
       mirror.volume = audio.volume;
-      mirror.playbackRate = audio.playbackRate || 1;
+      if (typeof configurePlaybackMediaElement === 'function') configurePlaybackMediaElement(mirror);
+      else mirror.playbackRate = audio.playbackRate || 1;
       audioOutputMirrorElements[id] = mirror;
     }
     if (mirror._mineradioSinkId !== id || !mirror._mineradioSinkReady) {

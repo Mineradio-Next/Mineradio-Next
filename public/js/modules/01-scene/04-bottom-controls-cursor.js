@@ -331,6 +331,7 @@ function togglePlayerToolsPanel(event) {
   if (open) {
     if (typeof closeMiniQueue === 'function') closeMiniQueue();
     holdBottomControlsVisible(5000);
+    requestAnimationFrame(positionOpenPlayerNestedTools);
   }
   return open;
 }
@@ -379,13 +380,27 @@ function positionPlayerNestedToolPanel(control, selector) {
   var popover = control.querySelector(selector);
   if (!popover) return;
   popover.style.setProperty('--player-tool-popover-nudge', '0px');
+  popover.style.setProperty('--player-tool-popover-y', '0px');
   var controlRect = control.getBoundingClientRect();
   var width = popover.offsetWidth || popover.getBoundingClientRect().width || 0;
   var nudge = playerToolPopoverNudge(controlRect.left, width, window.innerWidth);
   popover.style.setProperty('--player-tool-popover-nudge', nudge.toFixed(2) + 'px');
+  var rect = popover.getBoundingClientRect();
+  var shiftY = rect.top < 12 ? 12 - rect.top : (rect.bottom > window.innerHeight - 12 ? window.innerHeight - 12 - rect.bottom : 0);
+  popover.style.setProperty('--player-tool-popover-y', shiftY.toFixed(2) + 'px');
+}
+
+function positionPlayerToolsPanel() {
+  var panel = document.getElementById('player-tools-panel');
+  if (!panel) return;
+  panel.style.setProperty('--player-tools-panel-y', '0px');
+  var rect = panel.getBoundingClientRect();
+  var shiftY = rect.top < 12 ? 12 - rect.top : (rect.bottom > window.innerHeight - 12 ? window.innerHeight - 12 - rect.bottom : 0);
+  panel.style.setProperty('--player-tools-panel-y', shiftY.toFixed(2) + 'px');
 }
 
 function positionOpenPlayerNestedTools() {
+  positionPlayerToolsPanel();
   var listening = document.getElementById('listening-effects-control');
   var sleep = document.getElementById('sleep-timer-control');
   var tuning = document.getElementById('playback-tuning-control');

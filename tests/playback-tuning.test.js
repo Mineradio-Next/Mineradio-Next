@@ -86,6 +86,38 @@ test('unsupported pitch degrades to neutral without changing speed', () => {
   assert.equal(context.playbackTuning.pitch, 0);
 });
 
+test('late worklet initialization is ignored after pitch graph disposal', async () => {
+  const context = contextFor({ speed: 1, pitch: 5 });
+  let resolveModule;
+  let workletConstructed = 0;
+  context.AudioWorkletNode = function AudioWorkletNode() {
+    workletConstructed += 1;
+    throw new Error('disposed graph must not construct a worklet');
+  };
+  const connections = [];
+  function node() {
+    return {
+      connect(target) { connections.push(target); },
+      disconnect() {},
+    };
+  }
+  const audioContext = {
+    state: 'running',
+    audioWorklet: { addModule() { return new Promise(resolve => { resolveModule = resolve; }); } },
+    createGain: node,
+    createScriptProcessor() { throw new Error('disposed graph must not create a fallback'); },
+  };
+  const graph = context.createPlaybackPitchGraph(audioContext);
+  const pending = context.ensurePlaybackPitchGraph(graph);
+  context.disconnectPlaybackPitchGraph(graph);
+  audioContext.state = 'closed';
+  resolveModule();
+  assert.equal(await pending, false);
+  assert.equal(workletConstructed, 0);
+  assert.equal(graph.disposed, true);
+  assert.equal(context.playbackTuning.pitch, 5);
+});
+
 test('all playback creation paths use the shared media configuration', () => {
   const loader = fs.readFileSync(path.join(root, 'public/js/index-loader.js'), 'utf8');
   const audioGraph = fs.readFileSync(path.join(root, 'public/js/modules/05-playback/08-audio-graph-controls.js'), 'utf8');
@@ -93,12 +125,19 @@ test('all playback creation paths use the shared media configuration', () => {
   const playback = fs.readFileSync(path.join(root, 'public/js/modules/05-playback/13-playback-start-audio.js'), 'utf8');
   const sleep = fs.readFileSync(path.join(root, 'public/js/modules/05-playback/14a-sleep-timer.js'), 'utf8');
   const autoMix = fs.readFileSync(path.join(root, 'public/js/modules/05-playback/18-cuefield-automix-integration.js'), 'utf8');
+  const output = fs.readFileSync(path.join(root, 'public/js/modules/05-playback/00-api-quality-output.js'), 'utf8');
   assert.match(loader, /07e-playback-tuning\.js[\s\S]*08-audio-graph-controls\.js/);
   assert.match(audioGraph, /configurePlaybackMediaElement\(audio\)/);
   assert.ok((playback.match(/configurePlaybackMediaElement\((?:audio|media)\)/g) || []).length >= 3);
   assert.ok((autoMix.match(/configurePlaybackMediaElement\(media\)/g) || []).length >= 2);
   assert.match(autoMix, /graph\.pitch = createPlaybackPitchGraph\(audioCtx\)/);
   assert.match(autoMix, /disconnectPlaybackPitchGraph\(graph\.pitch\)/);
+  assert.match(playback, /cuefieldCreatePreparedAudioGraph\(media\)[\s\S]*writeAlbumGaplessIncomingGain\(media, 0\)/);
+  assert.match(playback, /disposeCuefieldPreparedAudioGraph\(preload\.media\)/);
+  assert.match(output, /ensureAudioOutputMirrorGraph\(mirror, sinkId\)/);
+  assert.match(output, /graph\.pitch = createPlaybackPitchGraph\(context\)/);
+  assert.match(output, /configurePlaybackMediaElement\(mirror\)/);
+  assert.match(output, /disposeAudioOutputMirrorGraph\(mirror\)/);
   assert.match(source, /listening-effects-control\.open[\s\S]*sleep-timer-control\.open/);
   assert.match(listening, /setPlaybackTuningPanelOpen\(false\)/);
   assert.match(sleep, /playback-tuning-control\.open/);

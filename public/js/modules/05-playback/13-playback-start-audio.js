@@ -81,12 +81,20 @@ function disposeAlbumGaplessPreload(preload) {
     preload.previousAudio.onended = preload.previousAudioOnEnded;
   }
   if (preload && preload.media) {
+    if (typeof disposeCuefieldPreparedAudioGraph === 'function') disposeCuefieldPreparedAudioGraph(preload.media);
     try {
       preload.media.pause();
       preload.media.removeAttribute('src');
       preload.media.load();
     } catch (e) { }
   }
+}
+
+function writeAlbumGaplessIncomingGain(media, value) {
+  if (typeof cuefieldWriteIncomingGain === 'function') return cuefieldWriteIncomingGain(media, value);
+  value = clampRange(Number(value) || 0, 0, 1);
+  try { media.volume = value; media.muted = false; } catch (_) { }
+  return value;
 }
 
 function clearAlbumGaplessPreload(reason) {
@@ -275,8 +283,7 @@ function runAlbumGaplessBalancedCrossfade(preload, durationMs) {
   var initialTarget = Math.max(0.0001, albumGaplessDirectVolumeTarget());
   var outgoingRatio = clampRange(startCurrent / initialTarget, 0, 1);
   try {
-    media.muted = false;
-    media.volume = 0;
+    writeAlbumGaplessIncomingGain(media, 0);
   } catch (e0) { }
   var started = performance.now();
   durationMs = Math.max(1, Number(durationMs) || 1);
@@ -307,13 +314,10 @@ function runAlbumGaplessBalancedCrossfade(preload, durationMs) {
       var liveTarget = albumGaplessDirectVolumeTarget();
       var gains = albumGaplessEqualPowerGains(curveProgress, liveTarget * outgoingRatio, liveTarget);
       writeAudioOutputGain(gains.outgoing);
-      try {
-        media.muted = false;
-        media.volume = gains.incoming;
-      } catch (e) { }
+      writeAlbumGaplessIncomingGain(media, gains.incoming);
       if (t >= 1) {
         writeAudioOutputGain(0);
-        try { media.volume = liveTarget; } catch (e2) { }
+        writeAlbumGaplessIncomingGain(media, liveTarget);
         finish(true);
       }
     }
@@ -346,8 +350,7 @@ function startAlbumGaplessMix(preload, reason, remaining) {
     preload.prerollPlaying = false;
   }
   try {
-    preload.media.muted = false;
-    preload.media.volume = 0;
+    writeAlbumGaplessIncomingGain(preload.media, 0);
     var playResult = preload.media.play();
   } catch (err) {
     preload.mixPending = false;
@@ -780,7 +783,8 @@ async function scheduleAlbumGaplessPreloadForCurrent(token, reason) {
     media.crossOrigin = 'anonymous';
     media.preload = 'auto';
     if (typeof configurePlaybackMediaElement === 'function') configurePlaybackMediaElement(media);
-    media.volume = 0;
+    if (typeof cuefieldCreatePreparedAudioGraph === 'function') cuefieldCreatePreparedAudioGraph(media);
+    writeAlbumGaplessIncomingGain(media, 0);
     media.src = proxyAudioUrl;
     await applyAudioOutputDevice(media);
     if (
@@ -1211,10 +1215,10 @@ async function playQueueAt(idx, opts) {
         clearAudioFadeTimers();
         if (albumGaplessPreviousAudio) albumGaplessPreviousAudio.onended = null;
         audio = opts.preloadedAudio;
-        if (opts.cuefieldAutoMix && typeof claimCuefieldPreparedAudioForPlayback === 'function') {
+        if (audio.__mineradioPreparedAudioGraph && typeof claimCuefieldPreparedAudioForPlayback === 'function') {
           claimCuefieldPreparedAudioForPlayback(audio);
         }
-        var preparedGraphGain = opts.cuefieldAutoMix && audio.__mineradioPreparedAudioGraph && audio.__mineradioPreparedAudioGraph.gainNode
+        var preparedGraphGain = audio.__mineradioPreparedAudioGraph && audio.__mineradioPreparedAudioGraph.gainNode
           ? Number(audio.__mineradioPreparedAudioGraph.gainNode.gain.value)
           : NaN;
         albumGaplessAdoptedGain = albumGaplessMixed

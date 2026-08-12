@@ -21467,7 +21467,7 @@ body.diy-mode #controls {
 .player-tools-panel {
   position: absolute;
   right: -5px;
-  bottom: 48px;
+  bottom: calc(48px - var(--player-tools-panel-y, 0px));
   width: 232px;
   padding: 8px;
   border: 1px solid rgba(255, 255, 255, .105);
@@ -21587,7 +21587,9 @@ body.diy-mode #controls {
   left: auto;
   right: calc(100% + 14px - var(--player-tool-popover-nudge, 0px));
   top: auto;
-  bottom: -8px;
+  bottom: calc(-8px - var(--player-tool-popover-y, 0px));
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
   transform: translateX(8px) scale(.985);
   transform-origin: right bottom;
   z-index: 22;
@@ -21772,7 +21774,7 @@ body.diy-mode #controls {
   left: auto;
   right: calc(100% + 14px - var(--player-tool-popover-nudge, 0px));
   top: auto;
-  bottom: -8px;
+  bottom: calc(-8px - var(--player-tool-popover-y, 0px));
   transform: translateX(8px) scale(.985);
 }
 

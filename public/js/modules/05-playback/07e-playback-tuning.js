@@ -106,8 +106,10 @@ function ensurePlaybackPitchWorklet(context) {
 }
 
 function createPlaybackPitchFallback(context) {
-  if (!context || typeof context.createScriptProcessor !== 'function') return null;
-  var node = context.createScriptProcessor(1024, 2, 2);
+  if (!context || context.state === 'closed' || typeof context.createScriptProcessor !== 'function') return null;
+  var node = null;
+  try { node = context.createScriptProcessor(1024, 2, 2); }
+  catch (_) { return null; }
   var size = 65536, mask = size - 1, buffers = [new Float32Array(size), new Float32Array(size)];
   var writeIndex = 0, phase = 0, ratio = 1, target = 1;
   node.__mineradioSetPitchRatio = function (value) { target = Math.max(0.5, Math.min(2, Number(value) || 1)); };
@@ -142,14 +144,14 @@ function createPlaybackPitchFallback(context) {
 }
 
 function createPlaybackPitchGraph(context) {
-  if (!context || typeof context.createGain !== 'function') return null;
-  var graph = { context: context, input: context.createGain(), output: context.createGain(), processor: null, generation: 0, direct: true };
+  if (!context || context.state === 'closed' || typeof context.createGain !== 'function') return null;
+  var graph = { context: context, input: context.createGain(), output: context.createGain(), processor: null, generation: 0, direct: true, disposed: false };
   graph.input.connect(graph.output);
   return graph;
 }
 
 function playbackPitchGraphSetDirect(graph) {
-  if (!graph || !graph.input || !graph.output) return;
+  if (!graph || graph.disposed || !graph.input || !graph.output) return;
   graph.generation++;
   try { graph.input.disconnect(); } catch (_) { }
   try { if (graph.processor) graph.processor.disconnect(); } catch (_) { }
@@ -168,7 +170,7 @@ function applyPlaybackPitchRatioToProcessor(processor) {
 }
 
 function activatePlaybackPitchProcessor(graph, processor, generation) {
-  if (!graph || !processor || generation !== graph.generation || playbackTuning.pitch === 0) {
+  if (!graph || graph.disposed || !graph.context || graph.context.state === 'closed' || !processor || generation !== graph.generation || playbackTuning.pitch === 0) {
     try { if (processor) processor.disconnect(); } catch (_) { }
     return false;
   }
@@ -182,33 +184,41 @@ function activatePlaybackPitchProcessor(graph, processor, generation) {
 }
 
 function ensurePlaybackPitchGraph(graph) {
-  if (!graph) return Promise.resolve(false);
+  if (!graph || graph.disposed || !graph.context || graph.context.state === 'closed') return Promise.resolve(false);
   if (playbackTuning.pitch === 0) { playbackPitchGraphSetDirect(graph); return Promise.resolve(true); }
   if (graph.processor) { applyPlaybackPitchRatioToProcessor(graph.processor); return Promise.resolve(true); }
   var generation = ++graph.generation;
   return ensurePlaybackPitchWorklet(graph.context).then(function (ready) {
+    if (graph.disposed || generation !== graph.generation || !graph.context || graph.context.state === 'closed') return false;
     var processor = null;
     if (ready) {
       try { processor = new AudioWorkletNode(graph.context, 'mineradio-playback-pitch', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] }); } catch (_) { processor = null; }
     }
-    if (!processor) processor = createPlaybackPitchFallback(graph.context);
+    if (!processor) {
+      try { processor = createPlaybackPitchFallback(graph.context); } catch (_) { processor = null; }
+    }
     if (!processor) return false;
     if (processor.addEventListener) processor.addEventListener('processorerror', function () {
       if (graph.processor !== processor) return;
       playbackPitchGraphSetDirect(graph);
-      var fallback = createPlaybackPitchFallback(graph.context);
+      var fallback = null;
+      try { fallback = createPlaybackPitchFallback(graph.context); } catch (_) { fallback = null; }
       if (!fallback || !activatePlaybackPitchProcessor(graph, fallback, graph.generation)) disablePlaybackPitch('processor-error');
     });
     return activatePlaybackPitchProcessor(graph, processor, generation);
   }).then(function (ready) {
-    if (!ready && generation === graph.generation && playbackTuning.pitch !== 0) disablePlaybackPitch('unsupported');
+    if (!ready && !graph.optional && !graph.disposed && generation === graph.generation && playbackTuning.pitch !== 0) disablePlaybackPitch('unsupported');
     return ready;
+  }).catch(function () {
+    if (!graph.optional && !graph.disposed && generation === graph.generation && playbackTuning.pitch !== 0) disablePlaybackPitch('initialization-error');
+    return false;
   });
 }
 
 function disconnectPlaybackPitchGraph(graph) {
   if (!graph) return;
   graph.generation++;
+  graph.disposed = true;
   [graph.input, graph.processor, graph.output].forEach(function (node) { try { if (node) node.disconnect(); } catch (_) { } });
   graph.processor = null;
 }
@@ -219,6 +229,16 @@ function playbackTuningGraphs() {
   var prepared = typeof cuefieldAutoMixPreparedAudio !== 'undefined' ? cuefieldAutoMixPreparedAudio : null;
   var preparedGraph = prepared && prepared.__mineradioPreparedAudioGraph;
   if (preparedGraph && preparedGraph.pitch && graphs.indexOf(preparedGraph.pitch) < 0) graphs.push(preparedGraph.pitch);
+  if (typeof albumGaplessState !== 'undefined' && albumGaplessState && albumGaplessState.preload) {
+    var albumGraph = albumGaplessState.preload.media && albumGaplessState.preload.media.__mineradioPreparedAudioGraph;
+    if (albumGraph && albumGraph.pitch && graphs.indexOf(albumGraph.pitch) < 0) graphs.push(albumGraph.pitch);
+  }
+  if (typeof audioOutputMirrorElements !== 'undefined' && audioOutputMirrorElements) {
+    Object.keys(audioOutputMirrorElements).forEach(function (id) {
+      var mirrorGraph = audioOutputMirrorElements[id] && audioOutputMirrorElements[id].__mineradioMirrorAudioGraph;
+      if (mirrorGraph && mirrorGraph.pitch && graphs.indexOf(mirrorGraph.pitch) < 0) graphs.push(mirrorGraph.pitch);
+    });
+  }
   return graphs;
 }
 
@@ -228,6 +248,9 @@ function playbackTuningMediaElements() {
   add(typeof audio !== 'undefined' ? audio : null);
   add(typeof cuefieldAutoMixPreparedAudio !== 'undefined' ? cuefieldAutoMixPreparedAudio : null);
   if (typeof albumGaplessState !== 'undefined' && albumGaplessState && albumGaplessState.preload) add(albumGaplessState.preload.media);
+  if (typeof audioOutputMirrorElements !== 'undefined' && audioOutputMirrorElements) {
+    Object.keys(audioOutputMirrorElements).forEach(function (id) { add(audioOutputMirrorElements[id]); });
+  }
   return items;
 }
 
@@ -236,6 +259,7 @@ function applyPlaybackTuning(options) {
   playbackTuning = normalizePlaybackTuning(playbackTuning);
   playbackTuningMediaElements().forEach(configurePlaybackMediaElement);
   playbackTuningGraphs().forEach(function (graph) { ensurePlaybackPitchGraph(graph); });
+  if (typeof syncAudioOutputMirrors === 'function') syncAudioOutputMirrors('playback-tuning');
   if (options.save !== false) savePlaybackTuningSettings();
   updatePlaybackTuningUi();
   if (typeof updateSystemMediaSessionPosition === 'function') updateSystemMediaSessionPosition(true);
