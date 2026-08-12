@@ -26,6 +26,7 @@ test('release metadata consistently targets Mineradio Next', () => {
   assert.equal(packageInfo.build.publish[0].repo, 'Mineradio-Next');
   assert.equal(packageInfo.scripts.check, 'node scripts/quick-check.js --full');
   assert.equal(packageInfo.scripts['check:ci'], 'node scripts/quick-check.js');
+  assert.match(packageInfo.scripts['build:win'], /--publish never$/);
   assert.equal(packageInfo.mineradio.update.owner, 'Mineradio-Next');
   assert.equal(packageInfo.mineradio.update.repo, 'Mineradio-Next');
   assert.match(html, /id="update-modal-version"[^>]*>v2\.2\.0<\/div>/);

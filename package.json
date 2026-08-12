@@ -17,7 +17,7 @@
     "maintenance:check": "node scripts/maintenance-check.js",
     "brand:assets": "node scripts/generate-brand-assets.js",
     "release:checksums": "node scripts/create-release-checksums.js",
-    "build:win": "electron-builder --win nsis",
+    "build:win": "electron-builder --win nsis --publish never",
     "build:win:dir": "electron-builder --win dir",
     "build:win:internal-beta": "electron-builder --config electron-builder.internal-beta.json --win nsis --publish never"
   },
