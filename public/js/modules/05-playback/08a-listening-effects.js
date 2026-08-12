@@ -573,6 +573,7 @@ function toggleListeningEffectsPanel(event) {
   if (!wrap) return;
   var volume = document.getElementById('volume-control');
   if (volume) volume.classList.remove('open');
+  if (typeof setPlaybackTuningPanelOpen === 'function') setPlaybackTuningPanelOpen(false);
   wrap.classList.toggle('open');
   updateListeningEffectsPanelExpanded();
   if (wrap.classList.contains('open') && typeof positionPlayerNestedToolPanel === 'function') {

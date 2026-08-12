@@ -5,6 +5,7 @@ applySavedLyricPaletteState();
 bindQualityControl();
 bindAudioOutputControls();
 bindVolumeControls();
+if (typeof bindPlaybackTuningControls === 'function') bindPlaybackTuningControls();
 if (typeof initSleepTimer === 'function') initSleepTimer();
 if (typeof initSystemMediaSession === 'function') initSystemMediaSession();
 if (typeof initWindowsShellControls === 'function') initWindowsShellControls();

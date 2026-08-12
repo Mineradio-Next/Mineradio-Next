@@ -111,9 +111,10 @@ function toggleSleepTimerPanel(event) {
   var control = document.getElementById('sleep-timer-control');
   if (!control) return;
   var nextOpen = !control.classList.contains('open');
-  document.querySelectorAll('.volume-control.open,.listening-effects-control.open,.quality-control.open,.sleep-timer-control.open').forEach(function (node) {
+  document.querySelectorAll('.volume-control.open,.listening-effects-control.open,.quality-control.open,.sleep-timer-control.open,.playback-tuning-control.open').forEach(function (node) {
     if (node !== control) node.classList.remove('open');
   });
+  if (typeof setPlaybackTuningPanelOpen === 'function') setPlaybackTuningPanelOpen(false);
   setSleepTimerPanelOpen(nextOpen);
   if (nextOpen && typeof positionPlayerNestedToolPanel === 'function') {
     positionPlayerNestedToolPanel(control, '.sleep-timer-popover');

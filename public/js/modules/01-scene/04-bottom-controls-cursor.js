@@ -312,8 +312,10 @@ function setPlayerToolsPanelOpen(open) {
   if (!open) {
     var listening = document.getElementById('listening-effects-control');
     var sleep = document.getElementById('sleep-timer-control');
+    var tuning = document.getElementById('playback-tuning-control');
     if (listening) listening.classList.remove('open');
     if (sleep) sleep.classList.remove('open');
+    if (tuning && typeof setPlaybackTuningPanelOpen === 'function') setPlaybackTuningPanelOpen(false);
     if (typeof updateListeningEffectsPanelExpanded === 'function') updateListeningEffectsPanelExpanded();
     var sleepButton = document.getElementById('sleep-timer-btn');
     if (sleepButton) sleepButton.setAttribute('aria-expanded', 'false');
@@ -345,6 +347,22 @@ function buildPlayerExtensionRow(node, label) {
   return row;
 }
 
+function buildPlayerToolGroup(title, entries) {
+  var group = document.createElement('section');
+  group.className = 'player-tool-group';
+  group.setAttribute('aria-label', title);
+  var head = document.createElement('div');
+  head.className = 'player-tool-group-head';
+  head.textContent = title;
+  group.appendChild(head);
+  entries.forEach(function (entry) {
+    var node = document.getElementById(entry[0]);
+    var row = buildPlayerExtensionRow(node, entry[1]);
+    if (row) group.appendChild(row);
+  });
+  return group.querySelector('.player-tool-row') ? group : null;
+}
+
 function playerToolPopoverNudge(controlLeft, popoverWidth, viewportWidth) {
   controlLeft = Number(controlLeft) || 0;
   popoverWidth = Math.max(0, Number(popoverWidth) || 0);
@@ -370,8 +388,10 @@ function positionPlayerNestedToolPanel(control, selector) {
 function positionOpenPlayerNestedTools() {
   var listening = document.getElementById('listening-effects-control');
   var sleep = document.getElementById('sleep-timer-control');
+  var tuning = document.getElementById('playback-tuning-control');
   if (listening && listening.classList.contains('open')) positionPlayerNestedToolPanel(listening, '.listening-effects-popover');
   if (sleep && sleep.classList.contains('open')) positionPlayerNestedToolPanel(sleep, '.sleep-timer-popover');
+  if (tuning && tuning.classList.contains('open')) positionPlayerNestedToolPanel(tuning, '.playback-tuning-popover');
 }
 
 (function initPlayerChromeFoundation() {
@@ -392,14 +412,18 @@ function positionOpenPlayerNestedTools() {
   if (fullscreen) original.appendChild(fullscreen);
 
   [
-    ['player-spectrum-toggle', '播放频谱'],
-    ['cuefield-automix-btn', '智能衔接'],
-    ['listening-effects-control', '听感调节'],
-    ['sleep-timer-control', '定时停播']
+    ['播放', [
+      ['playback-tuning-control', '播放调节'],
+      ['cuefield-automix-btn', '智能衔接'],
+      ['sleep-timer-control', '定时停播']
+    ]],
+    ['声音', [
+      ['listening-effects-control', '听感调节'],
+      ['player-spectrum-toggle', '播放频谱']
+    ]]
   ].forEach(function (entry) {
-    var node = document.getElementById(entry[0]);
-    var row = buildPlayerExtensionRow(node, entry[1]);
-    if (row) extensions.appendChild(row);
+    var group = buildPlayerToolGroup(entry[0], entry[1]);
+    if (group) extensions.appendChild(group);
   });
   var autoMix = document.getElementById('cuefield-automix-btn');
   if (autoMix) {

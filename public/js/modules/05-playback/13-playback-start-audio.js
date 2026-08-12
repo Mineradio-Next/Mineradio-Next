@@ -779,6 +779,7 @@ async function scheduleAlbumGaplessPreloadForCurrent(token, reason) {
     var media = new Audio();
     media.crossOrigin = 'anonymous';
     media.preload = 'auto';
+    if (typeof configurePlaybackMediaElement === 'function') configurePlaybackMediaElement(media);
     media.volume = 0;
     media.src = proxyAudioUrl;
     await applyAudioOutputDevice(media);
@@ -874,6 +875,7 @@ async function playLocalQueueSong(song, idx, token, firstVisualPlay, opts, resum
   resetPlaybackAudioGraphForSourceSwitch('local-track-switch');
   audio.autoplay = true;
   audio.preload = 'auto';
+  if (typeof configurePlaybackMediaElement === 'function') configurePlaybackMediaElement(audio);
   bindPlaybackProgressEvents(audio);
   applyVolumeToAudio();
   await applyAudioOutputDevice(audio);
@@ -1235,6 +1237,7 @@ async function playQueueAt(idx, opts) {
       resetPlaybackAudioGraphForSourceSwitch(albumGaplessHandoff ? 'album-gapless-handoff' : 'track-switch');
       audio.autoplay = true;
       audio.preload = 'auto';
+      if (typeof configurePlaybackMediaElement === 'function') configurePlaybackMediaElement(audio);
       // resetPlaybackAudioGraphForSourceSwitch may deliberately replace a
       // capture-backed element before a new src is assigned. Capture the
       // expected media only after that lifetime reset so playAudio never holds

@@ -7,6 +7,10 @@ function disconnectAudioGraphNodes(keepSource) {
     disconnectListeningEffectsGraph(listeningEffectsGraph);
     listeningEffectsGraph = null;
   }
+  if (typeof disconnectPlaybackPitchGraph === 'function' && playbackPitchGraph) {
+    disconnectPlaybackPitchGraph(playbackPitchGraph);
+    playbackPitchGraph = null;
+  }
   [source, analyser, beatAnalyser, gainNode, analysisSinkNode].forEach(function (node) {
     if (!node) return;
     try { node.disconnect(); } catch (e) { }
@@ -54,7 +58,8 @@ function replaceAudioElementForGraphRecovery(reason, opts) {
   audio = new Audio();
   audio.crossOrigin = 'anonymous';
   audio.preload = oldAudio.preload || 'auto';
-  audio.playbackRate = rate;
+  if (typeof configurePlaybackMediaElement === 'function') configurePlaybackMediaElement(audio);
+  else audio.playbackRate = rate;
   audio.onended = endedHandler;
   audio.onloadedmetadata = metadataHandler;
   audio.__mineradioQueueItemKey = queueItemKey;
@@ -100,6 +105,7 @@ function resetPlaybackAudioGraphForSourceSwitch(reason) {
     analyser = preparedGraph.analyser;
     beatAnalyser = preparedGraph.beatAnalyser;
     gainNode = preparedGraph.gainNode;
+    playbackPitchGraph = preparedGraph.pitch || null;
     listeningEffectsGraph = preparedGraph.effects || null;
     analysisSinkNode = null;
     audioSourceMedia = audio;
@@ -107,6 +113,7 @@ function resetPlaybackAudioGraphForSourceSwitch(reason) {
     preparedGraph.adopted = true;
     audioReady = true;
     if (typeof applyListeningEffectsToGraph === 'function') applyListeningEffectsToGraph(listeningEffectsGraph, false);
+    if (typeof ensurePlaybackPitchGraph === 'function') ensurePlaybackPitchGraph(playbackPitchGraph);
     if (typeof updateListeningEffectsControls === 'function') updateListeningEffectsControls();
   }
 }
@@ -182,6 +189,7 @@ function initAudio() {
   beatAnalyser = audioCtx.createAnalyser();
   gainNode = sourceUsesCapture ? null : audioCtx.createGain();
   listeningEffectsGraph = null;
+  playbackPitchGraph = !sourceUsesCapture && typeof createPlaybackPitchGraph === 'function' ? createPlaybackPitchGraph(audioCtx) : null;
   if (!sourceUsesCapture && typeof createListeningEffectsGraph === 'function') {
     listeningEffectsGraph = createListeningEffectsGraph(audioCtx);
   }
@@ -194,11 +202,13 @@ function initAudio() {
   source.connect(analyser);
   source.connect(beatAnalyser);
   if (gainNode) {
+    var tunedOutput = playbackPitchGraph && playbackPitchGraph.input && playbackPitchGraph.output ? playbackPitchGraph : null;
+    if (tunedOutput) analyser.connect(tunedOutput.input);
     if (listeningEffectsGraph && listeningEffectsGraph.input && listeningEffectsGraph.output) {
-      analyser.connect(listeningEffectsGraph.input);
+      (tunedOutput ? tunedOutput.output : analyser).connect(listeningEffectsGraph.input);
       listeningEffectsGraph.output.connect(gainNode);
     } else {
-      analyser.connect(gainNode);
+      (tunedOutput ? tunedOutput.output : analyser).connect(gainNode);
     }
     gainNode.connect(audioCtx.destination);
   } else if (analysisSinkNode) {
@@ -211,6 +221,10 @@ function initAudio() {
   beatTimeDomainData.fill(128);
   resetRealtimeBeatEngine();
   audioReady = true;
+  if (typeof configurePlaybackMediaElement === 'function') configurePlaybackMediaElement(audio);
+  if (sourceUsesCapture && typeof playbackTuning !== 'undefined' && playbackTuning.pitch !== 0 && typeof disablePlaybackPitch === 'function') {
+    disablePlaybackPitch('direct-output');
+  } else if (typeof ensurePlaybackPitchGraph === 'function') ensurePlaybackPitchGraph(playbackPitchGraph);
   applyAudioOutputDevice(audio);
   if (typeof updateListeningEffectsControls === 'function') updateListeningEffectsControls();
   return true;

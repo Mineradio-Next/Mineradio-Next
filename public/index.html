@@ -1658,6 +1658,31 @@
               </div>
             </div>
           </div>
+          <div id="playback-tuning-control" class="playback-tuning-control">
+            <button id="playback-tuning-btn" class="ctrl-btn playback-tuning-pill" type="button"
+              onclick="togglePlaybackTuningPanel(event)" title="播放调节" aria-label="播放调节"
+              aria-haspopup="true" aria-expanded="false"><span id="playback-tuning-btn-label">1x</span></button>
+            <div class="playback-tuning-popover" onclick="event.stopPropagation()">
+              <div class="playback-tuning-head">
+                <div><strong>播放调节</strong><small id="playback-tuning-status">倍速保持原音高，音调独立生效</small></div>
+                <button type="button" onclick="resetPlaybackTuning()">复位</button>
+              </div>
+              <section class="playback-tuning-section">
+                <div class="playback-tuning-value"><label for="playback-speed-slider">播放速度</label><output id="playback-speed-value">1.00x</output></div>
+                <input id="playback-speed-slider" type="range" min="0.5" max="2" step="0.05" value="1" aria-label="播放速度">
+                <div class="playback-tuning-presets" role="group" aria-label="常用播放速度">
+                  <button type="button" data-playback-speed="0.75">0.75</button><button type="button" data-playback-speed="1">1.0</button><button type="button" data-playback-speed="1.25">1.25</button><button type="button" data-playback-speed="1.5">1.5</button><button type="button" data-playback-speed="2">2.0</button>
+                </div>
+              </section>
+              <section class="playback-tuning-section">
+                <div class="playback-tuning-value"><label for="playback-pitch-slider">音调</label><output id="playback-pitch-value">0 半音</output></div>
+                <input id="playback-pitch-slider" type="range" min="-12" max="12" step="1" value="0" aria-label="音调">
+                <div class="playback-tuning-presets pitch" role="group" aria-label="常用音调">
+                  <button type="button" data-playback-pitch="-5">-5</button><button type="button" data-playback-pitch="0">原调</button><button type="button" data-playback-pitch="5">+5</button>
+                </div>
+              </section>
+            </div>
+          </div>
           <div id="listening-effects-control" class="listening-effects-control">
             <button id="listening-effects-btn" class="ctrl-btn" type="button" onclick="toggleListeningEffectsPanel(event)"
               title="听感调节" aria-label="听感调节" aria-haspopup="true" aria-expanded="false">

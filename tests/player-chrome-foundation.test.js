@@ -61,7 +61,10 @@ test('player chrome exposes explicit standard, original, and extension ownership
   assert.match(chrome, /\['play-mode-btn', 'lyric-timing-control', 'mini-queue-btn', 'volume-control'\]/);
   assert.match(chrome, /\['controls-hide-btn', 'immersive-btn'\]/);
   assert.match(chrome, /querySelector\('\.fullscreen-toggle-btn'\)/);
+  assert.match(chrome, /\['播放', \[/);
+  assert.match(chrome, /\['playback-tuning-control', '播放调节'\]/);
   assert.match(chrome, /\['cuefield-automix-btn', '智能衔接'\]/);
+  assert.match(chrome, /\['声音', \[/);
   assert.match(chrome, /\['listening-effects-control', '听感调节'\]/);
   assert.match(chrome, /\['sleep-timer-control', '定时停播'\]/);
 });
@@ -71,6 +74,7 @@ test('extension panel has complete close behavior and keeps original controls vi
   assert.match(setter, /aria-expanded/);
   assert.match(setter, /listening-effects-control/);
   assert.match(setter, /sleep-timer-control/);
+  assert.match(setter, /playback-tuning-control/);
   assert.match(chrome, /event\.key !== 'Escape'/);
   assert.match(chrome, /!control\.contains\(event\.target\)/);
   assert.match(css, /body\.diy-mode #player-original-tools #controls-hide-btn[\s\S]*display: inline-flex !important/);
@@ -99,7 +103,7 @@ test('nested player tools stay inside narrow and wide viewports', () => {
 
 test('transport becomes a dedicated previous, play, next cluster at runtime', () => {
   assert.match(chrome, /standard\.appendChild\(node\)/);
-  assert.match(chrome, /extensions\.appendChild\(row\)/);
+  assert.match(chrome, /extensions\.appendChild\(group\)/);
   assert.match(chrome, /original\.appendChild\(fullscreen\)/);
   assert.doesNotMatch(chrome, /\['prev-btn'[^\]]*appendChild/);
   assert.match(css, /\.control-cluster\.transport[\s\S]*gap:\s*8px/);

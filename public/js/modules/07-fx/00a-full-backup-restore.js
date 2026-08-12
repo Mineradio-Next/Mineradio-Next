@@ -57,6 +57,7 @@ var MINERADIO_FULL_BACKUP_CATEGORIES = {
       'mineradio-cuefield-automix-v1',
       'mineradio-listening-effects-v1',
       'mineradio-player-spectrum-v1',
+      'mineradio-playback-tuning-v1',
       'mineradio-music-radio-favorites-v1'
     ]
   }

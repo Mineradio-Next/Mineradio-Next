@@ -223,6 +223,7 @@ function disposeCuefieldPreparedAudioGraph(media) {
     try { if (node) node.disconnect(); } catch (_) { }
   });
   if (typeof disconnectListeningEffectsGraph === 'function') disconnectListeningEffectsGraph(graph.effects);
+  if (typeof disconnectPlaybackPitchGraph === 'function') disconnectPlaybackPitchGraph(graph.pitch);
   try { delete media.__mineradioPreparedAudioGraph; } catch (_) { }
 }
 
@@ -388,7 +389,7 @@ function cuefieldCreatePreparedAudioGraph(media) {
   try {
     if ((!audioCtx || audioCtx.state === 'closed') && typeof initAudio === 'function') initAudio();
     if (!audioCtx || audioCtx.state === 'closed' || !audioCtx.createMediaElementSource) return null;
-    graph = { context: audioCtx, source: null, analyser: null, beatAnalyser: null, gainNode: null, effects: null, adopted: false };
+    graph = { context: audioCtx, source: null, analyser: null, beatAnalyser: null, gainNode: null, pitch: null, effects: null, adopted: false };
     graph.source = audioCtx.createMediaElementSource(media);
     // A media element cannot be safely returned to direct-output mode after a
     // MediaElementSource has been created for it. Mark it immediately so a
@@ -402,17 +403,21 @@ function cuefieldCreatePreparedAudioGraph(media) {
     graph.beatAnalyser.fftSize = typeof BEAT_FFT_SIZE !== 'undefined' ? BEAT_FFT_SIZE : 1024;
     graph.beatAnalyser.smoothingTimeConstant = 0.10;
     graph.gainNode.gain.value = 0;
+    if (typeof createPlaybackPitchGraph === 'function') graph.pitch = createPlaybackPitchGraph(audioCtx);
     if (typeof createListeningEffectsGraph === 'function') graph.effects = createListeningEffectsGraph(audioCtx);
     graph.source.connect(graph.analyser);
     graph.source.connect(graph.beatAnalyser);
+    var tunedOutput = graph.pitch && graph.pitch.input && graph.pitch.output ? graph.pitch : null;
+    if (tunedOutput) graph.analyser.connect(tunedOutput.input);
     if (graph.effects && graph.effects.input && graph.effects.output) {
-      graph.analyser.connect(graph.effects.input);
+      (tunedOutput ? tunedOutput.output : graph.analyser).connect(graph.effects.input);
       graph.effects.output.connect(graph.gainNode);
     } else {
-      graph.analyser.connect(graph.gainNode);
+      (tunedOutput ? tunedOutput.output : graph.analyser).connect(graph.gainNode);
     }
     graph.gainNode.connect(audioCtx.destination);
     media.__mineradioPreparedAudioGraph = graph;
+    if (typeof ensurePlaybackPitchGraph === 'function') ensurePlaybackPitchGraph(graph.pitch);
     return graph;
   } catch (error) {
     if (graph) {
@@ -420,6 +425,7 @@ function cuefieldCreatePreparedAudioGraph(media) {
         try { if (node) node.disconnect(); } catch (_) { }
       });
       if (typeof disconnectListeningEffectsGraph === 'function') disconnectListeningEffectsGraph(graph.effects);
+      if (typeof disconnectPlaybackPitchGraph === 'function') disconnectPlaybackPitchGraph(graph.pitch);
     }
     if (media && media.__mineradioMediaSourceBound) media.__mineradioPreparedGraphFailed = true;
     try { delete media.__mineradioPreparedAudioGraph; } catch (_) { }
@@ -449,6 +455,7 @@ function prepareCuefieldPendingAudio(pending) {
   var media = new Audio();
   media.crossOrigin = 'anonymous';
   media.preload = 'auto';
+  if (typeof configurePlaybackMediaElement === 'function') configurePlaybackMediaElement(media);
   media.volume = 1;
   media.muted = false;
   cuefieldCreatePreparedAudioGraph(media);
@@ -460,6 +467,7 @@ function prepareCuefieldPendingAudio(pending) {
     media = new Audio();
     media.crossOrigin = 'anonymous';
     media.preload = 'auto';
+    if (typeof configurePlaybackMediaElement === 'function') configurePlaybackMediaElement(media);
     media.volume = 1;
     media.muted = false;
   }

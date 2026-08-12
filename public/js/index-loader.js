@@ -67,6 +67,7 @@
     'js/modules/05-playback/07b-music-radio.js',
     'js/modules/05-playback/07c-platform-rankings.js',
     'js/modules/05-playback/07d-music-planet.js',
+    'js/modules/05-playback/07e-playback-tuning.js',
     'js/modules/05-playback/08-audio-graph-controls.js',
     'js/modules/05-playback/08a-listening-effects.js',
     'js/modules/05-playback/08b-player-spectrum.js',
