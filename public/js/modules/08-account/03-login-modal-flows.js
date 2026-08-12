@@ -279,8 +279,9 @@ function finishLoginProviderPointer(e) {
 }
 function loginProviderVipLabel(provider, status) {
   if (!status || !status.loggedIn) return '';
+  if (provider === 'qq' && ((typeof qqLoginNeedsAuthorizationRefresh === 'function' && qqLoginNeedsAuthorizationRefresh(status)) || (typeof qqMembershipNeedsSync === 'function' && qqMembershipNeedsSync(status)))) return '待刷新';
   var level = providerVipLevel(provider, status);
-  return level === 'svip' ? 'SVIP' : (level === 'vip' ? 'VIP' : '普通');
+  return level === 'svip' ? 'SVIP' : (level === 'vip' ? 'VIP' : '已登录');
 }
 function handleLoginProviderExternalSwitchEvent(e, provider) {
   if (e) {
@@ -353,7 +354,8 @@ function updateLoginProviderCapsuleStatus(provider, btn) {
   var label = loginProviderVipLabel(provider, st);
   var level = providerVipLevel(provider, st);
   badge.textContent = label;
-  badge.className = 'login-provider-state-badge ' + (st.loggedIn ? (level === 'none' ? 'normal' : level) : 'hidden');
+  var pending = provider === 'qq' && label === '待刷新';
+  badge.className = 'login-provider-state-badge ' + (st.loggedIn ? (pending ? 'pending' : (level === 'none' ? 'connected' : level)) : 'hidden');
 }
 function bindLoginWorkflowPointerEvents() {
   var graph = document.getElementById('login-node-graph');

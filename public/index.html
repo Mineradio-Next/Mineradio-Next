@@ -331,11 +331,11 @@
         </div>
         <div id="home-platform-source-pulse" class="home-platform-source-pulse" aria-label="推荐来源状态">
           <span class="home-platform-source-pulse-label">来源状态</span>
-          <span class="home-platform-source-pulse-item" data-home-source-pulse="netease"><i></i><b>网易云</b><small>待同步</small></span>
-          <span class="home-platform-source-pulse-item" data-home-source-pulse="qishui"><i></i><b>汽水</b><small>待同步</small></span>
-          <span class="home-platform-source-pulse-item" data-home-source-pulse="qq"><i></i><b>QQ</b><small>搜索源</small></span>
-          <span class="home-platform-source-pulse-item" data-home-source-pulse="kugou"><i></i><b>酷狗</b><small>待同步</small></span>
-          <span class="home-platform-source-pulse-item" data-home-source-pulse="spotify"><i></i><b>Spotify</b><small>待同步</small></span>
+          <span class="home-platform-source-pulse-item" data-home-source-pulse="netease"><i></i><b>网易云</b><small>未连接</small></span>
+          <span class="home-platform-source-pulse-item" data-home-source-pulse="qishui"><i></i><b>汽水</b><small>未连接</small></span>
+          <span class="home-platform-source-pulse-item" data-home-source-pulse="qq"><i></i><b>QQ</b><small>可搜索</small></span>
+          <span class="home-platform-source-pulse-item" data-home-source-pulse="kugou"><i></i><b>酷狗</b><small>未连接</small></span>
+          <span class="home-platform-source-pulse-item" data-home-source-pulse="spotify"><i></i><b>Spotify</b><small>未连接</small></span>
         </div>
         <div id="home-platform-recommend-tabs" class="home-platform-recommend-tabs" role="tablist"
           aria-label="推荐平台">
@@ -1750,7 +1750,7 @@
     <div id="login-modal" class="modal-mask">
       <div class="modal dual-login-modal">
         <div class="login-panel-head">
-          <div><b>登录接入</b><small>拖接口端口到 MR</small></div>
+          <div><b>登录接入</b><small>选择平台，或拖入 MR</small></div>
           <button id="login-reset-all-btn" class="login-reset-all-btn" type="button"
             onclick="logoutAllAccountsAndResetEasterEgg()" title="清除所有平台登录并重新锁定彩蛋">退出登录</button>
           <button class="login-panel-close" type="button" onclick="closeLoginModal()">×</button>
@@ -1889,9 +1889,8 @@
             class="account-source-dot netease"></span><span>网易云音乐</span></div>
         <img id="user-modal-avatar" src=""
           style="width:72px;height:72px;border-radius:50%;margin:0 auto 12px;object-fit:cover;background:rgba(255,255,255,0.1);display:block">
-        <div id="user-modal-name" style="font-size:15px;margin-bottom:4px"></div>
-        <div id="user-modal-vip"
-          style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:20px;letter-spacing:.5px"></div>
+        <div id="user-modal-name" class="account-modal-identity"></div>
+        <div id="user-modal-vip" class="account-modal-status"></div>
         <div class="user-platform-tabs" id="user-platform-tabs">
           <button id="user-provider-netease" class="netease active" type="button"
             onclick="setActiveAccountProvider('netease')">网易云</button>

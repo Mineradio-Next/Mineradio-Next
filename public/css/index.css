@@ -501,7 +501,7 @@ body.desktop-mode-controls-open.desktop-shell.desktop-wallpaper-mode.desktop-wal
 .search-content-tabs button.active, .search-content-tabs button[aria-selected="true"] { background: rgba(var(--fc-accent-rgb), .11); color: rgba(239, 255, 251, .94); box-shadow: inset 0 0 0 1px rgba(var(--fc-accent-rgb), .18); }
 .home-platform-source-pulse { min-height: 34px; margin-top: 12px; padding: 5px 7px; display: flex; align-items: center; gap: 5px; overflow-x: auto; scrollbar-width: none; border: 1px solid rgba(255, 255, 255, .065); border-radius: 10px; background: rgba(255, 255, 255, .018); }
 .home-platform-source-pulse::-webkit-scrollbar { display: none; }
-.home-platform-source-pulse-label { flex: 0 0 auto; padding: 0 5px 0 2px; color: rgba(255, 255, 255, .3); font-size: 8px; font-weight: 820; letter-spacing: 0; text-transform: uppercase; }
+.home-platform-source-pulse-label { flex: 0 0 auto; padding: 0 5px 0 2px; color: rgba(255, 255, 255, .3); font-size: 8px; font-weight: 650; letter-spacing: .01em; text-transform: none; }
 .home-platform-source-pulse-item { min-width: 80px; height: 23px; padding: 0 7px; display: inline-grid; grid-template-columns: 6px minmax(0, 1fr); grid-template-rows: 11px 10px; column-gap: 6px; align-items: center; border: 1px solid rgba(255, 255, 255, .06); border-radius: 6px; background: rgba(0, 0, 0, .12); transition: border-color .18s ease, background .18s ease, transform .18s ease; }
 .home-platform-source-pulse-item:hover { transform: translateY(-1px); border-color: rgba(var(--fc-accent-rgb), .22); background: rgba(var(--fc-accent-rgb), .045); }
 .home-platform-source-pulse-item i { width: 6px; height: 6px; grid-row: 1 / span 2; border-radius: 50%; background: rgba(255, 255, 255, .25); box-shadow: 0 0 0 3px rgba(255, 255, 255, .035); }
@@ -512,6 +512,8 @@ body.desktop-mode-controls-open.desktop-shell.desktop-wallpaper-mode.desktop-wal
 .home-platform-source-pulse-item[data-state="loading"] i { background: #f0c878; animation: home-source-pulse 1.2s ease-in-out infinite; }
 .home-platform-source-pulse-item[data-state="error"] i { background: #ed8e9b; }
 .home-platform-source-pulse-item[data-state="login"] i { background: #8f9db0; }
+.home-platform-source-pulse-item[data-state="configured"] i { background: #78b8d4; box-shadow: 0 0 0 3px rgba(120, 184, 212, .07), 0 0 9px rgba(120, 184, 212, .26); }
+.home-platform-source-pulse-item[data-state="empty"] i { background: rgba(255, 255, 255, .34); }
 @keyframes home-source-pulse { 0%, 100% { opacity: .42; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.1); } }
 .home-platform-recommend-card { grid-template-columns: 58px minmax(0, 1fr) auto 16px; }
 .home-platform-recommend-action { align-self: end; color: rgba(255, 255, 255, .27); font-size: 8px; white-space: nowrap; transition: color .18s ease; }
@@ -9342,8 +9344,8 @@ body.login-guide-active #login-guide-canvas {
 }
 
 .login-node-providers.login-platform-tabs button.connected {
-  border-color: rgba(244, 210, 138, .30);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .075), 0 0 0 1px rgba(244, 210, 138, .035)
+  border-color: rgba(var(--fc-accent-rgb), .30);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .075), 0 0 0 1px rgba(var(--fc-accent-rgb), .045)
 }
 
 .login-node-providers.login-platform-tabs button.external-on {
@@ -9411,6 +9413,20 @@ body.login-guide-active #login-guide-canvas {
   background: rgba(255, 255, 255, .055);
   color: rgba(255, 255, 255, .76);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .09), 0 0 8px rgba(255, 255, 255, .04)
+}
+
+.login-provider-state-badge.connected {
+  border: 1px solid rgba(var(--fc-accent-rgb), .34);
+  background: rgba(var(--fc-accent-rgb), .10);
+  color: rgba(211, 255, 247, .86);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 0 9px rgba(var(--fc-accent-rgb), .08)
+}
+
+.login-provider-state-badge.pending {
+  border: 1px solid rgba(240, 200, 120, .34);
+  background: rgba(240, 200, 120, .10);
+  color: rgba(255, 236, 190, .88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 0 9px rgba(240, 200, 120, .08)
 }
 
 .login-provider-state-badge.hidden {
@@ -10145,6 +10161,23 @@ body.login-guide-active #login-guide-canvas {
   border-color: rgba(30, 215, 96, .26);
   color: #d8ffe2;
   background: rgba(30, 215, 96, .08)
+}
+
+.account-modal-identity {
+  margin-bottom: 4px;
+  color: rgba(255, 255, 255, .94);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.25
+}
+
+.account-modal-status {
+  min-height: 18px;
+  margin-bottom: 20px;
+  color: rgba(255, 255, 255, .48);
+  font-size: 10.5px;
+  line-height: 1.5;
+  letter-spacing: 0
 }
 
 .account-modal-actions {

@@ -26,27 +26,27 @@ function updateUserModalUi() {
     if (activeAccountProvider === 'netease') {
       var neVipLevel = providerVipLevel('netease', st);
       var vipLabel = neVipLevel === 'svip' ? '网易云 SVIP' : (neVipLevel === 'vip' ? '网易云 VIP' : '普通用户');
-      vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + '  /  ' + vipLabel;
+      vipEl.textContent = '账号已登录 · UID ' + ((st && st.userId) || '-') + ' · ' + vipLabel;
       vipEl.style.color = hasProviderVip('netease', st) ? 'rgba(244,210,138,0.86)' : 'rgba(255,255,255,0.5)';
     } else if (activeAccountProvider === 'kugou') {
       var kgVipLevel = providerVipLevel('kugou', st);
       var kgVipLabel = kgVipLevel === 'svip' ? '酷狗 SVIP 会员' : (kgVipLevel === 'vip' ? '酷狗 VIP 会员' : '酷狗音乐会话');
-      vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + '  /  ' + kgVipLabel;
+      vipEl.textContent = '账号已登录 · UID ' + ((st && st.userId) || '-') + ' · ' + kgVipLabel;
       vipEl.style.color = hasProviderVip('kugou', st) ? 'rgba(86,224,255,0.86)' : 'rgba(86,224,255,0.58)';
     } else if (activeAccountProvider === 'qishui') {
       var qishuiMode = st && st.webSession ? '汽水音乐已扫码登录' : '汽水音乐未登录';
       var qishuiSync = st && st.webSession ? '可同步我的喜欢、歌单并按账号权益播放' : '请使用抖音 App 扫码';
-      vipEl.textContent = qishuiMode + '  /  ' + qishuiSync;
+      vipEl.textContent = qishuiMode + ' · ' + qishuiSync;
       vipEl.style.color = 'rgba(69,214,143,0.78)';
     } else if (activeAccountProvider === 'spotify') {
       var spProduct = st && st.product === 'premium' ? 'Spotify Premium' : (st && st.product ? ('Spotify ' + String(st.product).toUpperCase()) : 'Spotify 方案未知');
-      vipEl.textContent = 'ID: ' + ((st && st.userId) || '-') + '  /  ' + spProduct + '  /  可同步歌单和 Liked Songs';
+      vipEl.textContent = '账号已连接 · ID ' + ((st && st.userId) || '-') + ' · ' + spProduct + ' · 可同步歌单和喜欢';
       vipEl.style.color = hasProviderVip('spotify', st) ? 'rgba(30,215,96,0.86)' : 'rgba(30,215,96,0.60)';
     } else {
       var qqVipLevel = providerVipLevel('qq', st);
       var qqVipPending = qqLoginNeedsAuthorizationRefresh(st) || (typeof qqMembershipNeedsSync === 'function' && qqMembershipNeedsSync(st));
       var qqVipLabel = qqVipPending ? 'QQ 会员待同步' : (qqVipLevel === 'svip' ? 'QQ SVIP 会员' : (qqVipLevel === 'vip' ? 'QQ VIP 会员' : 'QQ 音乐会话'));
-      vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + '  /  ' + qqVipLabel;
+      vipEl.textContent = '账号已登录 · UID ' + ((st && st.userId) || '-') + ' · ' + qqVipLabel;
       vipEl.style.color = qqVipPending ? 'rgba(255,232,174,0.86)' : (hasProviderVip('qq', st) ? 'rgba(0,245,212,0.82)' : 'rgba(0,245,212,0.58)');
     }
   }

@@ -872,21 +872,25 @@ function homePlatformSourcePulseState(source) {
         : (source === 'kugou'
           ? (typeof kugouLoginStatus !== 'undefined' ? kugouLoginStatus : {})
           : (typeof spotifyLoginStatus !== 'undefined' ? spotifyLoginStatus : {}))));
-  if (source === 'qq') return status.loggedIn ? { state: 'ready', label: '已登录' } : { state: 'source', label: '搜索源' };
+  if (status && status.loggedIn) {
+    if (status.stale || status.reauthRequired || status.authorizationIncomplete) return { state: 'error', label: '需重新授权' };
+    if (source === 'qq' && typeof qqMembershipNeedsSync === 'function' && qqMembershipNeedsSync(status)) return { state: 'configured', label: '会员待刷新' };
+    return { state: 'ready', label: '已登录' };
+  }
+  if (source === 'qq') return status && status.configured ? { state: 'configured', label: '已配置' } : { state: 'empty', label: '可搜索' };
   if (source === 'netease') {
     if (homeDiscoverState.loading || homePlatformRecommendationState.neteaseLoading) return { state: 'loading', label: '同步中' };
     if (homeDiscoverState.error) return { state: 'error', label: '暂不可用' };
     if ((homeDiscoverState.songs && homeDiscoverState.songs.length) || (homeDiscoverState.playlists && homeDiscoverState.playlists.length)) return { state: 'ready', label: '已连接' };
-    return { state: status.loggedIn ? 'empty' : 'login', label: status.loggedIn ? '暂无推荐' : '需登录' };
+    return { state: 'login', label: '需登录' };
   }
   var feed = homePlatformRecommendationState.feeds[source];
   if (!feed || feed.loading) return { state: 'loading', label: '同步中' };
   if (feed.songs && feed.songs.length) return { state: 'ready', label: feed.fallback ? '回退内容' : '已连接' };
   if (feed.error && /(?:AUTH|LOGIN)_REQUIRED|NOT_CONFIGURED/i.test(feed.error)) return { state: 'login', label: '需连接' };
   if (feed.error) return { state: 'error', label: '暂不可用' };
-  if (status.loggedIn) return { state: 'ready', label: '已登录' };
   if (status.configured) return { state: 'configured', label: '已配置' };
-  return { state: 'empty', label: '待同步' };
+  return { state: 'empty', label: '未连接' };
 }
 function renderHomePlatformSourcePulse() {
   var pulse = document.getElementById('home-platform-source-pulse');
