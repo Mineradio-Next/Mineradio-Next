@@ -15,6 +15,7 @@
   <script src="js/preload-mode.js"></script>
   <link rel="stylesheet" href="css/index.css?v=20260716-we-continuity-vsync">
   <link rel="stylesheet" href="css/music-library.css?v=20260811-local-library">
+  <link rel="stylesheet" href="css/mini-player.css?v=20260812-mini-player">
 </head>
 
 <body>
@@ -38,6 +39,9 @@
         </button>
         <button id="diy-mode-btn" class="desktop-mode-btn" type="button" onclick="toggleDiyMode()" title="开启 DIY 玩家模式"
           aria-label="开启 DIY 玩家模式" aria-pressed="false">DIY</button>
+        <button id="mini-player-entry" class="desktop-window-btn" type="button" onclick="enterMiniPlayerMode()" title="迷你播放器" aria-label="打开迷你播放器">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="4.5" width="11" height="7" rx="1.5"/><path d="M5 8h6"/></svg>
+        </button>
         <button class="desktop-window-btn" data-window-action="minimize" title="最小化" aria-label="最小化">
           <svg viewBox="0 0 16 16">
             <path d="M3 8h10" />
@@ -59,6 +63,29 @@
         </button>
       </div>
     </div>
+    <section id="mini-player" aria-label="迷你播放器" aria-hidden="true">
+      <div class="mini-player-drag" aria-hidden="true"></div>
+      <img id="mini-player-cover" alt="" draggable="false">
+      <div class="mini-player-main">
+        <div class="mini-player-head"><div class="mini-player-copy"><strong id="mini-player-title">Mineradio</strong><span id="mini-player-artist">等待播放</span></div><span id="mini-player-source">本机</span></div>
+        <p id="mini-player-lyric">让音乐留在桌面一角</p>
+        <div id="mini-player-progress" role="slider" tabindex="0" aria-label="播放进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i><b id="mini-player-progress-fill"></b></i><span id="mini-player-current">0:00</span><span id="mini-player-duration">0:00</span></div>
+        <div class="mini-player-controls">
+          <div class="mini-player-transport">
+            <button type="button" onclick="prevTrack(true)" title="上一首" aria-label="上一首"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+            <button id="mini-player-play" class="primary" type="button" onclick="togglePlay()" title="播放或暂停" aria-label="播放或暂停"><svg id="mini-player-play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+            <button type="button" onclick="nextTrack(true)" title="下一首" aria-label="下一首"><svg viewBox="0 0 24 24"><path d="m6 18 8.5-6L6 6v12zm10-12v12h2V6z"/></svg></button>
+          </div>
+          <label class="mini-player-volume" title="音量"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4zM15 9.5a4 4 0 0 1 0 5"/></svg><input id="mini-player-volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="音量"></label>
+          <div class="mini-player-window-actions">
+            <button id="mini-player-pin" type="button" onclick="toggleMiniPlayerAlwaysOnTop()" title="置顶" aria-label="置顶" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M8 3h8l-1 6 3 3v2H6v-2l3-3zM12 14v7"/></svg></button>
+            <button type="button" onclick="exitMiniPlayerMode()" title="返回完整播放器" aria-label="返回完整播放器"><svg viewBox="0 0 24 24"><path d="M5 5h14v14H5zM9 9h6v6H9z"/></svg></button>
+            <button type="button" onclick="window.desktopWindow&&window.desktopWindow.minimize()" title="最小化" aria-label="最小化"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+            <button class="close" type="button" onclick="closeMiniPlayerWindow()" title="关闭" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </section>
     <div id="fullscreen-diy-zone" aria-hidden="true">
       <button id="fullscreen-diy-btn" class="desktop-mode-btn" type="button" onclick="toggleDiyMode()" title="DIY"
         aria-label="DIY" aria-pressed="false">DIY</button>

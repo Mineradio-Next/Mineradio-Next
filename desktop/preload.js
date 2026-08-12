@@ -53,6 +53,8 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   toggleMaximize: () => ipcRenderer.invoke('desktop-window-toggle-maximize'),
   toggleFullscreen: () => ipcRenderer.invoke('desktop-window-toggle-fullscreen'),
   exitFullscreenWindowed: () => ipcRenderer.invoke('desktop-window-exit-fullscreen-windowed'),
+  setMiniPlayerMode: (enabled) => ipcRenderer.invoke('mineradio-mini-player-set-mode', enabled === true),
+  setMiniPlayerAlwaysOnTop: (enabled) => ipcRenderer.invoke('mineradio-mini-player-set-always-on-top', enabled === true),
   getState: () => ipcRenderer.invoke('desktop-window-get-state'),
   getGpuDiagnostics: () => ipcRenderer.invoke('mineradio-get-gpu-diagnostics'),
   getMemorySnapshot: () => ipcRenderer.invoke('mineradio-memory-get-snapshot'),
@@ -225,6 +227,12 @@ contextBridge.exposeInMainWorld('desktopWindow', {
     const listener = (_event, state) => callback(state);
     ipcRenderer.on('desktop-window-state', listener);
     return () => ipcRenderer.removeListener('desktop-window-state', listener);
+  },
+  onViewportRefresh: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('mineradio-window-viewport-refresh', listener);
+    return () => ipcRenderer.removeListener('mineradio-window-viewport-refresh', listener);
   },
 });
 

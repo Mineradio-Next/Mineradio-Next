@@ -26,6 +26,13 @@ const { createLanRemoteServer } = require('./lan-remote-server');
 const { resolveVisualClipSaveSelection } = require('./visual-clip-save-path');
 const { normalizeTrayPlaybackState, normalizeWindowsStartupStatus } = require('./windows-shell-state');
 const {
+  MINI_PLAYER_MIN_WIDTH,
+  MINI_PLAYER_MIN_HEIGHT,
+  createMiniPlayerWindowState,
+  enterMiniPlayerWindow,
+  exitMiniPlayerWindow,
+} = require('./mini-player-window');
+const {
   constrainDesktopLyricsBounds: calculateConstrainedDesktopLyricsBounds,
   desktopLyricsDisplayAnchor,
   desktopLyricsDefaultBounds: calculateDesktopLyricsDefaultBounds,
@@ -69,6 +76,7 @@ let desktopLyricsPositionRevision = 0;
 let htmlFullscreenActive = false;
 let windowFullscreenActive = false;
 let mainWindowStateTimer = null;
+const miniPlayerWindowState = createMiniPlayerWindowState();
 let appMemoryTrimTimer = null;
 let appMemoryTrimInFlight = false;
 let lastAppMemoryTrimAt = 0;
@@ -1921,6 +1929,8 @@ function getWindowState(win) {
     isMinimized: false,
     isVisible: false,
     isFocused: false,
+    isMiniPlayer: false,
+    isAlwaysOnTop: false,
     isDesktopEmbedded: false,
     isDesktopInteractive: false,
     isDesktopIconCoexisting: false,
@@ -1939,6 +1949,8 @@ function getWindowState(win) {
     isMinimized: win.isMinimized(),
     isVisible: win.isVisible(),
     isFocused: win.isFocused(),
+    isMiniPlayer: win === mainWindow && miniPlayerWindowState.active === true,
+    isAlwaysOnTop: win === mainWindow && miniPlayerWindowState.active === true && miniPlayerWindowState.alwaysOnTop === true,
     isDesktopEmbedded: desktopMode.enabled === true,
     isDesktopInteractive: desktopMode.interactive === true,
     isDesktopIconCoexisting: desktopMode.coexisting === true && desktopMode.iconShapeActive === true,
@@ -3421,8 +3433,63 @@ function getAdaptiveWindowMinimumSize(display) {
 
 function updateMainWindowMinimumSize(win) {
   if (!win || win.isDestroyed()) return;
+  if (win === mainWindow && miniPlayerWindowState.active === true) {
+    const area = getDisplayArea(getWindowDisplay(win));
+    win.setMinimumSize(Math.min(MINI_PLAYER_MIN_WIDTH, area.width), Math.min(MINI_PLAYER_MIN_HEIGHT, area.height));
+    return;
+  }
   const minimum = getAdaptiveWindowMinimumSize(getWindowDisplay(win));
   win.setMinimumSize(minimum.width, minimum.height);
+}
+
+async function setMiniPlayerMode(win, enabled) {
+  if (!win || win !== mainWindow || win.isDestroyed()) return { ok: false, error: 'MINI_PLAYER_WINDOW_UNAVAILABLE' };
+  enabled = enabled === true;
+  if (enabled === miniPlayerWindowState.active && miniPlayerWindowState.entering !== true) {
+    return { ok: true, state: getWindowState(win) };
+  }
+  if (enabled) {
+    const desktopMode = fullDesktopModeRuntime.getStatus('mini-player-enter');
+    if (desktopMode.enabled === true) {
+      const disabled = await disableFullDesktopMode('mini-player-enter');
+      if (!disabled || disabled.ok !== true) return { ok: false, error: 'MINI_PLAYER_DESKTOP_MODE_ACTIVE', state: getWindowState(win) };
+    }
+    miniPlayerWindowState.entering = true;
+    try {
+      if (win.isFullScreen()) {
+        await new Promise((resolve) => {
+          const timer = setTimeout(resolve, 800);
+          win.once('leave-full-screen', () => { clearTimeout(timer); resolve(); });
+          win.setFullScreen(false);
+        });
+      }
+      windowFullscreenActive = false;
+      htmlFullscreenActive = false;
+      const display = getWindowDisplay(win);
+      const entered = enterMiniPlayerWindow(win, miniPlayerWindowState, getDisplayArea(display));
+      if (!entered) {
+        updateMainWindowMinimumSize(win);
+        return { ok: false, error: 'MINI_PLAYER_ENTER_FAILED', state: getWindowState(win) };
+      }
+    } catch (error) {
+      console.warn('[MiniPlayer] enter failed:', error && error.message || error);
+      return { ok: false, error: 'MINI_PLAYER_ENTER_FAILED', state: getWindowState(win) };
+    } finally {
+      miniPlayerWindowState.entering = false;
+    }
+  } else {
+    const display = getWindowDisplay(win);
+    const minimum = getAdaptiveWindowMinimumSize(display);
+    exitMiniPlayerWindow(win, miniPlayerWindowState, minimum, (bounds) => clampBoundsToDisplayArea(bounds, screen.getDisplayMatching(bounds)));
+  }
+  sendWindowState(win);
+  scheduleMainRendererViewportRefreshForWindow(win, 'mini-player-mode');
+  return { ok: true, state: getWindowState(win) };
+}
+
+function scheduleMainRendererViewportRefreshForWindow(win, reason) {
+  if (!win || win.isDestroyed() || !win.webContents || win.webContents.isDestroyed()) return;
+  win.webContents.send('mineradio-window-viewport-refresh', { reason: String(reason || 'window-mode').slice(0, 64) });
 }
 
 function clampBoundsToDisplayArea(bounds, display) {
@@ -3960,6 +4027,7 @@ ipcMain.handle('desktop-window-toggle-maximize', (event) => {
   if (win === mainWindow && fullDesktopModeRuntime.getStatus('window-toggle-maximize').enabled === true) {
     return getWindowState(win);
   }
+  if (win === mainWindow && miniPlayerWindowState.active === true) return getWindowState(win);
   toggleFullscreen(win);
   return getWindowState(win);
 });
@@ -3969,6 +4037,7 @@ ipcMain.handle('desktop-window-toggle-fullscreen', (event) => {
   if (win === mainWindow && fullDesktopModeRuntime.getStatus('window-toggle-fullscreen').enabled === true) {
     return getWindowState(win);
   }
+  if (win === mainWindow && miniPlayerWindowState.active === true) return getWindowState(win);
   toggleFullscreen(win);
   return getWindowState(win);
 });
@@ -3984,6 +4053,23 @@ ipcMain.handle('desktop-window-exit-fullscreen-windowed', (event) => {
 
 ipcMain.handle('desktop-window-get-state', (event) => {
   return getWindowState(getSenderWindow(event));
+});
+
+ipcMain.handle('mineradio-mini-player-set-mode', async (event, enabled) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'MINI_PLAYER_UNTRUSTED_SENDER' };
+  return setMiniPlayerMode(mainWindow, enabled === true);
+});
+
+ipcMain.handle('mineradio-mini-player-set-always-on-top', (event, enabled) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'MINI_PLAYER_UNTRUSTED_SENDER' };
+  if (!mainWindow || mainWindow.isDestroyed() || miniPlayerWindowState.active !== true) {
+    return { ok: false, error: 'MINI_PLAYER_INACTIVE', state: getWindowState(mainWindow) };
+  }
+  const next = enabled === true;
+  mainWindow.setAlwaysOnTop(next, 'floating');
+  miniPlayerWindowState.alwaysOnTop = next;
+  sendWindowState(mainWindow);
+  return { ok: true, state: getWindowState(mainWindow) };
 });
 
 ipcMain.on('mineradio-full-desktop-icon-shields', (event, payload = {}) => {
@@ -5967,6 +6053,11 @@ async function createWindowOnce() {
   });
   win.on('closed', () => {
     mainWindowCloseFlushArmed = false;
+    miniPlayerWindowState.active = false;
+    miniPlayerWindowState.alwaysOnTop = false;
+    miniPlayerWindowState.entering = false;
+    miniPlayerWindowState.restoreBounds = null;
+    miniPlayerWindowState.restoreMaximized = false;
     clearMainWindowFullscreenVisibilityGuard();
     mainWindowRendererRecoveryPromise = null;
     mainWindowRendererRecoveryAttempts = [];
@@ -6008,6 +6099,7 @@ async function createWindowOnce() {
     setMainWindowFullscreenResizeGuard(win, false);
     clearMainWindowFullscreenVisibilityGuard();
     setTimeout(() => {
+      if (miniPlayerWindowState.entering === true || miniPlayerWindowState.active === true) return;
       applyWindowedBounds(win);
       scheduleWallpaperEngineHostBoundsRestart(win, 'leave-full-screen');
     }, 50);
