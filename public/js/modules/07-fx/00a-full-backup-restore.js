@@ -11,7 +11,8 @@ var MINERADIO_FULL_BACKUP_CATEGORIES = {
     keys: [
       'mineradio-local-playlist-files-v1',
       'mineradio-playlist-reorder-v1',
-      'mineradio-backup-source-likes-v1'
+      'mineradio-backup-source-likes-v1',
+      'mineradio-listen-stats-v1'
     ]
   },
   lyrics: {

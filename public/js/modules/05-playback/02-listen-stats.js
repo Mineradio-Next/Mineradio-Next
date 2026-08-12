@@ -137,13 +137,75 @@ function reportListenSession(record, session, durationMs) {
   }
 }
 
+function normalizeListenHistoryRecord(value) {
+  var record = value && typeof value === 'object' ? value : {};
+  var rawContext = record.context && typeof record.context === 'object' && !Array.isArray(record.context) ? record.context : null;
+  var context = rawContext ? {
+    type: String(rawContext.type || '').slice(0, 64),
+    playlistName: String(rawContext.playlistName || '').slice(0, 240),
+  } : null;
+  if (context && !context.type && !context.playlistName) context = null;
+  var durationSec = Math.max(0, Math.min(24 * 60 * 60, Number(record.durationSec) || Number(record.duration) || 0));
+  if (durationSec > 10000) durationSec /= 1000;
+  var rawResumeAt = Math.max(0, Number(record.resumeAt) || 0);
+  if (!rawResumeAt && !record.completed && durationSec > 0 && Number(record.progress) > 0) rawResumeAt = durationSec * Number(record.progress);
+  var resumeAt = record.completed || rawResumeAt < LISTEN_HISTORY_RESUME_MIN_SECONDS || (durationSec > 0 && durationSec - rawResumeAt <= LISTEN_HISTORY_END_GUARD_SECONDS)
+    ? 0
+    : Math.min(rawResumeAt, durationSec || rawResumeAt);
+  var progress = Math.max(0, Math.min(1, Number(record.progress) || (durationSec > 0 ? rawResumeAt / durationSec : 0)));
+  if (record.completed) progress = 1;
+  var key = String(record.key || '').slice(0, 2000);
+  if (!key) key = [record.sourceKey || record.provider || '', record.id || record.mid || record.hash || record.localFileId || '', record.name || '', record.artist || ''].join(':').slice(0, 2000);
+  return {
+    sessionId: String(record.sessionId || '').slice(0, 128),
+    key: key,
+    id: String(record.id || '').slice(0, 256),
+    mid: String(record.mid || '').slice(0, 256),
+    mediaMid: String(record.mediaMid || '').slice(0, 256),
+    hash: String(record.hash || '').slice(0, 256),
+    mixSongId: String(record.mixSongId || '').slice(0, 256),
+    albumId: String(record.albumId || '').slice(0, 256),
+    providerSongId: String(record.providerSongId || '').slice(0, 256),
+    spotifyId: String(record.spotifyId || '').slice(0, 256),
+    uri: String(record.uri || '').slice(0, 512),
+    additionalSourceCode: String(record.additionalSourceCode || '').slice(0, 128),
+    localFileId: String(record.localFileId || '').slice(0, 256),
+    localKey: String(record.localKey || '').slice(0, 256),
+    type: String(record.type || 'song').slice(0, 64),
+    sourceKey: String(record.sourceKey || record.provider || '').slice(0, 64),
+    provider: String(record.provider || record.sourceKey || '').slice(0, 64),
+    resolvedPlaybackProvider: String(record.resolvedPlaybackProvider || '').slice(0, 64),
+    name: String(record.name || '未知歌曲').slice(0, 500),
+    artist: String(record.artist || '').slice(0, 500),
+    album: String(record.album || '').slice(0, 500),
+    cover: String(record.cover || '').slice(0, 4000),
+    source: String(record.source || '').slice(0, 120),
+    playedAt: Math.max(0, Number(record.playedAt) || 0),
+    listenMs: Math.max(0, Math.round(Number(record.listenMs) || 0)),
+    durationSec: durationSec,
+    resumeAt: resumeAt,
+    progress: progress,
+    completed: !!record.completed,
+    context: context,
+  };
+}
+
+function normalizeListenHistory(values) {
+  var seen = Object.create(null);
+  return (Array.isArray(values) ? values : []).map(normalizeListenHistoryRecord).sort(function (a, b) { return b.playedAt - a.playedAt; }).filter(function (record) {
+    if (!record.key || seen[record.key]) return false;
+    seen[record.key] = true;
+    return true;
+  }).slice(0, LISTEN_HISTORY_LIMIT);
+}
+
 function loadListenStatsState() {
   try {
     var raw = localStorage.getItem(HOME_LISTEN_STATS_KEY);
     if (!raw) return { history: [], songs: {}, artists: {}, updatedAt: 0 };
     var data = JSON.parse(raw);
     return {
-      history: Array.isArray(data.history) ? data.history.slice(0, 180) : [],
+      history: normalizeListenHistory(data.history),
       songs: data.songs && typeof data.songs === 'object' ? data.songs : {},
       artists: data.artists && typeof data.artists === 'object' ? data.artists : {},
       updatedAt: Number(data.updatedAt) || 0,
@@ -171,10 +233,14 @@ function listenSongSnapshot(song) {
     providerSongId: song.providerSongId || song.provider_song_id || '',
     spotifyId: song.spotifyId || song.spotify_id || '',
     uri: song.spotifyUri || song.uri || '',
+    additionalSourceCode: song.additionalSourceCode || '',
+    localFileId: song.localFileId || '',
+    localKey: song.localKey || '',
     type: song.type || 'song',
     sourceKey: song.source || song.provider || '',
     name: song.name || song.title || '未知歌曲',
     artist: song.artist || '',
+    album: song.album && typeof song.album === 'object' ? (song.album.name || '') : (song.album || song.albumName || ''),
     cover: songCoverSrc(song, 220) || song.cover || '',
     source: songSourceLabel(song),
     provider: song.provider || song.source || song.type || '',
@@ -245,20 +311,28 @@ function finalizeListenSession(completed) {
     providerSongId: snap.providerSongId || '',
     spotifyId: snap.spotifyId || '',
     uri: snap.uri || '',
+    additionalSourceCode: snap.additionalSourceCode || '',
+    localFileId: snap.localFileId || '',
+    localKey: snap.localKey || '',
     type: snap.type || 'song',
     sourceKey: snap.sourceKey || '',
     provider: snap.provider || '',
     resolvedPlaybackProvider: snap.resolvedPlaybackProvider || '',
     name: snap.name || '未知歌曲',
     artist: snap.artist || '',
+    album: snap.album || '',
     cover: snap.cover || '',
     source: snap.source || '',
     playedAt: now,
     listenMs: Math.round(session.listenMs),
+    durationSec: Math.max(0, actualDurationMs / 1000),
+    resumeAt: completed ? 0 : Math.max(0, Number(session.lastAudioTime) || 0),
+    progress: Math.max(0, Math.min(1, Number(session.maxProgress) || 0)),
     completed: !!completed,
     context: session.context || null,
   };
-  listenStatsState.history = [record].concat((listenStatsState.history || []).filter(function (item) { return item && item.key !== record.key; })).slice(0, 180);
+  record = normalizeListenHistoryRecord(record);
+  listenStatsState.history = normalizeListenHistory([record].concat((listenStatsState.history || []).filter(function (item) { return item && item.key !== record.key; })));
   var songStat = listenStatsState.songs[record.key] || { key: record.key, name: record.name, artist: record.artist, cover: record.cover, source: record.source, plays: 0, listenMs: 0, completed: 0, lastPlayedAt: 0 };
   songStat.name = record.name;
   songStat.artist = record.artist;
@@ -281,6 +355,7 @@ function finalizeListenSession(completed) {
   recordListenRollupV2(record);
   saveListenStatsState();
   reportListenSession(record, session, actualDurationMs);
+  if (typeof refreshMusicLibraryWorkspace === 'function') refreshMusicLibraryWorkspace('listen-history-recorded');
   if (emptyHomeActive) renderHomeDiscover();
 }
 function mostPlayedSong() {
@@ -299,4 +374,22 @@ function homeListenSummary() {
   var topArtist = topListenArtist();
   var totalPlays = Object.keys(listenStatsState.songs || {}).reduce(function (sum, key) { return sum + ((listenStatsState.songs[key] && listenStatsState.songs[key].plays) || 0); }, 0);
   return { recent: recent, topSong: topSong, topArtist: topArtist, totalPlays: totalPlays };
+}
+
+function removeListenHistoryRecord(key) {
+  key = String(key || '');
+  var before = (listenStatsState.history || []).length;
+  listenStatsState.history = (listenStatsState.history || []).filter(function (record) { return record && record.key !== key; });
+  if (listenStatsState.history.length === before) return false;
+  saveListenStatsState();
+  if (emptyHomeActive && typeof renderHomeDiscover === 'function') renderHomeDiscover();
+  return true;
+}
+
+function clearListenHistory() {
+  if (!listenStatsState.history || !listenStatsState.history.length) return false;
+  listenStatsState.history = [];
+  saveListenStatsState();
+  if (emptyHomeActive && typeof renderHomeDiscover === 'function') renderHomeDiscover();
+  return true;
 }

@@ -8,6 +8,9 @@ var musicLibraryWorkspaceState = {
   selected: Object.create(null),
   playlistId: '',
   playlistVisible: MUSIC_LIBRARY_BATCH_SIZE,
+  historyVisible: MUSIC_LIBRARY_BATCH_SIZE,
+  historyRange: 'all',
+  historyProvider: 'all',
   loading: false,
   confirmAction: '',
   confirmUntil: 0
@@ -89,6 +92,7 @@ function ensureMusicLibraryWorkspace() {
       '<nav class="music-library-tabs" role="tablist" aria-label="音乐库视图">' +
         '<button type="button" data-library-tab="local" role="tab">本地音乐</button>' +
         '<button type="button" data-library-tab="playlists" role="tab">我的歌单</button>' +
+        '<button type="button" data-library-tab="history" role="tab">最近播放</button>' +
         '<button type="button" data-library-tab="offline" role="tab">离线音乐</button>' +
         '<button type="button" data-library-tab="health" role="tab">曲库健康</button>' +
         '<button type="button" data-library-tab="import" role="tab">导入与交换</button>' +
@@ -303,6 +307,108 @@ function renderMusicLibraryOffline() {
     '</div>';
 }
 
+function musicLibraryHistorySourceKey(record) {
+  var provider = String(record && (record.sourceKey || record.provider) || '').toLowerCase();
+  if (record && (record.localFileId || record.localKey) || provider === 'local') return 'local';
+  if (/^(netease|qq|kugou|qishui|spotify|kuwo|migu)$/.test(provider)) return provider;
+  return provider || 'other';
+}
+
+function musicLibraryHistorySourceLabel(record) {
+  var key = musicLibraryHistorySourceKey(record);
+  if (key === 'local') return '本地音乐';
+  if (/^(netease|qq|kugou|qishui|spotify|kuwo|migu)$/.test(key)) return offlineMusicProviderLabel({ provider: key });
+  if (record && record.additionalSourceCode) return '附加来源';
+  return String(record && record.source || '').trim() || '其他来源';
+}
+
+function musicLibraryHistoryTimeLabel(value) {
+  var timestamp = Number(value) || 0;
+  if (!timestamp) return '未知时间';
+  var diff = Date.now() - timestamp;
+  if (diff >= 0 && diff < 60000) return '刚刚';
+  if (diff >= 0 && diff < 60 * 60000) return Math.max(1, Math.floor(diff / 60000)) + ' 分钟前';
+  if (diff >= 0 && diff < 24 * 60 * 60000) return Math.max(1, Math.floor(diff / (60 * 60000))) + ' 小时前';
+  var date = new Date(timestamp);
+  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+}
+
+function musicLibraryHistoryDurationLabel(milliseconds) {
+  var minutes = Math.floor(Math.max(0, Number(milliseconds) || 0) / 60000);
+  if (minutes < 60) return minutes + ' 分钟';
+  var hours = Math.floor(minutes / 60);
+  return hours + ' 小时' + (minutes % 60 ? ' ' + minutes % 60 + ' 分' : '');
+}
+
+function musicLibraryHistoryEntries() {
+  var query = String(musicLibraryWorkspaceState.query || '').trim().toLowerCase();
+  var provider = musicLibraryWorkspaceState.historyProvider || 'all';
+  var range = musicLibraryWorkspaceState.historyRange || 'all';
+  var now = Date.now();
+  var cutoff = range === 'week' ? now - 7 * 24 * 60 * 60 * 1000 : (range === 'month' ? now - 30 * 24 * 60 * 60 * 1000 : 0);
+  if (range === 'today') {
+    var today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    cutoff = today.getTime();
+  }
+  return normalizeListenHistory(listenStatsState && listenStatsState.history).filter(function (record) {
+    if (provider !== 'all' && musicLibraryHistorySourceKey(record) !== provider) return false;
+    if (cutoff && Number(record.playedAt || 0) < cutoff) return false;
+    if (!query) return true;
+    return [record.name, record.artist, record.album, musicLibraryHistorySourceLabel(record)].join(' ').toLowerCase().indexOf(query) >= 0;
+  });
+}
+
+function musicLibraryHistoryProviderOptions(records) {
+  var providers = Object.create(null);
+  (records || []).forEach(function (record) { providers[musicLibraryHistorySourceKey(record)] = musicLibraryHistorySourceLabel(record); });
+  return Object.keys(providers).sort().map(function (key) {
+    return '<option value="' + escHtml(key) + '"' + (musicLibraryWorkspaceState.historyProvider === key ? ' selected' : '') + '>' + escHtml(providers[key]) + '</option>';
+  }).join('');
+}
+
+function renderMusicLibraryHistory() {
+  var content = document.getElementById('music-library-content');
+  if (!content) return;
+  var allRecords = normalizeListenHistory(listenStatsState && listenStatsState.history);
+  var entries = musicLibraryHistoryEntries();
+  var visible = entries.slice(0, musicLibraryWorkspaceState.historyVisible);
+  var listenMs = allRecords.reduce(function (sum, record) { return sum + Math.max(0, Number(record.listenMs) || 0); }, 0);
+  var unfinished = allRecords.filter(function (record) { return Number(record.resumeAt) > 0; }).length;
+  var clearArmed = musicLibraryActionArmed('clear-history');
+  content.innerHTML =
+    '<div class="music-library-history">' +
+      '<section class="music-library-history-summary">' +
+        '<div><span class="music-library-kicker">最近播放</span><h3>顺着上次听到的地方继续</h3><p>只记录本机的有效收听。这里的整理不会影响歌单、离线副本或累计听歌画像。</p></div>' +
+        '<div class="music-library-history-metrics"><span><strong>' + allRecords.length + '</strong><small>最近记录</small></span><span><strong>' + escHtml(musicLibraryHistoryDurationLabel(listenMs)) + '</strong><small>有效收听</small></span><span><strong>' + unfinished + '</strong><small>可继续</small></span></div>' +
+      '</section>' +
+      '<div class="music-library-toolbar history">' +
+        '<label class="music-library-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input id="music-library-search" type="search" value="' + escHtml(musicLibraryWorkspaceState.query) + '" placeholder="搜索歌曲、歌手、专辑或来源" autocomplete="off"></label>' +
+        '<select id="music-library-history-range" class="music-library-select" aria-label="播放时间"><option value="all"' + (musicLibraryWorkspaceState.historyRange === 'all' ? ' selected' : '') + '>全部时间</option><option value="today"' + (musicLibraryWorkspaceState.historyRange === 'today' ? ' selected' : '') + '>今天</option><option value="week"' + (musicLibraryWorkspaceState.historyRange === 'week' ? ' selected' : '') + '>最近 7 天</option><option value="month"' + (musicLibraryWorkspaceState.historyRange === 'month' ? ' selected' : '') + '>最近 30 天</option></select>' +
+        '<select id="music-library-history-provider" class="music-library-select" aria-label="音乐来源"><option value="all">全部来源</option>' + musicLibraryHistoryProviderOptions(allRecords) + '</select>' +
+        '<button type="button" class="music-library-command danger' + (clearArmed ? ' armed' : '') + '" data-history-clear' + (allRecords.length ? '' : ' disabled') + '>' + (clearArmed ? '再次点击确认' : '清空记录') + '</button>' +
+      '</div>' +
+      '<div class="music-library-history-list">' + (visible.length ? visible.map(function (record, index) {
+        var resumeAt = Math.max(0, Number(record.resumeAt) || 0);
+        var progress = Math.max(0, Math.min(1, Number(record.progress) || 0));
+        var armed = musicLibraryActionArmed('remove-history:' + record.key);
+        return '<div class="music-library-history-row" style="--row-index:' + index + '">' +
+          '<button type="button" class="music-library-track" data-history-play="' + escHtml(record.key) + '">' + musicLibraryCoverHtml(record) + '<span><strong>' + escHtml(record.name || '未知歌曲') + '</strong><small>' + escHtml(record.artist || '未知歌手') + '</small></span></button>' +
+          '<span class="music-library-meta"><strong>' + escHtml(record.album || musicLibraryHistorySourceLabel(record)) + '</strong><small>' + escHtml(musicLibraryHistorySourceLabel(record)) + '</small></span>' +
+          '<span class="music-library-history-progress"><i><b style="width:' + (progress * 100).toFixed(1) + '%"></b></i><small>' + escHtml(resumeAt ? ('继续 ' + musicLibraryDuration(resumeAt) + ' / ' + musicLibraryDuration(record.durationSec)) : (record.completed ? '已听完' : musicLibraryDuration(record.listenMs / 1000) + ' 有效收听')) + '</small></span>' +
+          '<span class="music-library-history-time"><strong>' + escHtml(musicLibraryHistoryTimeLabel(record.playedAt)) + '</strong><small>' + (resumeAt ? '未听完' : '从头播放') + '</small></span>' +
+          '<span class="music-library-row-actions"><button type="button" data-history-play="' + escHtml(record.key) + '" title="' + (resumeAt ? '继续播放' : '播放') + '" aria-label="' + (resumeAt ? '继续播放' : '播放') + '">▶</button><button type="button" data-history-next="' + escHtml(record.key) + '" title="下一首播放" aria-label="下一首播放">↳</button><button type="button" class="danger' + (armed ? ' armed' : '') + '" data-history-remove="' + escHtml(record.key) + '" title="' + (armed ? '再次点击确认' : '移除记录') + '" aria-label="移除记录">×</button></span>' +
+        '</div>';
+      }).join('') : '<div class="music-library-empty"><strong>' + (allRecords.length ? '没有符合条件的播放记录' : '还没有最近播放') + '</strong><span>完整听过或收听一段时间的歌曲会出现在这里</span></div>') +
+        (entries.length > visible.length ? '<button class="music-library-more" type="button" data-library-action="more-history">继续显示 · ' + (entries.length - visible.length) + ' 首</button>' : '') +
+      '</div>' +
+    '</div>';
+}
+
+function musicLibraryHistoryRecord(key) {
+  return (listenStatsState.history || []).filter(function (record) { return record && record.key === String(key || ''); })[0] || null;
+}
+
 function renderMusicLibraryWorkspace(reason) {
   var mask = ensureMusicLibraryWorkspace();
   var tab = musicLibraryWorkspaceState.tab;
@@ -314,9 +420,10 @@ function renderMusicLibraryWorkspace(reason) {
   var summary = document.getElementById('music-library-summary');
   if (summary) summary.textContent = tab === 'local'
     ? ((persistentLocalLibraryTracks || []).length + ' 首本地音乐 · ' + Object.keys(musicLibraryWorkspaceState.selected).filter(function (id) { return musicLibraryWorkspaceState.selected[id]; }).length + ' 首已选')
-    : (tab === 'playlists' ? (localFilePlaylists.length + ' 个本地歌单') : (tab === 'offline' ? ((offlineMusicState.snapshot.count || 0) + ' 首离线音乐 · ' + offlineMusicBytesLabel(offlineMusicState.snapshot.bytes || 0)) : (tab === 'health' ? '检查重复音乐与失效索引' : '导入音乐、歌单文件或平台分享链接')));
+    : (tab === 'playlists' ? (localFilePlaylists.length + ' 个本地歌单') : (tab === 'history' ? ((listenStatsState.history || []).length + ' 条本机收听记录') : (tab === 'offline' ? ((offlineMusicState.snapshot.count || 0) + ' 首离线音乐 · ' + offlineMusicBytesLabel(offlineMusicState.snapshot.bytes || 0)) : (tab === 'health' ? '检查重复音乐与失效索引' : '导入音乐、歌单文件或平台分享链接'))));
   if (tab === 'local') renderMusicLibraryLocal();
   else if (tab === 'playlists') renderMusicLibraryPlaylists();
+  else if (tab === 'history') renderMusicLibraryHistory();
   else if (tab === 'offline') renderMusicLibraryOffline();
   else if (tab === 'health' && typeof renderMusicLibraryHealth === 'function') renderMusicLibraryHealth();
   else renderMusicLibraryImport();
@@ -354,9 +461,10 @@ function loadMusicLibraryTracks() {
 function openMusicLibraryWorkspace(tab) {
   var mask = ensureMusicLibraryWorkspace();
   musicLibraryWorkspaceState.open = true;
-  musicLibraryWorkspaceState.tab = /^(local|playlists|offline|health|import)$/.test(String(tab || '')) ? String(tab) : musicLibraryWorkspaceState.tab;
+  musicLibraryWorkspaceState.tab = /^(local|playlists|history|offline|health|import)$/.test(String(tab || '')) ? String(tab) : musicLibraryWorkspaceState.tab;
   musicLibraryWorkspaceState.visible = MUSIC_LIBRARY_BATCH_SIZE;
   musicLibraryWorkspaceState.playlistVisible = MUSIC_LIBRARY_BATCH_SIZE;
+  musicLibraryWorkspaceState.historyVisible = MUSIC_LIBRARY_BATCH_SIZE;
   mask.classList.add('show');
   mask.setAttribute('aria-hidden', 'false');
   document.body.classList.add('music-library-open');
@@ -455,9 +563,44 @@ function handleMusicLibraryClick(event) {
     musicLibraryWorkspaceState.query = '';
     musicLibraryWorkspaceState.visible = MUSIC_LIBRARY_BATCH_SIZE;
     musicLibraryWorkspaceState.playlistVisible = MUSIC_LIBRARY_BATCH_SIZE;
+    musicLibraryWorkspaceState.historyVisible = MUSIC_LIBRARY_BATCH_SIZE;
     renderMusicLibraryWorkspace('tab');
     if (musicLibraryWorkspaceState.tab === 'health' && typeof loadMusicLibraryHealth === 'function') loadMusicLibraryHealth(false);
     if (musicLibraryWorkspaceState.tab === 'offline') refreshOfflineMusicSnapshot(true);
+    return;
+  }
+  var historyPlay = event.target.closest('[data-history-play]');
+  if (historyPlay) {
+    var playRecord = musicLibraryHistoryRecord(historyPlay.getAttribute('data-history-play'));
+    if (playRecord) {
+      closeMusicLibraryWorkspace();
+      Promise.resolve(playListenHistoryRecord(playRecord)).catch(function () { showToast('播放记录暂时无法打开'); });
+    }
+    return;
+  }
+  var historyNext = event.target.closest('[data-history-next]');
+  if (historyNext) {
+    var nextRecord = musicLibraryHistoryRecord(historyNext.getAttribute('data-history-next'));
+    var nextSong = listenHistorySong(nextRecord);
+    if (nextSong) { queueSongNext(nextSong); showToast('已设为下一首：' + (nextSong.name || '歌曲')); }
+    else showToast('这条记录暂时无法加入队列');
+    return;
+  }
+  var historyRemove = event.target.closest('[data-history-remove]');
+  if (historyRemove) {
+    var historyKey = historyRemove.getAttribute('data-history-remove');
+    if (!armMusicLibraryAction('remove-history:' + historyKey)) return;
+    removeListenHistoryRecord(historyKey);
+    refreshMusicLibraryWorkspace('history-remove');
+    showToast('已移除播放记录');
+    return;
+  }
+  var historyClear = event.target.closest('[data-history-clear]');
+  if (historyClear) {
+    if (!armMusicLibraryAction('clear-history')) return;
+    clearListenHistory();
+    refreshMusicLibraryWorkspace('history-clear');
+    showToast('最近播放已清空，累计听歌画像仍保留');
     return;
   }
   var offlinePlay = event.target.closest('[data-offline-play]');
@@ -554,6 +697,7 @@ function handleMusicLibraryClick(event) {
     refreshMusicLibraryWorkspace('playlist-add-selection');
   } else if (action === 'remove-selected') removeMusicLibrarySelectedTracks();
   else if (action === 'more-local') { musicLibraryWorkspaceState.visible += MUSIC_LIBRARY_BATCH_SIZE; renderMusicLibraryWorkspace('more-local'); }
+  else if (action === 'more-history') { musicLibraryWorkspaceState.historyVisible += MUSIC_LIBRARY_BATCH_SIZE; renderMusicLibraryWorkspace('more-history'); }
   else if (action === 'more-playlist') { musicLibraryWorkspaceState.playlistVisible += MUSIC_LIBRARY_BATCH_SIZE; renderMusicLibraryWorkspace('more-playlist'); }
   else if (action === 'rename-playlist') {
     var selectedPlaylist = musicLibrarySelectedPlaylist();
@@ -582,6 +726,7 @@ function handleMusicLibraryInput(event) {
   if (event.target.id !== 'music-library-search') return;
   musicLibraryWorkspaceState.query = event.target.value;
   musicLibraryWorkspaceState.visible = MUSIC_LIBRARY_BATCH_SIZE;
+  musicLibraryWorkspaceState.historyVisible = MUSIC_LIBRARY_BATCH_SIZE;
   var selectionStart = event.target.selectionStart;
   renderMusicLibraryWorkspace('search');
   requestAnimationFrame(function () {
@@ -593,6 +738,18 @@ function handleMusicLibraryInput(event) {
 }
 
 function handleMusicLibraryChange(event) {
+  if (event.target.id === 'music-library-history-range') {
+    musicLibraryWorkspaceState.historyRange = event.target.value || 'all';
+    musicLibraryWorkspaceState.historyVisible = MUSIC_LIBRARY_BATCH_SIZE;
+    renderMusicLibraryWorkspace('history-range');
+    return;
+  }
+  if (event.target.id === 'music-library-history-provider') {
+    musicLibraryWorkspaceState.historyProvider = event.target.value || 'all';
+    musicLibraryWorkspaceState.historyVisible = MUSIC_LIBRARY_BATCH_SIZE;
+    renderMusicLibraryWorkspace('history-provider');
+    return;
+  }
   if (event.target.id === 'music-library-folder') {
     musicLibraryWorkspaceState.folder = event.target.value || 'all';
     musicLibraryWorkspaceState.visible = MUSIC_LIBRARY_BATCH_SIZE;
@@ -619,6 +776,9 @@ function handleMusicLibraryScroll(event) {
       musicLibraryWorkspaceState.playlistVisible += MUSIC_LIBRARY_BATCH_SIZE;
       renderMusicLibraryWorkspace('scroll-more-playlist');
     }
+  } else if (musicLibraryWorkspaceState.tab === 'history' && musicLibraryWorkspaceState.historyVisible < musicLibraryHistoryEntries().length) {
+    musicLibraryWorkspaceState.historyVisible += MUSIC_LIBRARY_BATCH_SIZE;
+    renderMusicLibraryWorkspace('scroll-more-history');
   }
 }
 

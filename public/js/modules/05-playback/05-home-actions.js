@@ -1,6 +1,6 @@
 function songFromListenRecord(record) {
   if (!record) return null;
-  var provider = record.sourceKey || '';
+  var provider = record.sourceKey || record.provider || '';
   if (!provider && record.type === 'qq') provider = 'qq';
   if (!provider) provider = record.mid ? 'qq' : 'netease';
   return {
@@ -11,10 +11,55 @@ function songFromListenRecord(record) {
     mid: record.mid || '',
     songmid: record.mid || '',
     mediaMid: record.mediaMid || '',
+    hash: record.hash || '',
+    mixSongId: record.mixSongId || '',
+    albumId: record.albumId || '',
+    providerSongId: record.providerSongId || '',
+    spotifyId: record.spotifyId || '',
+    spotifyUri: record.uri || '',
+    additionalSourceCode: record.additionalSourceCode || '',
+    localFileId: record.localFileId || '',
+    localKey: record.localKey || '',
     name: record.name || '继续听',
     artist: record.artist || '',
+    album: record.album || '',
     cover: record.cover || '',
+    duration: record.durationSec || 0,
   };
+}
+function listenHistorySong(record) {
+  if (!record) return null;
+  if (record.localFileId || record.localKey || record.sourceKey === 'local') {
+    var localId = String(record.localFileId || record.localKey || '').replace(/^local:/, '');
+    var local = (persistentLocalLibraryTracks || []).filter(function (song) {
+      return String(song.localFileId || song.localKey || '').replace(/^local:/, '') === localId;
+    })[0];
+    if (local) return cloneSong(local);
+    return null;
+  }
+  return songFromListenRecord(record);
+}
+async function playListenHistoryRecord(record, options) {
+  options = options || {};
+  var song = listenHistorySong(record);
+  if (!song && record && (record.localFileId || record.localKey || record.sourceKey === 'local')) {
+    showToast('本地文件已失效，请重新导入后继续');
+    return false;
+  }
+  if (!song || (!song.id && !song.mid && !song.hash && !song.spotifyId && !song.providerSongId && !song.localUrl)) {
+    runHomeSearch(record && record.name || '');
+    return false;
+  }
+  activeRadioContext = null;
+  var targetKey = queueItemKey(song);
+  var index = -1;
+  for (var i = 0; i < playQueue.length; i++) if (queueItemKey(playQueue[i]) === targetKey) { index = i; break; }
+  if (index < 0) { playQueue.push(cloneSong(song)); index = playQueue.length - 1; }
+  safeRenderQueuePanel('listen-history-play');
+  safeShelfRebuild('listen-history-play', true);
+  forcePlaybackControlsInteractive();
+  var resumeAt = options.restart ? 0 : Math.max(0, Number(record && record.resumeAt) || 0);
+  return playQueueAt(index, { manual: true, resumeAt: resumeAt });
 }
 async function playHomeRecent(record) {
   record = record || homeListenSummary().recent;
@@ -22,18 +67,7 @@ async function playHomeRecent(record) {
     showToast('还没有听歌记录');
     return;
   }
-  var song = songFromListenRecord(record);
-  if (!song || (!song.id && !song.mid)) {
-    runHomeSearch(record.name || '');
-    return;
-  }
-  activeRadioContext = null;
-  playQueue = [cloneSong(song)];
-  currentIdx = 0;
-  safeRenderQueuePanel('home-recent-song');
-  safeShelfRebuild('home-recent-song', true);
-  forcePlaybackControlsInteractive();
-  await playQueueAt(0);
+  return playListenHistoryRecord(record);
 }
 function openHomeInsight() {
   var summary = homeListenSummary();
