@@ -37,6 +37,7 @@ function listeningEffectsClamp(value, min, max) {
 function listeningEffectsDefaultState() {
   return {
     enabled: false,
+    preampDb: 0,
     preset: 'flat',
     gains: LISTENING_EFFECTS_PRESETS.flat.slice(),
     ambience: 'off',
@@ -47,7 +48,11 @@ function listeningEffectsDefaultState() {
 }
 
 function listeningEffectsHasProcessing(state) {
-  return state.preset !== 'flat' || state.ambience !== 'off' || Math.abs(state.width - 1) > 0.001;
+  var gains = Array.isArray(state.gains) ? state.gains : [];
+  return Math.abs(Number(state.preampDb) || 0) > 0.001
+    || gains.some(function (gain) { return Math.abs(Number(gain) || 0) > 0.001; })
+    || (state.ambience !== 'off' && Math.abs(Number(state.ambienceAmount) || 0) > 0.001)
+    || Math.abs(state.width - 1) > 0.001;
 }
 
 function normalizeListeningEffectsState(raw) {
@@ -66,9 +71,11 @@ function normalizeListeningEffectsState(raw) {
   var rawWidth = raw.width == null ? 1 : Number(raw.width);
   if (!isFinite(rawWidth)) rawWidth = 1;
   var width = Math.round(listeningEffectsClamp(rawWidth, 0.7, 1.4) * 100) / 100;
-  var normalized = { preset: preset, ambience: ambience, width: width };
+  var preampDb = Math.round(listeningEffectsClamp(raw.preampDb == null ? 0 : raw.preampDb, -12, 6) * 10) / 10;
+  var normalized = { preampDb: preampDb, gains: gains, ambience: ambience, ambienceAmount: ambienceAmount, width: width };
   return {
     enabled: raw.enabled === true && listeningEffectsHasProcessing(normalized),
+    preampDb: preampDb,
     preset: preset,
     gains: gains,
     ambience: ambience,
@@ -198,6 +205,7 @@ function createListeningEffectsGraph(context) {
     var graph = {
       context: context,
       input: context.createGain(),
+      preamp: context.createGain(),
       filters: [],
       dry: null,
       convolver: null,
@@ -211,7 +219,8 @@ function createListeningEffectsGraph(context) {
       output: null,
       ambienceSignature: ''
     };
-    var current = graph.input;
+    graph.input.connect(graph.preamp);
+    var current = graph.preamp;
     LISTENING_EFFECTS_BANDS.forEach(function (band) {
       var filter = context.createBiquadFilter();
       filter.type = 'peaking';
@@ -255,7 +264,7 @@ function createListeningEffectsGraph(context) {
 
 function disconnectListeningEffectsGraph(graph) {
   if (!graph) return;
-  [graph.input]
+  [graph.input, graph.preamp]
     .concat(graph.filters || [])
     .concat([graph.dry, graph.convolver, graph.wet, graph.ambienceMix, graph.widthInput, graph.splitter, graph.merger])
     .concat(graph.widthGains || [])
@@ -269,6 +278,10 @@ function disconnectListeningEffectsGraph(graph) {
 function applyListeningEffectsToGraph(graph, immediate) {
   if (!graph || !graph.context) return false;
   var state = normalizeListeningEffectsState(listeningEffectsState);
+  if (graph.preamp && graph.preamp.gain) {
+    var preampLinear = state.enabled ? Math.pow(10, state.preampDb / 20) : 1;
+    listeningEffectsSetParam(graph.preamp.gain, preampLinear, graph.context, immediate);
+  }
   (graph.filters || []).forEach(function (filter, index) {
     var gain = state.enabled ? state.gains[index] : 0;
     if (filter.gain) listeningEffectsSetParam(filter.gain, state.enabled ? gain : 0, graph.context, immediate);
@@ -320,6 +333,7 @@ function listeningEffectsStatusText() {
   if (!listeningEffectsGraphSupported()) return '当前音频回退为直出';
   if (!listeningEffectsState.enabled) return '原声直出';
   var parts = ['已应用'];
+  if (Math.abs(listeningEffectsState.preampDb) > 0.001) parts.push('前级 ' + (listeningEffectsState.preampDb > 0 ? '+' : '') + listeningEffectsState.preampDb + ' dB');
   if (listeningEffectsState.ambience !== 'off') parts.push(LISTENING_AMBIENCE_PRESETS[listeningEffectsState.ambience].label);
   if (Math.abs(listeningEffectsState.width - 1) > 0.001) parts.push(Math.round(listeningEffectsState.width * 100) + '% 宽度');
   return parts.join(' · ');
@@ -351,6 +365,15 @@ function updateListeningEffectsControls() {
     var active = button.getAttribute('data-listening-preset') === listeningEffectsState.preset;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  document.querySelectorAll('[data-listening-preamp]').forEach(function (input) {
+    input.value = listeningEffectsState.preampDb;
+    updateListeningRangeVisual(input, 0);
+    var output = input.parentElement && input.parentElement.querySelector('output');
+    if (output) {
+      var value = Number(listeningEffectsState.preampDb) || 0;
+      output.textContent = (value > 0 ? '+' : '') + value.toFixed(1).replace('.0', '') + ' dB';
+    }
   });
   LISTENING_EFFECTS_BANDS.forEach(function (band, index) {
     document.querySelectorAll('[data-listening-band-index="' + index + '"]').forEach(function (input) {
@@ -393,14 +416,14 @@ function updateListeningEffectsControls() {
 }
 
 function toggleListeningEffects() {
-  listeningEffectsState.enabled = !listeningEffectsState.enabled;
-  if (listeningEffectsState.enabled && listeningEffectsState.preset === 'flat' && listeningEffectsState.ambience === 'off' && Math.abs(listeningEffectsState.width - 1) < 0.001) {
-    listeningEffectsState.preset = 'custom';
-  }
+  var requestedEnabled = !listeningEffectsState.enabled;
+  listeningEffectsState.enabled = requestedEnabled && listeningEffectsHasProcessing(listeningEffectsState);
   saveListeningEffectsState();
   applyListeningEffectsToPlaybackGraphs(false);
   updateListeningEffectsControls();
-  if (typeof showToast === 'function') showToast(listeningEffectsState.enabled ? '听感调节已开启' : '已恢复原声');
+  if (typeof showToast === 'function') {
+    showToast(listeningEffectsState.enabled ? '听感调节已开启' : (requestedEnabled ? '当前参数为原声' : '已恢复原声'));
+  }
 }
 
 function setListeningEffectsPreset(preset) {
@@ -408,7 +431,7 @@ function setListeningEffectsPreset(preset) {
   if (preset !== 'custom' && !Object.prototype.hasOwnProperty.call(LISTENING_EFFECTS_PRESETS, preset)) return;
   listeningEffectsState.preset = preset;
   if (preset !== 'custom') listeningEffectsState.gains = LISTENING_EFFECTS_PRESETS[preset].slice();
-  listeningEffectsState.enabled = preset !== 'flat' || listeningEffectsState.ambience !== 'off' || Math.abs(listeningEffectsState.width - 1) > 0.001;
+  listeningEffectsState.enabled = listeningEffectsHasProcessing(listeningEffectsState);
   saveListeningEffectsState();
   applyListeningEffectsToPlaybackGraphs(false);
   updateListeningEffectsControls();
@@ -419,7 +442,15 @@ function updateListeningEffectGain(index, value) {
   if (!LISTENING_EFFECTS_BANDS[index]) return;
   listeningEffectsState.gains[index] = Math.round(listeningEffectsClamp(value, -9, 9) * 10) / 10;
   listeningEffectsState.preset = 'custom';
-  listeningEffectsState.enabled = true;
+  listeningEffectsState.enabled = listeningEffectsHasProcessing(listeningEffectsState);
+  saveListeningEffectsState();
+  applyListeningEffectsToPlaybackGraphs(false);
+  updateListeningEffectsControls();
+}
+
+function updateListeningPreamp(value) {
+  listeningEffectsState.preampDb = Math.round(listeningEffectsClamp(value, -12, 6) * 10) / 10;
+  listeningEffectsState.enabled = listeningEffectsHasProcessing(listeningEffectsState);
   saveListeningEffectsState();
   applyListeningEffectsToPlaybackGraphs(false);
   updateListeningEffectsControls();
@@ -429,7 +460,7 @@ function setListeningAmbience(ambience) {
   ambience = Object.prototype.hasOwnProperty.call(LISTENING_AMBIENCE_PRESETS, ambience) ? ambience : 'off';
   listeningEffectsState.ambience = ambience;
   listeningEffectsState.ambienceAmount = LISTENING_AMBIENCE_PRESETS[ambience].amount;
-  listeningEffectsState.enabled = ambience !== 'off' || listeningEffectsState.preset !== 'flat' || Math.abs(listeningEffectsState.width - 1) > 0.001;
+  listeningEffectsState.enabled = listeningEffectsHasProcessing(listeningEffectsState);
   saveListeningEffectsState();
   applyListeningEffectsToPlaybackGraphs(false);
   updateListeningEffectsControls();
@@ -439,7 +470,7 @@ function setListeningAmbience(ambience) {
 function updateListeningAmbienceAmount(value) {
   listeningEffectsState.ambienceAmount = Math.round(listeningEffectsClamp(value, 0, 0.3) * 100) / 100;
   if (listeningEffectsState.ambienceAmount > 0 && listeningEffectsState.ambience === 'off') listeningEffectsState.ambience = 'studio';
-  if (listeningEffectsState.ambienceAmount > 0) listeningEffectsState.enabled = true;
+  listeningEffectsState.enabled = listeningEffectsHasProcessing(listeningEffectsState);
   saveListeningEffectsState();
   applyListeningEffectsToPlaybackGraphs(false);
   updateListeningEffectsControls();
@@ -476,6 +507,11 @@ function bindListeningEffectsControls() {
     if (button.__listeningEffectsBound) return;
     button.__listeningEffectsBound = true;
     button.addEventListener('click', function () { setListeningEffectsPreset(button.getAttribute('data-listening-preset')); });
+  });
+  document.querySelectorAll('[data-listening-preamp]').forEach(function (input) {
+    if (input.__listeningEffectsBound) return;
+    input.__listeningEffectsBound = true;
+    input.addEventListener('input', function () { updateListeningPreamp(input.value); });
   });
   LISTENING_EFFECTS_BANDS.forEach(function (band, index) {
     document.querySelectorAll('[data-listening-band-index="' + index + '"]').forEach(function (input) {

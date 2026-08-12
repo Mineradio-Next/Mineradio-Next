@@ -67,6 +67,7 @@ test('rejects credential-shaped keys and classifies only explicit allowlist entr
   assert.equal(backup.isSensitiveKey('mineradio-additional-source-script-v1'), true);
   assert.equal(backup.isSensitiveKey('mineradio-source-config-v2'), true);
   assert.equal(backup.categoryForKey('mineradio-current-fx-autosave-v1'), 'visual');
+  assert.equal(backup.categoryForKey('mineradio-player-spectrum-v1'), 'preferences');
   assert.equal(backup.categoryForKey('mineradio-search-history'), '');
 
   const result = backup.validate({

@@ -392,6 +392,7 @@ function positionOpenPlayerNestedTools() {
   if (fullscreen) original.appendChild(fullscreen);
 
   [
+    ['player-spectrum-toggle', '播放频谱'],
     ['cuefield-automix-btn', '智能衔接'],
     ['listening-effects-control', '听感调节'],
     ['sleep-timer-control', '定时停播']
