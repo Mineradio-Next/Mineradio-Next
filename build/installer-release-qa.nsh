@@ -1,0 +1,10 @@
+!define MINERADIO_INSTALL_DIR_NAME "Mineradio-Next-Release-QA"
+!define MINERADIO_INSTALL_DIR_NAME_LOWER "mineradio-next-release-qa"
+!define MINERADIO_LEGACY_INSTALL_DIR_NAME "Mineradio-Next-Release-QA"
+!define MINERADIO_LEGACY_INSTALL_DIR_NAME_LOWER "mineradio-next-release-qa"
+!define MINERADIO_INSTALL_MARKER ".mineradio-next-release-qa-root"
+!define MINERADIO_MARKER_APP_ID "com.mineradio.next.release-qa"
+!define MINERADIO_INSTALL_BRAND "MINERADIO NEXT QA"
+!define MINERADIO_INSTALL_TITLE "Mineradio Next Release QA"
+
+!include "${BUILD_RESOURCES_DIR}\installer.nsh"

@@ -1,7 +1,7 @@
 {
   "name": "mineradio",
   "productName": "Mineradio Next",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Windows 沉浸式音乐播放器，融合桌面模式、歌词舞台、粒子视觉和 3D 歌单架。",
   "author": "Mineradio-Next",
   "license": "GPL-3.0-only",
@@ -20,6 +20,8 @@
     "release:checksums": "node scripts/create-release-checksums.js",
     "qa:update-ui": "node scripts/check-update-ui-live.js",
     "qa:update-ui:review": "node scripts/check-update-ui-live.js --review",
+    "qa:release": "node scripts/check-windows-release-regression.js",
+    "qa:release:no-build": "node scripts/check-windows-release-regression.js --no-build",
     "build:win": "electron-builder --win nsis --publish never",
     "build:win:dir": "electron-builder --win dir",
     "build:win:internal-beta": "electron-builder --config electron-builder.internal-beta.json --win nsis --publish never"

@@ -12,6 +12,15 @@ const SESSION_MS = 8 * 60 * 60 * 1000;
 const MAX_BODY_BYTES = 4096;
 const MAX_ARTWORK_BYTES = 5 * 1024 * 1024;
 const COMMAND_TYPES = new Set(['play', 'pause', 'previous', 'next', 'volume']);
+// Chromium rejects these ports before issuing an HTTP request. Since the LAN
+// remote uses an OS-assigned port, discard an unsafe assignment and bind again.
+const BROWSER_BLOCKED_PORTS = new Set([
+  1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79,
+  87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137,
+  139, 143, 161, 179, 389, 427, 465, 512, 513, 514, 515, 526, 530, 531, 532, 540,
+  548, 554, 556, 563, 587, 601, 636, 989, 990, 993, 995, 1719, 1720, 1723, 2049,
+  3659, 4045, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669, 6697, 10080,
+]);
 const STATIC_FILES = Object.freeze({
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/remote.css': ['remote.css', 'text/css; charset=utf-8'],
@@ -72,6 +81,11 @@ function normalizeCommand(input) {
   const value = Number(input.value);
   if (!Number.isFinite(value) || value < 0 || value > 1) return null;
   return { type, value: Math.round(value * 1000) / 1000 };
+}
+
+function isBrowserSafePort(value) {
+  const port = Number(value);
+  return Number.isInteger(port) && port >= 1024 && port <= 65535 && !BROWSER_BLOCKED_PORTS.has(port);
 }
 
 function isUsableLanAddress(address) {
@@ -401,10 +415,28 @@ function createLanRemoteServer(options = {}) {
       server = http.createServer((request, response) => {
         handleRequest(request, response).catch(() => sendJson(response, 500, { ok: false, error: 'REMOTE_SERVER_FAILED' }));
       });
-      await new Promise((resolve, reject) => {
-        server.once('error', reject);
-        server.listen(0, '0.0.0.0', resolve);
-      });
+      let safePort = false;
+      for (let attempt = 0; attempt < 16; attempt += 1) {
+        await new Promise((resolve, reject) => {
+          const onError = (error) => {
+            server.off('listening', onListening);
+            reject(error);
+          };
+          const onListening = () => {
+            server.off('error', onError);
+            resolve();
+          };
+          server.once('error', onError);
+          server.once('listening', onListening);
+          server.listen(0, '0.0.0.0');
+        });
+        if (isBrowserSafePort(server.address().port)) {
+          safePort = true;
+          break;
+        }
+        await new Promise((resolve) => server.close(resolve));
+      }
+      if (!safePort) throw new Error('REMOTE_NO_BROWSER_SAFE_PORT');
       const current = status();
       qrDataUrl = await QRCode.toDataURL(current.primaryUrl, { width: 360, margin: 1, color: { dark: '#07110f', light: '#f3f7f5' } });
       current.qrDataUrl = qrDataUrl;
@@ -455,6 +487,7 @@ function createLanRemoteServer(options = {}) {
 module.exports = {
   COMMAND_TYPES,
   createLanRemoteServer,
+  isBrowserSafePort,
   isPrivateAddress,
   listLanAddresses,
   normalizeCommand,

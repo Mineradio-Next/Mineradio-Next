@@ -5,6 +5,7 @@ const test = require('node:test');
 
 const {
   createLanRemoteServer,
+  isBrowserSafePort,
   listLanAddresses,
   normalizeCommand,
   sanitizeRemoteState,
@@ -72,6 +73,14 @@ test('LAN address discovery excludes loopback and link-local interfaces', () => 
   assert.deepEqual(addresses, ['10.0.0.8', '192.168.1.25', '172.28.128.1']);
 });
 
+test('LAN remote ports stay usable in Chromium browsers', () => {
+  assert.equal(isBrowserSafePort(5060), false);
+  assert.equal(isBrowserSafePort(6000), false);
+  assert.equal(isBrowserSafePort(10080), false);
+  assert.equal(isBrowserSafePort(8080), true);
+  assert.equal(isBrowserSafePort(0), false);
+});
+
 test('remote server requires token and forwards only valid commands', async (t) => {
   const commands = [];
   const remote = createLanRemoteServer({
@@ -92,6 +101,7 @@ test('remote server requires token and forwards only valid commands', async (t) 
   const status = await remote.start();
   const token = tokenFromStatus(status);
   assert.equal(status.enabled, true);
+  assert.equal(isBrowserSafePort(status.port), true);
   assert.match(status.qrDataUrl, /^data:image\/png;base64,/);
   assert.equal(token.length, 64);
 

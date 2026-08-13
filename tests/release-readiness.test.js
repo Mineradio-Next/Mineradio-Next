@@ -16,7 +16,7 @@ test('release metadata consistently targets Mineradio Next', () => {
   const installer = read('build/installer.nsh');
   const checksums = read('scripts/create-release-checksums.js');
 
-  assert.equal(packageInfo.version, '2.2.0');
+  assert.equal(packageInfo.version, '2.2.1');
   assert.equal(lockInfo.version, packageInfo.version);
   assert.equal(lockInfo.packages[''].version, packageInfo.version);
   assert.equal(packageInfo.productName, 'Mineradio Next');
@@ -32,8 +32,8 @@ test('release metadata consistently targets Mineradio Next', () => {
   assert.equal(packageInfo.build.win.signAndEditExecutable, undefined);
   assert.equal(packageInfo.mineradio.update.owner, 'Mineradio-Next');
   assert.equal(packageInfo.mineradio.update.repo, 'Mineradio-Next');
-  assert.match(html, /id="update-modal-version"[^>]*>2\.2\.0<\/div>/);
-  assert.match(state, /currentVersion:\s*'2\.2\.0'/);
+  assert.match(html, /id="update-modal-version"[^>]*>2\.2\.1<\/div>/);
+  assert.match(state, /currentVersion:\s*'2\.2\.1'/);
   assert.match(installer, /MINERADIO_INSTALL_TITLE "Mineradio Next 安装"/);
   assert.match(checksums, /Mineradio-Next-\$\{version\}-Setup\.exe/);
   assert.match(checksums, /'latest\.yml'/);
@@ -45,6 +45,7 @@ test('repository exposes guarded CI and public release workflows', () => {
   const release = read('.github/workflows/release.yml');
   const readme = read('README.md');
   const releaseTemplate = read('.github/RELEASE_TEMPLATE.md');
+  const releaseChecklist = read('docs/RELEASE_CHECKLIST.md');
 
   assert.match(ci, /npm ci/);
   assert.match(ci, /npm test/);
@@ -57,17 +58,22 @@ test('repository exposes guarded CI and public release workflows', () => {
   assert.match(release, /npm run release:verify -- --artifacts/);
   assert.match(release, /npm run release:checksums/);
   assert.match(release, /npm run check:ci/);
+  assert.match(release, /npm run qa:release/);
   assert.match(release, /RELEASE_NOTES_v\$packageVersion\.md/);
   assert.match(releaseTemplate, /mineradio-update-summary:start/);
   assert.match(releaseTemplate, /mineradio-update-highlights:start/);
   assert.match(readme, /github\.com\/Mineradio-Next\/Mineradio-Next\/releases/);
   assert.doesNotMatch(readme, /github\.com\/XxHuberrr\/Mineradio\/releases/);
+  assert.match(releaseChecklist, /npm run qa:release/);
+  assert.match(releaseChecklist, /reports\/release-qa\/latest\.json/);
 });
 
 test('installer and README preserve the Mineradio Next release experience', () => {
   const packageInfo = JSON.parse(read('package.json'));
   const installer = read('build/installer.nsh');
   const installerShell = read('build/installer-shell.ps1');
+  const releaseQaInstaller = read('build/installer-release-qa.nsh');
+  const releaseQa = read('scripts/check-windows-release-regression.js');
   const readme = read('README.md');
 
   assert.equal(packageInfo.build.nsis.createDesktopShortcut, 'always');
@@ -116,6 +122,16 @@ test('installer and README preserve the Mineradio Next release experience', () =
   assert.doesNotMatch(installerShell, /2\.2\.0/);
   assert.doesNotMatch(installerShell, /2\.2\.0|WINDOWS DESKTOP PLAYER|DESKTOP EDITION|正在部署播放器文件/);
   assert.doesNotMatch(installer, /MineradioHasPreferredInstallDrive/);
+  assert.equal(packageInfo.scripts['qa:release'], 'node scripts/check-windows-release-regression.js');
+  assert.equal(packageInfo.scripts['qa:release:no-build'], 'node scripts/check-windows-release-regression.js --no-build');
+  assert.match(releaseQaInstaller, /MINERADIO_MARKER_APP_ID "com\.mineradio\.next\.release-qa"/);
+  assert.match(releaseQaInstaller, /MINERADIO_INSTALL_DIR_NAME "Mineradio-Next-Release-QA"/);
+  assert.match(releaseQa, /fresh install/);
+  assert.match(releaseQa, /in-place upgrade/);
+  assert.match(releaseQa, /user data survives in-place upgrade/);
+  assert.match(releaseQa, /uninstall removes app and preserves user data/);
+  assert.match(releaseQa, /formal Mineradio Next installation untouched/);
+  assert.match(releaseQa, /MINERADIO_STARTUP_QA_HIDDEN/);
   assert.match(readme, /docs\/assets\/readme\/mineradio-next-overview\.png/);
   assert.match(readme, /docs\/assets\/readme\/mineradio-next-listening\.png/);
   assert.doesNotMatch(readme, /cinema-beat-smoke\.png/);
