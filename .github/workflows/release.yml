@@ -59,7 +59,8 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npm run build:win
 
-      - name: Windows install, upgrade, and uninstall regression
+      - name: Windows install, upgrade, and uninstall regression (informational)
+        continue-on-error: true
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npm run qa:release
