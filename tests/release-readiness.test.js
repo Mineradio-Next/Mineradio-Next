@@ -128,6 +128,8 @@ test('the production package keeps application files inside one asar archive', (
 
   assert.equal(packageInfo.build.asar, true);
   assert.equal(packageInfo.build.asarUnpack, undefined);
+  assert.equal(packageInfo.dependencies.gsap, undefined);
+  assert.match(read('public/index.html'), /src="vendor\/gsap\.min\.js"/);
   assert.match(installer, /IfFileExists "\$2\\resources\\app\.asar" adopt 0/);
   assert.doesNotMatch(packageInfo.build.files.join('\n'), /node_modules\/electron|node_modules\/electron-builder/);
 });
