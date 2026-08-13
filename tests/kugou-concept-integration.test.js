@@ -30,6 +30,10 @@ test('酷狗概念版登录 UI 不复用普通酷狗 busy 状态', () => {
   assert.match(flow, /timeoutMs: 12000/);
   assert.match(flow, /Cookie 导入/);
   assert.match(flow, /setManualCookieOpenForProvider\('kugouConcept', true\)/);
+  assert.match(flow, /concept-qr-ready/);
+  assert.doesNotMatch(flow, /var useWebPreview = isQQ \|\| isKugou \|\| isKugouConcept/);
+  const css = read('public/css/index.css');
+  assert.match(css, /\.qr-shell\.concept-qr-provider\.concept-qr-ready/);
   assert.match(logout, /\/api\/kugou-concept\/logout/);
 });
 

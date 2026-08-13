@@ -817,10 +817,13 @@ function updateLoginProviderUi() {
   }
   var manualCookieOpen = isManualCookieOpenForProvider(loginProvider);
   if (shell) {
-    var useWebPreview = isQQ || isKugou || isKugouConcept || (isNetease && (canOpenNeteaseWeb || manualCookieOpen));
+    var conceptQrReady = isKugouConcept && !!qrKey && !!(document.getElementById('qr-img') && document.getElementById('qr-img').getAttribute('src'));
+    var useWebPreview = isQQ || isKugou || (isNetease && (canOpenNeteaseWeb || manualCookieOpen));
     shell.classList.toggle('web-login-preview', useWebPreview);
     shell.classList.toggle('qq-preview', isQQ);
     shell.classList.toggle('netease-preview', isNetease && canOpenNeteaseWeb);
+    shell.classList.toggle('concept-qr-provider', isKugouConcept);
+    shell.classList.toggle('concept-qr-ready', conceptQrReady);
   }
   if (qqPanel) qqPanel.classList.toggle('show', isManualCookieProvider && manualCookieOpen);
   if (qqCookieToggle) {
@@ -972,6 +975,7 @@ async function refreshQr() {
     var conceptStatus = document.getElementById('qr-status');
     var conceptImg = document.getElementById('qr-img');
     if (conceptImg) conceptImg.src = '';
+    updateLoginProviderUi();
     if (conceptStatus) { conceptStatus.textContent = kugouConceptLoginStatus.loggedIn ? ('已保存酷狗概念版会话 · ' + (kugouConceptLoginStatus.nickname || '')) : '点击“扫码登录”生成二维码'; conceptStatus.className = 'preview'; }
     return;
   }
@@ -1368,6 +1372,7 @@ async function openKugouConceptQrLogin() {
     if (!qr || !qr.key || !qr.img) throw new Error((qr && (qr.message || qr.error)) || '概念版二维码生成失败');
     qrKey = qr.key;
     if (img) { img.src = qr.img; img.alt = '酷狗概念版登录二维码'; }
+    updateLoginProviderUi();
     if (statusEl) { statusEl.textContent = '请使用酷狗概念版 App 扫码并确认'; statusEl.className = ''; }
     startQrPoll();
   } catch (e) {

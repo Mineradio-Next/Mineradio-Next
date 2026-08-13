@@ -10109,6 +10109,25 @@ body.login-guide-active #login-guide-canvas {
   display: none
 }
 
+.qr-shell.concept-qr-provider .qq-login-mark {
+  display: flex
+}
+
+.qr-shell.concept-qr-provider:not(.concept-qr-ready) #qr-img {
+  display: none
+}
+
+.qr-shell.concept-qr-provider.concept-qr-ready .qq-login-mark {
+  display: none
+}
+
+.qr-shell.concept-qr-provider.concept-qr-ready {
+  padding: 14px;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid rgba(191, 214, 107, .26);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .32), inset 0 1px 0 rgba(255, 255, 255, .08)
+}
+
 .qq-login-mark {
   display: none;
   width: 100%;
