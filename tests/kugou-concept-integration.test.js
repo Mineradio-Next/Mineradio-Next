@@ -45,6 +45,23 @@ test('酷狗概念版登录 UI 不复用普通酷狗 busy 状态', () => {
   assert.match(logout, /\/api\/kugou-concept\/logout/);
 });
 
+test('已登录账号使用独立身份轨道并且普通会员不重复显示', () => {
+  const account = read('public/js/modules/08-account/01-login-modal-utils.js');
+  const flow = read('public/js/modules/08-account/03-login-modal-flows.js');
+  const css = read('public/css/index.css');
+  assert.match(account, /providerVipBadge\(provider, st, '', false\)/);
+  assert.match(account, /top-account-pill[\s\S]{0,180}has-membership/);
+  assert.match(account, /title="' \+ identity \+ '"/);
+  assert.match(flow, /login-provider-copy/);
+  assert.match(flow, /login-provider-account-name/);
+  assert.match(flow, /level === 'vip' \? 'VIP' : ''/);
+  assert.match(flow, /ordinaryLogin[\s\S]{0,260}status-dot/);
+  assert.match(flow, /accountName\.title = showIdentity \? identity : ''/);
+  assert.match(css, /\.login-provider-copy\s*\{[\s\S]{0,260}overflow:\s*hidden/);
+  assert.match(css, /\.login-provider-account-name\s*\{[\s\S]{0,260}text-overflow:\s*ellipsis/);
+  assert.match(css, /\.login-provider-state-badge\.status-dot\s*\{[\s\S]{0,220}border-radius:\s*50%/);
+});
+
 test('酷狗概念版二维码失败时返回可操作的导入提示', () => {
   const server = read('server.js');
   assert.match(server, /酷狗概念版二维码暂时不可用，请使用 Cookie 导入/);

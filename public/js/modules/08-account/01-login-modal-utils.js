@@ -387,10 +387,11 @@ function renderTopAccountPill(provider, opts) {
   var meta = platformMeta(provider);
   st = st || {};
   var displayName = loggedIn ? ((provider === 'qq' && st.preview) ? '待接入' : providerAccountIdentity(provider, st)) : meta.label;
-  var vipTag = providerVipBadge(provider, st, '', true);
-  return '<span class="top-account-pill ' + (loggedIn ? 'online' : 'offline') + '" data-account-provider="' + escHtml(provider) + '">' +
-    '<img src="' + providerAvatarSrc(provider, st) + '" alt="">' +
-    '<span class="top-account-name">' + escHtml(displayName) + '</span>' +
+  var vipTag = providerVipBadge(provider, st, '', false);
+  var identity = escHtml(displayName);
+  return '<span class="top-account-pill ' + (loggedIn ? 'online' : 'offline') + (vipTag ? ' has-membership' : '') + '" data-account-provider="' + escHtml(provider) + '" title="' + identity + '" aria-label="' + identity + '">' +
+    '<img src="' + providerAvatarSrc(provider, st) + '" alt="' + escHtml(meta.label) + '">' +
+    '<span class="top-account-name">' + identity + '</span>' +
     vipTag +
     '</span>';
 }

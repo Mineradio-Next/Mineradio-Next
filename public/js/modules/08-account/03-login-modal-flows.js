@@ -284,7 +284,7 @@ function loginProviderVipLabel(provider, status) {
   if (!status || !status.loggedIn) return '';
   if (provider === 'qq' && ((typeof qqLoginNeedsAuthorizationRefresh === 'function' && qqLoginNeedsAuthorizationRefresh(status)) || (typeof qqMembershipNeedsSync === 'function' && qqMembershipNeedsSync(status)))) return '待刷新';
   var level = providerVipLevel(provider, status);
-  return level === 'svip' ? 'SVIP' : (level === 'vip' ? 'VIP' : '已登录');
+  return level === 'svip' ? 'SVIP' : (level === 'vip' ? 'VIP' : '');
 }
 function handleLoginProviderExternalSwitchEvent(e, provider) {
   if (e) {
@@ -319,6 +319,30 @@ function updateLoginProviderCapsuleStatus(provider, btn) {
       logo.textContent = meta.short;
     }
   }
+  var primaryLabel = btn.querySelector(':scope > b') || btn.querySelector('.login-provider-copy > b');
+  var secondaryLabel = btn.querySelector(':scope > small') || btn.querySelector('.login-provider-copy > small');
+  var copy = btn.querySelector('.login-provider-copy');
+  if (!copy) {
+    copy = document.createElement('span');
+    copy.className = 'login-provider-copy';
+    if (primaryLabel) copy.appendChild(primaryLabel);
+    if (secondaryLabel) copy.appendChild(secondaryLabel);
+    if (logo && logo.nextSibling) btn.insertBefore(copy, logo.nextSibling);
+    else btn.appendChild(copy);
+  }
+  if (primaryLabel) primaryLabel.textContent = meta.label;
+  var accountName = copy.querySelector('.login-provider-account-name');
+  if (!accountName) {
+    accountName = document.createElement('span');
+    accountName.className = 'login-provider-account-name';
+    copy.appendChild(accountName);
+  }
+  var identity = st.loggedIn ? providerAccountIdentity(provider, st) : '';
+  var showIdentity = !!identity && identity !== meta.label;
+  accountName.textContent = showIdentity ? identity : '';
+  accountName.title = showIdentity ? identity : '';
+  accountName.classList.toggle('hidden', !showIdentity);
+  btn.title = showIdentity ? (meta.label + ' - ' + identity) : meta.label;
   var badge = btn.querySelector('.login-provider-state-badge');
   if (!badge) {
     badge = document.createElement('span');
@@ -356,9 +380,12 @@ function updateLoginProviderCapsuleStatus(provider, btn) {
   externalSwitch.title = isAccountProviderExternallyVisible(provider) ? '已在右上角展示，点击关闭' : '未在右上角展示，点击开启';
   var label = loginProviderVipLabel(provider, st);
   var level = providerVipLevel(provider, st);
-  badge.textContent = label;
+  var ordinaryLogin = st.loggedIn && level === 'none' && !label;
+  badge.textContent = ordinaryLogin ? '' : label;
+  badge.setAttribute('aria-label', ordinaryLogin ? '已登录' : label);
+  badge.title = ordinaryLogin ? '已登录' : label;
   var pending = provider === 'qq' && label === '待刷新';
-  badge.className = 'login-provider-state-badge ' + (st.loggedIn ? (pending ? 'pending' : (level === 'none' ? 'connected' : level)) : 'hidden');
+  badge.className = 'login-provider-state-badge ' + (st.loggedIn ? (pending ? 'pending' : (level === 'none' ? 'connected status-dot' : level)) : 'hidden');
 }
 function bindLoginWorkflowPointerEvents() {
   var graph = document.getElementById('login-node-graph');
