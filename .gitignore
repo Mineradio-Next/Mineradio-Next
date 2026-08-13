@@ -19,6 +19,7 @@ win-unpacked/
 .cookie
 .qq-cookie
 .kugou-cookie
+.kugou-concept-cookie
 .kugou-vip-evidence.json
 .qishui-cookie
 .qishui-token

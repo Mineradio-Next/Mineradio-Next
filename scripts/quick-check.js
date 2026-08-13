@@ -1871,8 +1871,9 @@ function checkPlaybackControlBadgesGuard() {
     /account-pill-stack/.test(loginStatusText) &&
     /#top-right\.account-pill-stack[\s\S]{0,100}align-items:\s*flex-start/.test(cssText) &&
     /#user-btn\.multi-account\.external-account-pills[\s\S]{0,220}flex-direction:\s*column[\s\S]{0,160}align-items:\s*flex-end/.test(cssText) &&
-    /#user-btn\.multi-account\.external-account-pills \.top-account-pill[\s\S]{0,120}width:\s*190px/.test(cssText) &&
-    /#user-btn\.multi-account\.external-account-pills \.top-account-name[\s\S]{0,120}max-width:\s*118px/.test(cssText) &&
+    /#user-btn\.multi-account\.external-account-pills \.top-account-pill[\s\S]{0,120}width:\s*204px/.test(cssText) &&
+    /\.top-account-pill[\s\S]{0,180}display:\s*grid[\s\S]{0,100}grid-template-columns:\s*34px minmax\(0,\s*1fr\) max-content/.test(cssText) &&
+    /\.top-account-name[\s\S]{0,100}min-width:\s*0[\s\S]{0,100}max-width:\s*none/.test(cssText) &&
     /e\.clientY\s*<\s*rect\.top\s*\+\s*rect\.height\s*\/\s*2/.test(accountUtilsText) &&
     !/e\.clientX\s*<\s*rect\.left\s*\+\s*rect\.width\s*\/\s*2/.test(accountUtilsText);
   if (!/mineradio-account-pill-glass-filter/.test(indexText) || !/account-pill-glass-map/.test(indexText) || !/url\(#mineradio-account-pill-glass-filter\)/.test(cssText) || !/overflow:\s*hidden/.test(cssText) || !accountPillGlassSurfaceOk || accountPillDirectSvgFilter || !accountContainerGlassDisabledOk || !accountPillSimpleRefractionOk || !accountPillDedicatedMapOk || !accountPillVerticalStackOk || !/function updateAccountPillGlassDisplacementMap/.test(glassText) || !/accountPillKey/.test(glassText) || !/querySelectorAll\('\.top-account-pill'\)/.test(glassText) || !/requestAnimationFrame\(updateAccountPillGlassDisplacementMap\)/.test(loginStatusText)) {

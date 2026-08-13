@@ -17,9 +17,13 @@ test('酷狗概念版使用独立登录、播放和歌词路由', () => {
   assert.match(server, /\/api\/kugou-concept\/login\/logout|\/api\/kugou-concept\/logout/);
   assert.match(audio, /kugou-concept\/song\/url/);
   assert.match(lyric, /kugou-concept\/lyric/);
+  const desktop = read('desktop/main.js');
+  assert.match(desktop, /KUGOU_CONCEPT_COOKIE_FILE/);
+  assert.match(desktop, /\.kugou-concept-cookie/);
 });
 
 test('酷狗概念版登录 UI 不复用普通酷狗 busy 状态', () => {
+  const server = read('server.js');
   const state = read('public/js/modules/00-state/00-core-stores.js');
   const flow = read('public/js/modules/08-account/03-login-modal-flows.js');
   const logout = read('public/js/modules/08-account/04-user-modal-logout.js');
@@ -33,7 +37,11 @@ test('酷狗概念版登录 UI 不复用普通酷狗 busy 状态', () => {
   assert.match(flow, /concept-qr-ready/);
   assert.doesNotMatch(flow, /var useWebPreview = isQQ \|\| isKugou \|\| isKugouConcept/);
   const css = read('public/css/index.css');
-  assert.match(css, /\.qr-shell\.concept-qr-provider\.concept-qr-ready/);
+  assert.doesNotMatch(css, /\.qr-shell\.concept-qr-provider\.concept-qr-ready\s*\{/);
+  assert.match(css, /grid-template-columns:\s*34px minmax\(0, 1fr\) max-content/);
+  assert.match(server, /getKugouConceptLoginInfo/);
+  assert.match(server, /persistKugouConceptProfile/);
+  assert.match(server, /get_userinfo_qrcode[\s\S]{0,160}appid:\s*3116/);
   assert.match(logout, /\/api\/kugou-concept\/logout/);
 });
 

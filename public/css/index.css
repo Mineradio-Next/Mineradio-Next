@@ -4581,14 +4581,12 @@ body.desktop-shell.empty-home-active.controls-visible #empty-home {
 }
 
 #user-btn.multi-account.external-account-pills .top-account-pill {
-  width: 190px;
-  min-width: 190px;
-  justify-content: flex-start
+  width: 204px;
+  min-width: 204px
 }
 
 #user-btn.multi-account.external-account-pills .top-account-name {
-  flex: 1 1 auto;
-  max-width: 118px
+  max-width: none
 }
 
 #user-btn.multi-account:hover {
@@ -4672,7 +4670,8 @@ body.desktop-shell.empty-home-active.controls-visible #empty-home {
   position: relative;
   height: 44px;
   min-width: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) max-content;
   align-items: center;
   gap: 8px;
   padding: 0 14px 0 4px;
@@ -4737,7 +4736,8 @@ body.desktop-shell.empty-home-active.controls-visible #empty-home {
 .top-account-name {
   position: relative;
   z-index: 1;
-  max-width: 96px;
+  min-width: 0;
+  max-width: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4759,7 +4759,7 @@ body.desktop-shell.empty-home-active.controls-visible #empty-home {
   letter-spacing: .5px;
   text-shadow: none;
   box-shadow: 0 0 12px rgba(244, 210, 138, .24);
-  flex-shrink: 0
+  justify-self: end
 }
 
 .top-account-vip.svip {
@@ -10119,13 +10119,6 @@ body.login-guide-active #login-guide-canvas {
 
 .qr-shell.concept-qr-provider.concept-qr-ready .qq-login-mark {
   display: none
-}
-
-.qr-shell.concept-qr-provider.concept-qr-ready {
-  padding: 14px;
-  background: rgba(255, 255, 255, .035);
-  border: 1px solid rgba(191, 214, 107, .26);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, .32), inset 0 1px 0 rgba(255, 255, 255, .08)
 }
 
 .qq-login-mark {
@@ -18129,14 +18122,12 @@ html.control-glass-svg-ok #user-btn.multi-account.external-account-pills:hover {
 }
 
 #user-btn.multi-account.external-account-pills .top-account-pill {
-  width: 190px;
-  min-width: 190px;
-  justify-content: flex-start
+  width: 204px;
+  min-width: 204px
 }
 
 #user-btn.multi-account.external-account-pills .top-account-name {
-  flex: 1 1 auto;
-  max-width: 118px
+  max-width: none
 }
 
 .queue-item[data-queue-index],

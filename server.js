@@ -96,6 +96,7 @@ const {
   handleKugouLikeToggle,
   handleKugouPlaylistAddSong,
   getKugouLoginInfo,
+  getKugouConceptLoginInfo,
   normalizeKugouCookieInput,
   clearKugouSessionCaches,
   kugouCookieHasPlayback,
@@ -415,6 +416,20 @@ let kugouConceptCookie = '';
 function saveKugouConceptCookie(c) {
   kugouConceptCookie = saveConfiguredCookieStore(configuredCookieStores.kugouConcept, normalizeCookieHeader(c) || rawCookieFallback(c));
   clearKugouSessionCaches();
+}
+function persistKugouConceptProfile(info) {
+  info = info || {};
+  const additions = [];
+  const current = parseCookieString(kugouConceptCookie);
+  const nickname = String(info.nickname || '').trim();
+  const avatar = String(info.avatar || '').trim();
+  if (nickname && nickname !== '酷狗概念版' && !current.nickname && !current.NickName) {
+    additions.push('nickname=' + encodeURIComponent(nickname));
+  }
+  if (avatar && !current.avatar && !current.Pic) additions.push('avatar=' + encodeURIComponent(avatar));
+  if (!additions.length) return info;
+  saveKugouConceptCookie([kugouConceptCookie].concat(additions).filter(Boolean).join('; '));
+  return Object.assign({}, info, { profileSaved: true });
 }
 
 let qishuiCookie = '';
@@ -5747,7 +5762,7 @@ const server = http.createServer(async (req, res) => {
 
   if (pn === '/api/kugou-concept/login/status') {
     try {
-      const info = await getKugouLoginInfo(kugouConceptCookie);
+      const info = persistKugouConceptProfile(await getKugouConceptLoginInfo(kugouConceptCookie));
       sendJSON(res, { ...info, provider: 'kugou', kugouVariant: 'concept' });
     } catch (err) {
       sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', loggedIn: false, error: err.message }, 500);
@@ -5786,14 +5801,21 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     try {
-      const response = await requestKugouConceptLogin('/v2/get_userinfo_qrcode', { plat: 4, appid: 1005, srcappid: 2919, qrcode: key });
+      const response = await requestKugouConceptLogin('/v2/get_userinfo_qrcode', { plat: 4, appid: 3116, srcappid: 2919, qrcode: key });
       const data = response && response.data || {};
       const status = Number(data.status || response.status || 1);
       if (status === 4 && (data.token || data.userid)) {
-        const cookie = [data.token && ('token=' + data.token), data.userid && ('userid=' + data.userid), data.kg_mid && ('kg_mid=' + data.kg_mid), data.dfid && ('kg_dfid=' + data.dfid)].filter(Boolean).join('; ');
+        const cookie = [
+          data.token && ('token=' + data.token),
+          data.userid && ('userid=' + data.userid),
+          data.kg_mid && ('kg_mid=' + data.kg_mid),
+          data.dfid && ('kg_dfid=' + data.dfid),
+          (data.nickname || data.nick_name || data.NickName) && ('nickname=' + encodeURIComponent(data.nickname || data.nick_name || data.NickName)),
+          (data.avatar || data.user_pic || data.pic || data.headimg) && ('avatar=' + encodeURIComponent(data.avatar || data.user_pic || data.pic || data.headimg)),
+        ].filter(Boolean).join('; ');
         saveKugouConceptCookie(cookie);
         kugouConceptQrSessions.delete(key);
-        const info = await getKugouLoginInfo(kugouConceptCookie);
+        const info = persistKugouConceptProfile(await getKugouConceptLoginInfo(kugouConceptCookie));
         sendJSON(res, { ...info, provider: 'kugou', kugouVariant: 'concept', status: 4, loggedIn: true, saved: true });
       } else {
         sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', status, loggedIn: false });
@@ -5834,7 +5856,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       saveKugouConceptCookie(normalized);
-      const info = await getKugouLoginInfo(kugouConceptCookie);
+      const info = persistKugouConceptProfile(await getKugouConceptLoginInfo(kugouConceptCookie));
       sendJSON(res, { ...info, provider: 'kugou', kugouVariant: 'concept', saved: true });
     } catch (err) {
       console.error('[KugouConceptLoginCookie]', err);

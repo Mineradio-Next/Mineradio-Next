@@ -26,6 +26,9 @@ const KUGOU_CONCEPT_APPID = 3116;
 const KUGOU_CONCEPT_CLIENTVER = 11440;
 const KUGOU_CONCEPT_ANDROID_SALT = 'LnT6xpN3khm36zse0QzvmgTZ3waWdRSA';
 const KUGOU_CONCEPT_SIGN_KEY_SALT = '185672dd44712f60bb1736df5a377e82';
+const KUGOU_CONCEPT_PUBLIC_KEY = '-----BEGIN PUBLIC KEY-----\n' +
+  'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDECi0Np2UR87scwrvTr72L6oO01rBbbBPriSDFPxr3Z5syug0O24QyQO8bg27+0+4kBzTBTBOZ/WWU0WryL1JSXRTXLgFVxtzIY41Pe7lPOgsfTCn5kZcvKhYKJesKnnJDNr5/abvTGf+rHG3YRwsCHcQ08/q6ifSioBszvb3QiwIDAQAB\n' +
+  '-----END PUBLIC KEY-----';
 const KUGOU_GATEWAY_UA = 'Android15-1070-11083-46-0-DiscoveryDRADProtocol-wifi';
 const KUGOU_VIP_ROLEINFO_URL = 'https://vip.kugou.com/recharge/roleinfo';
 
@@ -592,7 +595,7 @@ function extractKugouAuth(cookie) {
   const nickname = decodeKugouDisplayText(
     kugoo.NickName || kugoo.nickname || obj.NickName || obj.nickname || obj.UserName || obj.username || ''
   );
-  const avatar = String(kugoo.Pic || kugoo.pic || obj.Pic || obj.avatar || '').trim();
+  const avatar = decodeKugouDisplayText(kugoo.Pic || kugoo.pic || obj.Pic || obj.avatar || '').trim();
   const vipType = firstPositiveKugouNumber([kugoo, obj], [
     'isVIP', 'isVip', 'is_vip', 'vip_type', 'VIPType', 'vipLevel', 'vip_level',
     'vip_status', 'member_type', 'member_level', 'vip',
@@ -763,6 +766,58 @@ function conceptSignature(params, data) {
 
 function conceptSignKey(hash, mid, userid) {
   return crypto.createHash('md5').update(`${hash}${KUGOU_CONCEPT_SIGN_KEY_SALT}${KUGOU_CONCEPT_APPID}${mid}${userid || 0}`).digest('hex');
+}
+
+function conceptRsaRawEncrypt(data) {
+  const source = Buffer.from(typeof data === 'string' ? data : JSON.stringify(data), 'utf8');
+  const keySize = 128;
+  if (source.length > keySize) throw new Error('KUGOU_CONCEPT_RSA_PAYLOAD_TOO_LARGE');
+  const padded = Buffer.alloc(keySize);
+  source.copy(padded);
+  return crypto.publicEncrypt({
+    key: KUGOU_CONCEPT_PUBLIC_KEY,
+    padding: crypto.constants.RSA_NO_PADDING,
+  }, padded).toString('hex').toUpperCase();
+}
+
+async function conceptGatewayRequest(path, opts) {
+  opts = opts || {};
+  const auth = extractKugouAuth(opts.cookie || '');
+  if (!auth.playbackReady) throw new Error('KUGOU_CONCEPT_AUTH_REQUIRED');
+  const body = opts.body == null ? '' : (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body));
+  const params = Object.assign({
+    dfid: auth.dfid || '-',
+    mid: auth.mid || createKugouMid('concept-gateway'),
+    uuid: '-',
+    appid: KUGOU_CONCEPT_APPID,
+    clientver: KUGOU_CONCEPT_CLIENTVER,
+    clienttime: Math.floor(Date.now() / 1000),
+    token: auth.token,
+    userid: auth.userid,
+  }, opts.params || {});
+  params.signature = conceptSignature(params, body);
+  const target = new URL(path, opts.baseURL || KUGOU_GATEWAY);
+  Object.keys(params).forEach(key => target.searchParams.set(key, String(params[key])));
+  const headers = Object.assign({}, KUGOU_HEADERS, {
+    'User-Agent': `Android15-1070-${KUGOU_CONCEPT_CLIENTVER}-46-0-DiscoveryDRADProtocol-wifi`,
+    dfid: auth.dfid || '-',
+    mid: params.mid,
+    clienttime: String(params.clienttime),
+    'kg-rc': '1',
+    'kg-thash': '5d816a0',
+    'kg-rec': '1',
+    'kg-rf': 'B9EDA08A64250DEFFBCADDEE00F8F25F',
+    Cookie: buildKugouRequestCookie(opts.cookie || ''),
+  }, opts.headers || {});
+  if (opts.router) headers['x-router'] = opts.router;
+  if (body) headers['Content-Type'] = 'application/json';
+  const json = await requestJson(target.toString(), { method: opts.method || 'POST', headers }, body || undefined);
+  if (json && (Number(json.status) === 0 || Number(json.error_code) > 0)) {
+    const err = new Error(json.error || json.msg || json.message || `KUGOU_CONCEPT_${json.error_code || 'REQUEST_FAILED'}`);
+    err.body = json;
+    throw err;
+  }
+  return json;
 }
 
 function signatureH5Params(params, bodyObj) {
@@ -1732,6 +1787,78 @@ async function getKugouLoginInfo(cookie) {
   };
 }
 
+function pickKugouConceptProfile(payload, auth) {
+  payload = payload || {};
+  auth = auth || {};
+  const data = payload.data && typeof payload.data === 'object' ? payload.data : payload;
+  const profile = data.user && typeof data.user === 'object' ? data.user : data;
+  const nickname = stripKugouHtml(
+    profile.nickname || profile.nick_name || profile.NickName || profile.username ||
+    profile.user_name || profile.name || ''
+  );
+  const avatar = kugouCoverUrl(
+    profile.avatar || profile.user_pic || profile.pic || profile.headimg ||
+    profile.head_img || profile.img || profile.photo || '',
+    120
+  );
+  const userId = String(profile.userid || profile.user_id || profile.uid || auth.userid || '').replace(/\D/g, '');
+  return { nickname, avatar, userId };
+}
+
+async function fetchKugouConceptProfile(cookie, auth) {
+  auth = auth || extractKugouAuth(cookie);
+  if (!auth.playbackReady) return {};
+  const cacheKey = 'concept-' + kugouProfileCacheKey(auth);
+  return kugouProfileCache.wrap(cacheKey, 5 * 60 * 1000, async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const body = {
+      visit_time: now,
+      usertype: 1,
+      p: conceptRsaRawEncrypt({ token: auth.token, clienttime: now }),
+      userid: Number(auth.userid),
+    };
+    const json = await conceptGatewayRequest('/v3/get_my_info', {
+      method: 'POST',
+      cookie,
+      router: 'usercenter.kugou.com',
+      params: { plat: 1 },
+      body,
+    });
+    return pickKugouConceptProfile(json, auth);
+  });
+}
+
+async function getKugouConceptLoginInfo(cookie) {
+  const auth = extractKugouAuth(cookie);
+  const profile = (!auth.nickname || !auth.avatar)
+    ? await fetchKugouConceptProfile(cookie, auth).catch(() => ({}))
+    : {};
+  const nickname = auth.nickname || profile.nickname || '酷狗概念版';
+  return {
+    provider: 'kugou',
+    kugouVariant: 'concept',
+    loggedIn: auth.loggedIn,
+    playbackReady: auth.playbackReady,
+    playbackKeyReady: auth.playbackReady,
+    userId: profile.userId || auth.userid,
+    nickname,
+    avatar: auth.avatar || profile.avatar || '',
+    vipType: auth.vipType || 0,
+    svipType: auth.svipType || 0,
+    vipLevel: auth.vipLevel || 'none',
+    isVip: !!auth.isVip,
+    isSvip: !!auth.isSvip,
+    membershipTier: auth.vipLevel || 'none',
+    vipLabel: auth.isSvip ? 'SVIP' : (auth.isVip ? 'VIP' : '无VIP'),
+    membershipKnown: !!auth.membershipKnown,
+    membershipVerified: false,
+    vipSyncState: auth.membershipKnown ? 'checked' : 'unknown',
+    membershipSource: auth.membershipKnown ? 'concept-session' : 'none',
+    hasCookie: !!cookie,
+    hasToken: !!auth.token,
+  };
+}
+
 function kugouProfileCacheKey(auth) {
   auth = auth || {};
   return 'profile|' + String(auth.userid || '0') + '|' + String(auth.token || '').slice(-10);
@@ -2313,6 +2440,7 @@ module.exports = {
   handleKugouLikeToggle,
   handleKugouPlaylistAddSong,
   getKugouLoginInfo,
+  getKugouConceptLoginInfo,
   normalizeKugouCookieInput,
   clearKugouSessionCaches,
   kugouCookieObject,
