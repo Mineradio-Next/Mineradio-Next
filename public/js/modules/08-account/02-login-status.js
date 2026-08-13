@@ -305,6 +305,21 @@ function normalizeKugouLoginStatus(info) {
     stale: !!info.stale
   });
 }
+function normalizeKugouConceptLoginStatus(info) {
+  var fallback = { provider: 'kugou', kugouVariant: 'concept', loggedIn: false, preview: false, nickname: '酷狗概念版', userId: '', avatar: '', vipType: 0, svipType: 0, vipLevel: 'none', isVip: false, isSvip: false, stale: false, playbackKeyReady: false };
+  var normalizedLevel = info && info.loggedIn ? providerVipLevel('kugouConcept', info) : (info && (info.vipLevel || info.vip_level) || 'none');
+  return Object.assign({}, fallback, info || {}, {
+    provider: 'kugou', kugouVariant: 'concept', loggedIn: !!(info && info.loggedIn),
+    nickname: info && info.nickname || fallback.nickname,
+    userId: info && (info.userId || info.userid) || '',
+    avatar: info && info.avatar || '',
+    vipType: Number(info && (info.vipType || info.vip_type) || 0) || 0,
+    svipType: Number(info && (info.svipType || info.svip_type) || 0) || 0,
+    vipLevel: normalizedLevel, isVip: normalizedLevel !== 'none' || !!(info && info.isVip),
+    isSvip: normalizedLevel === 'svip' || !!(info && info.isSvip),
+    playbackKeyReady: !!(info && (info.playbackReady || info.playbackKeyReady)), stale: !!(info && info.stale)
+  });
+}
 function applyKugouPlaybackStatusEvidence(info) {
   if (!info || info.provider !== 'kugou' || !info.loggedIn) return false;
   var existing = kugouLoginStatus || {};
@@ -367,6 +382,20 @@ async function refreshKugouLoginStatus() {
     kugouLoginStatus = normalizeKugouLoginStatus(null);
     renderUserBtn();
     return kugouLoginStatus;
+  }
+}
+async function refreshKugouConceptLoginStatus() {
+  try {
+    var info = await apiJson('/api/kugou-concept/login/status?t=' + Date.now());
+    kugouConceptLoginStatus = normalizeKugouConceptLoginStatus(info);
+    kugouConceptLoginWasLoggedIn = !!kugouConceptLoginStatus.loggedIn;
+    if (!hasPlatformLogin(activeAccountProvider)) activeAccountProvider = firstLoggedProvider();
+    renderUserBtn();
+    return kugouConceptLoginStatus;
+  } catch (e) {
+    kugouConceptLoginStatus = normalizeKugouConceptLoginStatus(null);
+    renderUserBtn();
+    return kugouConceptLoginStatus;
   }
 }
 function startKugouLoginStatusAutoRefresh() {

@@ -589,12 +589,15 @@ function songProviderKey(song) {
   if (song && (song.provider === 'kugou' || song.source === 'kugou' || song.type === 'kugou' || song.hash || song.audioHash)) return 'kugou';
   return 'netease';
 }
+function songKugouVariant(song) {
+  return song && String(song.kugouVariant || song.kugou_variant || '').toLowerCase() === 'concept' ? 'concept' : 'standard';
+}
 function songSourceTagHtml(song, opts) {
   opts = opts || {};
   var backupKey = song && song.additionalSourceCode === 'kw' ? 'kuwo' : (song && song.additionalSourceCode === 'mg' ? 'migu' : '');
   var rawKey = backupKey || (song && (song.resolvedPlaybackProvider || song.playbackProvider || song.audioProvider || song.providerResolved || ''));
   var key = /^(netease|qq|kugou|qishui|spotify|kuwo|migu)$/.test(String(rawKey || '')) ? String(rawKey) : songProviderKey(song);
-  var label = key === 'qq' ? 'QQ' : (key === 'kugou' ? 'KG' : (key === 'qishui' ? 'QS' : (key === 'spotify' ? 'SP' : (key === 'kuwo' ? 'KW' : (key === 'migu' ? 'MG' : 'NE')))));
+  var label = key === 'qq' ? 'QQ' : (key === 'kugou' ? (songKugouVariant(song) === 'concept' ? 'KG+' : 'KG') : (key === 'qishui' ? 'QS' : (key === 'spotify' ? 'SP' : (key === 'kuwo' ? 'KW' : (key === 'migu' ? 'MG' : 'NE')))));
   if (opts.switcher) {
     return '<button type="button" class="tag-source ' + key + ' control-source-chip" title="切换音源" aria-haspopup="true" onclick="toggleControlSourceSwitcher(event)">' + label + '</button>';
   }
@@ -605,7 +608,8 @@ function controlSourceProviders() {
   return [
     { key: 'netease', label: 'NE', title: '网易云' },
     { key: 'qq', label: 'QQ', title: 'QQ音乐' },
-    { key: 'kugou', label: 'KG', title: '酷狗' },
+    { key: 'kugou', label: 'KG', title: '酷狗音乐' },
+    { key: 'kugouConcept', label: 'KG+', title: '酷狗概念版' },
     { key: 'qishui', label: 'QS', title: '汽水' },
     { key: 'spotify', label: 'SP', title: 'Spotify' }
   ];
@@ -617,6 +621,7 @@ function controlSourceProviderTitle(provider) {
 function controlSourceSearchUrl(provider, query) {
   if (provider === 'qq') return '/api/qq/search?keywords=' + encodeURIComponent(query) + '&limit=8';
   if (provider === 'kugou') return '/api/kugou/search?keywords=' + encodeURIComponent(query) + '&limit=8';
+  if (provider === 'kugouConcept') return '/api/kugou-concept/search?keywords=' + encodeURIComponent(query) + '&limit=8';
   if (provider === 'qishui') return '/api/qishui/search?keywords=' + encodeURIComponent(query) + '&limit=8';
   if (provider === 'spotify') return '/api/spotify/search?keywords=' + encodeURIComponent(query) + '&limit=8';
   return '/api/search?keywords=' + encodeURIComponent(query) + '&limit=10';
@@ -892,7 +897,7 @@ function searchIntentPrefersQQ(q) {
   q = String(q || '').toLowerCase();
   return /(^|\s)qq($|\s)|qq音乐|qq音樂/.test(q);
 }
-var MUSIC_SEARCH_PROVIDER_ORDER = ['netease', 'qq', 'kugou', 'qishui', 'spotify'];
+var MUSIC_SEARCH_PROVIDER_ORDER = ['netease', 'qq', 'kugou', 'kugouConcept', 'qishui', 'spotify'];
 function searchProviderStatus(provider) {
   if (typeof platformStatus === 'function') return platformStatus(provider);
   if (provider === 'spotify') return spotifyLoginStatus;
@@ -918,7 +923,7 @@ function searchProviderCanSearch(provider) {
   return provider === 'netease' || provider === 'qq' || provider === 'kugou' || provider === 'qishui';
 }
 function searchModeProvider(mode) {
-  return mode === 'netease' || mode === 'qq' || mode === 'kugou' || mode === 'qishui' || mode === 'spotify' || mode === 'kuwo' || mode === 'migu' ? mode : '';
+  return mode === 'netease' || mode === 'qq' || mode === 'kugou' || mode === 'kugouConcept' || mode === 'qishui' || mode === 'spotify' || mode === 'kuwo' || mode === 'migu' ? mode : '';
 }
 function activeSearchProvidersForMode(mode) {
   var specific = searchModeProvider(mode);
@@ -942,6 +947,7 @@ function searchProviderUrl(provider, q, limit, offset) {
   }
   if (provider === 'qq') return '/api/qq/search?keywords=' + encodeURIComponent(q) + suffix;
   if (provider === 'kugou') return '/api/kugou/search?keywords=' + encodeURIComponent(q) + suffix;
+  if (provider === 'kugouConcept') return '/api/kugou-concept/search?keywords=' + encodeURIComponent(q) + suffix;
   if (provider === 'qishui') return '/api/qishui/search?keywords=' + encodeURIComponent(q) + suffix;
   if (provider === 'spotify') return '/api/spotify/search?keywords=' + encodeURIComponent(q) + suffix;
   return '/api/search?keywords=' + encodeURIComponent(q) + suffix;

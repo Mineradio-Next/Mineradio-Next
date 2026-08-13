@@ -22,6 +22,10 @@ const KUGOU_H5_SALT = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
 const KUGOU_H5_SRC_APPID = '2919';
 const KUGOU_H5_CLIENTVER = '20000';
 const KUGOU_SIGN_KEY_SALT = '57ae12eb6890223e355ccfcb74edf70d';
+const KUGOU_CONCEPT_APPID = 3116;
+const KUGOU_CONCEPT_CLIENTVER = 11440;
+const KUGOU_CONCEPT_ANDROID_SALT = 'LnT6xpN3khm36zse0QzvmgTZ3waWdRSA';
+const KUGOU_CONCEPT_SIGN_KEY_SALT = '185672dd44712f60bb1736df5a377e82';
 const KUGOU_GATEWAY_UA = 'Android15-1070-11083-46-0-DiscoveryDRADProtocol-wifi';
 const KUGOU_VIP_ROLEINFO_URL = 'https://vip.kugou.com/recharge/roleinfo';
 
@@ -750,6 +754,17 @@ function signatureAndroidParams(params, data) {
   return crypto.createHash('md5').update(`${KUGOU_ANDROID_SALT}${paramsString}${data || ''}${KUGOU_ANDROID_SALT}`).digest('hex');
 }
 
+function conceptSignature(params, data) {
+  const paramsString = Object.keys(params).sort()
+    .map(key => `${key}=${typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key]}`)
+    .join('');
+  return crypto.createHash('md5').update(`${KUGOU_CONCEPT_ANDROID_SALT}${paramsString}${data || ''}${KUGOU_CONCEPT_ANDROID_SALT}`).digest('hex');
+}
+
+function conceptSignKey(hash, mid, userid) {
+  return crypto.createHash('md5').update(`${hash}${KUGOU_CONCEPT_SIGN_KEY_SALT}${KUGOU_CONCEPT_APPID}${mid}${userid || 0}`).digest('hex');
+}
+
 function signatureH5Params(params, bodyObj) {
   const parts = Object.keys(params).sort().map(key => `${key}=${params[key]}`);
   if (bodyObj && typeof bodyObj === 'object') parts.push(JSON.stringify(bodyObj));
@@ -972,6 +987,60 @@ async function kugouSearch(keywords, limit, cookie, offset) {
   return list.map(mapKugouSearchItem).filter(s => s.name && (s.hash || s.id));
 }
 
+function mapKugouConceptItem(item) {
+  item = item || {};
+  const mapped = mapKugouSearchItem(Object.assign({}, item, {
+    FileHash: item.FileHash || item.Hash || item.hash,
+    SongName: item.SongName || item.songname || item.songName || item.name,
+    SingerName: item.SingerName || item.singername || item.artist || item.singer,
+    AlbumName: item.AlbumName || item.album_name || item.album,
+    Image: item.Image || item.img || item.cover || item.album_img,
+    Duration: item.Duration || item.duration,
+    MixSongID: item.MixSongID || item.mixsongid || item.mix_song_id,
+    AlbumAudioID: item.AlbumAudioID || item.album_audio_id,
+    HQFileHash: item.HQFileHash || item.hq_hash,
+    SQFileHash: item.SQFileHash || item.sq_hash,
+    ResFileHash: item.ResFileHash || item.res_hash,
+  }));
+  return Object.assign(mapped, { kugouVariant: 'concept', source: 'kugou', provider: 'kugou', type: 'kugou' });
+}
+
+function collectConceptSearchItems(json) {
+  const candidates = [
+    json && json.data && json.data.lists,
+    json && json.data && json.data.info,
+    json && json.data && json.data.song_list,
+    json && json.data && json.data.songs,
+    json && json.data && json.data.list,
+    json && json.lists,
+    json && json.info,
+  ];
+  for (const list of candidates) if (Array.isArray(list) && list.length) return list;
+  return [];
+}
+
+async function kugouConceptSearch(keywords, limit, cookie, offset) {
+  const auth = extractKugouAuth(cookie);
+  const pageSize = Math.max(1, Math.min(Number(limit) || 12, 30));
+  const params = {
+    appid: KUGOU_CONCEPT_APPID,
+    clientver: KUGOU_CONCEPT_CLIENTVER,
+    keyword: String(keywords || '').trim(),
+    page: Math.floor(Math.max(0, Number(offset) || 0) / pageSize) + 1,
+    pagesize: pageSize,
+    platform: 'AndroidFilter',
+    cursor: 0,
+    userid: auth.userid || 0,
+  };
+  params.signature = conceptSignature(params);
+  const u = new URL('https://complexsearch.kugou.com/v6/search/complex');
+  Object.keys(params).forEach(key => u.searchParams.set(key, String(params[key])));
+  const json = await requestJson(u.toString(), {
+    headers: { ...KUGOU_HEADERS, 'x-router': 'complexsearch.kugou.com', Cookie: buildKugouRequestCookie(cookie) },
+  });
+  return collectConceptSearchItems(json).map(mapKugouConceptItem).filter(s => s.name && (s.hash || s.id));
+}
+
 async function kugouPlayViaMobile(hash, albumId, cookie, membership) {
   const auth = extractKugouAuth(cookie);
   membership = membership || normalizeKugouVipPayloadV2(null, auth);
@@ -1187,6 +1256,53 @@ async function handleKugouSearch(keywords, limit, cookie, offset) {
     console.log('[KugouSearch]', kw, 'limit:', lim, 'offset:', start);
     return kugouSearch(kw, lim, cookie, start);
   });
+}
+
+async function handleKugouConceptSearch(keywords, limit, cookie, offset) {
+  const kw = String(keywords || '').trim();
+  if (!kw) return [];
+  const lim = Math.max(1, Math.min(Number(limit) || 12, 30));
+  const start = Math.max(0, Number(offset) || 0);
+  const cacheKey = 'concept:' + kw.toLowerCase() + ':' + lim + ':' + start;
+  return kugouSearchCache.wrap(cacheKey, null, () => kugouConceptSearch(kw, lim, cookie, start));
+}
+
+async function handleKugouConceptSongUrl(params, cookie) {
+  params = params || {};
+  const auth = extractKugouAuth(cookie);
+  const hash = String(params.hash || params.fileHash || params.id || '').trim().toLowerCase();
+  if (!hash) return { provider: 'kugou', kugouVariant: 'concept', url: '', playable: false, error: 'MISSING_HASH' };
+  const quality = kugouQualityParam(params.quality || 'standard');
+  const query = {
+    album_id: Number(params.albumId || params.album_id || 0),
+    area_code: 1,
+    hash,
+    ssa_flag: 'is_fromtrack',
+    version: 11430,
+    page_id: 967177915,
+    ppage_id: '356753938,823673182,967485191',
+    quality,
+    album_audio_id: Number(params.albumAudioId || params.album_audio_id || params.mixSongId || 0),
+    behavior: 'play',
+    pid: 411,
+    cmd: 26,
+    pidversion: 3001,
+    IsFreePart: 0,
+    cdnBackup: 1,
+    module: '',
+    clientver: 11430,
+  };
+  query.key = conceptSignKey(hash, auth.mid, auth.userid);
+  const u = new URL('https://tracker.kugou.com/v5/url');
+  Object.keys(query).forEach(key => u.searchParams.set(key, String(query[key])));
+  const json = await requestJson(u.toString(), {
+    headers: { ...KUGOU_HEADERS, 'x-router': 'trackercdn.kugou.com', Cookie: buildKugouRequestCookie(cookie) },
+  });
+  const url = pickKugouPlayUrl(json);
+  if (url) return { provider: 'kugou', kugouVariant: 'concept', url, playable: true, level: kugouQualityFromParam(quality, params.quality), quality: kugouQualityFromParam(quality, params.quality), trial: false, source: 'concept' };
+  const message = String((json && (json.error || json.msg || json.message)) || '酷狗概念版未返回播放地址');
+  const category = /登录|token|userid/i.test(message) && !auth.playbackReady ? 'login_required' : (/会员|vip|付费/i.test(message) ? 'vip_required' : 'url_unavailable');
+  return { provider: 'kugou', kugouVariant: 'concept', url: '', playable: false, reason: category, error: category, message };
 }
 
 async function handleKugouSongUrl(params, cookie) {

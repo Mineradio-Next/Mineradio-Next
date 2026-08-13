@@ -570,7 +570,8 @@ async function resolveNetworkPlaybackData(song, qualityOverride) {
     return apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qqPlaybackEvidenceQuery(song) + qualityParam, { timeoutMs: 15000 });
   }
   if (playbackProvider === 'kugou') {
-    return apiJson('/api/kugou/song/url?hash=' + encodeURIComponent(song.hash || song.fileHash || song.audioHash || song.id || '') +
+    var kugouEndpoint = (typeof songKugouVariant === 'function' && songKugouVariant(song) === 'concept') ? '/api/kugou-concept/song/url?' : '/api/kugou/song/url?';
+    return apiJson(kugouEndpoint + 'hash=' + encodeURIComponent(song.hash || song.fileHash || song.audioHash || song.id || '') +
       '&albumId=' + encodeURIComponent(song.albumId || song.album_id || '') +
       '&albumAudioId=' + encodeURIComponent(song.albumAudioId || song.album_audio_id || song.mixSongId || '') +
       '&mixSongId=' + encodeURIComponent(song.mixSongId || '') +

@@ -22,7 +22,8 @@ function lyricEndpointForSong(songOrId) {
     return '/api/qq/lyric?mid=' + encodeURIComponent(mid) + '&id=' + encodeURIComponent(qqId);
   }
   if (provider === 'kugou') {
-    return '/api/kugou/lyric?hash=' + encodeURIComponent(song.hash || song.fileHash || song.audioHash || song.id || '') +
+    var lyricEndpoint = typeof songKugouVariant === 'function' && songKugouVariant(song) === 'concept' ? '/api/kugou-concept/lyric?' : '/api/kugou/lyric?';
+    return lyricEndpoint + 'hash=' + encodeURIComponent(song.hash || song.fileHash || song.audioHash || song.id || '') +
       '&albumAudioId=' + encodeURIComponent(song.albumAudioId || song.album_audio_id || song.mixSongId || '') +
       '&duration=' + encodeURIComponent(playbackDurationFromSong(song) || '');
   }

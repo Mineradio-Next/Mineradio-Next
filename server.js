@@ -61,6 +61,7 @@ const fs   = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const tls = require('tls');
+const QRCode = require('qrcode');
 const { fileURLToPath } = require('url');
 const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
 const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
@@ -84,7 +85,9 @@ const {
 } = require('./qq-vip-api');
 const {
   handleKugouSearch,
+  handleKugouConceptSearch,
   handleKugouSongUrl,
+  handleKugouConceptSongUrl,
   handleKugouLyric,
   handleKugouGuessLike,
   handleKugouUserPlaylists,
@@ -163,6 +166,7 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const DEFAULT_COOKIE_FILE = path.join(__dirname, '.cookie');
 const DEFAULT_QQ_COOKIE_FILE = path.join(__dirname, '.qq-cookie');
 const DEFAULT_KUGOU_COOKIE_FILE = path.join(__dirname, '.kugou-cookie');
+const DEFAULT_KUGOU_CONCEPT_COOKIE_FILE = path.join(__dirname, '.kugou-concept-cookie');
 const DEFAULT_QISHUI_COOKIE_FILE = path.join(__dirname, '.qishui-cookie');
 const BEATMAP_CACHE_DIR = process.env.MINERADIO_BEAT_CACHE_DIR || 'D:\\MineradioCache\\beatmaps';
 const CUEFIELD_FEEDBACK_FILE = process.env.CUEFIELD_FEEDBACK_FILE || path.join(__dirname, 'data', 'cuefield-feedback.jsonl');
@@ -179,6 +183,25 @@ const UPDATE_FALLBACK_NOTES = [
   '修复多行歌词与 3D 歌单架的显示层级',
   '优化更新入口与安装包获取流程',
 ];
+const kugouConceptQrSessions = new Map();
+const KUGOU_CONCEPT_LOGIN_WEB_SALT = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
+function kugouConceptLoginSignature(params) {
+  const joined = Object.keys(params).sort().map((key) => `${key}=${params[key]}`).join('');
+  return crypto.createHash('md5').update(`${KUGOU_CONCEPT_LOGIN_WEB_SALT}${joined}${KUGOU_CONCEPT_LOGIN_WEB_SALT}`).digest('hex');
+}
+async function requestKugouConceptLogin(pathname, params) {
+  const query = Object.assign({
+    dfid: '-',
+    mid: crypto.createHash('md5').update('mineradio-kugou-concept-login').digest('hex'),
+    uuid: '-',
+    clientver: 11440,
+    clienttime: Math.floor(Date.now() / 1000),
+  }, params);
+  query.signature = kugouConceptLoginSignature(query);
+  const target = new URL(pathname, 'https://login-user.kugou.com');
+  Object.keys(query).forEach((key) => target.searchParams.set(key, String(query[key])));
+  return requestJson(target.toString(), { headers: { Referer: 'https://h5.kugou.com/', 'User-Agent': UA } });
+}
 const OPEN_METEO_FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const OPEN_METEO_GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const WEATHER_IP_LOCATION_URL = 'http://ip-api.com/json/';
@@ -329,6 +352,9 @@ function getQQCookieFile() {
 function getKugouCookieFile() {
   return process.env.KUGOU_COOKIE_FILE || DEFAULT_KUGOU_COOKIE_FILE;
 }
+function getKugouConceptCookieFile() {
+  return process.env.KUGOU_CONCEPT_COOKIE_FILE || DEFAULT_KUGOU_CONCEPT_COOKIE_FILE;
+}
 function getQishuiCookieFile() {
   return process.env.QISHUI_COOKIE_FILE || DEFAULT_QISHUI_COOKIE_FILE;
 }
@@ -349,6 +375,7 @@ const configuredCookieStores = {
   netease: { file: '', value: '', getFile: getCookieFile },
   qq: { file: '', value: '', getFile: getQQCookieFile },
   kugou: { file: '', value: '', getFile: getKugouCookieFile },
+  kugouConcept: { file: '', value: '', getFile: getKugouConceptCookieFile },
   qishui: { file: '', value: '', getFile: getQishuiCookieFile },
 };
 function refreshConfiguredCookieStore(store, force) {
@@ -384,6 +411,11 @@ function saveKugouCookie(c) {
   kugouCookie = saveConfiguredCookieStore(configuredCookieStores.kugou, normalizeCookieHeader(c) || rawCookieFallback(c));
   clearKugouSessionCaches();
 }
+let kugouConceptCookie = '';
+function saveKugouConceptCookie(c) {
+  kugouConceptCookie = saveConfiguredCookieStore(configuredCookieStores.kugouConcept, normalizeCookieHeader(c) || rawCookieFallback(c));
+  clearKugouSessionCaches();
+}
 
 let qishuiCookie = '';
 function saveQishuiCookie(c) {
@@ -393,6 +425,7 @@ function refreshConfiguredCookieStores(force) {
   userCookie = refreshConfiguredCookieStore(configuredCookieStores.netease, force);
   qqCookie = refreshConfiguredCookieStore(configuredCookieStores.qq, force);
   kugouCookie = refreshConfiguredCookieStore(configuredCookieStores.kugou, force);
+  kugouConceptCookie = refreshConfiguredCookieStore(configuredCookieStores.kugouConcept, force);
   qishuiCookie = refreshConfiguredCookieStore(configuredCookieStores.qishui, force);
 }
 function refreshQQConfiguredCookieStore(force) {
@@ -405,6 +438,7 @@ function clearAllRuntimeLoginCredentials(reason) {
   userCookie = '';
   qqCookie = '';
   kugouCookie = '';
+  kugouConceptCookie = '';
   qishuiCookie = '';
   Object.keys(configuredCookieStores).forEach((key) => {
     configuredCookieStores[key].value = '';
@@ -5048,6 +5082,20 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pn === '/api/kugou-concept/search') {
+    try {
+      const kw = url.searchParams.get('keywords') || '';
+      const limit = Math.max(4, Math.min(30, parseInt(url.searchParams.get('limit') || '12', 10) || 12));
+      const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+      const songs = await handleKugouConceptSearch(kw, limit, kugouConceptCookie, offset);
+      sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', songs, offset, limit, nextOffset: offset + songs.length, hasMore: songs.length >= limit });
+    } catch (err) {
+      console.error('[KugouConceptSearch]', err);
+      sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', error: err.message, songs: [] }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/kugou/recommendations') {
     try {
       const limit = Math.max(4, Math.min(20, parseInt(url.searchParams.get('limit') || '12', 10) || 12));
@@ -5640,6 +5688,23 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pn === '/api/kugou-concept/song/url') {
+    try {
+      const info = await handleKugouConceptSongUrl({
+        hash: url.searchParams.get('hash') || url.searchParams.get('id') || '',
+        albumId: url.searchParams.get('albumId') || url.searchParams.get('album_id') || '',
+        albumAudioId: url.searchParams.get('albumAudioId') || url.searchParams.get('album_audio_id') || url.searchParams.get('mixSongId') || '',
+        mixSongId: url.searchParams.get('mixSongId') || '',
+        quality: url.searchParams.get('quality') || 'standard',
+      }, kugouConceptCookie);
+      sendJSON(res, info);
+    } catch (err) {
+      console.error('[KugouConceptSongUrl]', err);
+      sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', url: '', playable: false, error: err.message }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/kugou/lyric') {
     try {
       const hash = url.searchParams.get('hash') || url.searchParams.get('id') || '';
@@ -5655,12 +5720,86 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pn === '/api/kugou-concept/lyric') {
+    try {
+      const hash = url.searchParams.get('hash') || url.searchParams.get('id') || '';
+      const albumAudioId = url.searchParams.get('albumAudioId') || url.searchParams.get('album_audio_id') || '';
+      const duration = url.searchParams.get('duration') || '';
+      if (!hash) { sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', error: 'MISSING_HASH', lyric: '' }, 400); return; }
+      const data = await handleKugouLyric(hash, albumAudioId, duration);
+      sendJSON(res, { ...data, provider: 'kugou', kugouVariant: 'concept' });
+    } catch (err) {
+      console.error('[KugouConceptLyric]', err);
+      sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', error: err.message, lyric: '' }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/kugou/login/status') {
     try {
       sendJSON(res, await getKugouLoginInfo(kugouCookie));
     } catch (err) {
       console.error('[KugouLoginStatus]', err);
       sendJSON(res, { provider: 'kugou', loggedIn: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/kugou-concept/login/status') {
+    try {
+      const info = await getKugouLoginInfo(kugouConceptCookie);
+      sendJSON(res, { ...info, provider: 'kugou', kugouVariant: 'concept' });
+    } catch (err) {
+      sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', loggedIn: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/kugou-concept/login/qrcode') {
+    try {
+      const qrResponse = await requestKugouConceptLogin('/v2/qrcode', { appid: 1001, type: 1, plat: 4, qrcode_txt: 'https://h5.kugou.com/apps/loginQRCode/html/index.html?appid=3116&', srcappid: 2919 });
+      const qrData = qrResponse && qrResponse.data || {};
+      const key = String(qrData.qrcode || qrData.key || qrData.qrcode_key || '').trim();
+      if (!key) throw new Error('KUGOU_CONCEPT_QR_KEY_EMPTY');
+      const urlText = 'https://h5.kugou.com/apps/loginQRCode/html/index.html?qrcode=' + encodeURIComponent(key);
+      kugouConceptQrSessions.set(key, { createdAt: Date.now() });
+      sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', key, img: await QRCode.toDataURL(urlText), url: urlText, status: 801 });
+    } catch (err) {
+      sendJSON(res, {
+        provider: 'kugou',
+        kugouVariant: 'concept',
+        error: err.message,
+        message: '酷狗概念版二维码暂时不可用，请使用 Cookie 导入',
+        img: '',
+      }, 502);
+    }
+    return;
+  }
+
+  // Real concept-edition QR polling.
+  if (pn === '/api/kugou-concept/login/check') {
+    const key = String(url.searchParams.get('key') || '').trim();
+    const session = kugouConceptQrSessions.get(key);
+    if (!session || Date.now() - session.createdAt > 180000) {
+      kugouConceptQrSessions.delete(key);
+      sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', status: 800, loggedIn: false, message: '二维码已过期' });
+      return;
+    }
+    try {
+      const response = await requestKugouConceptLogin('/v2/get_userinfo_qrcode', { plat: 4, appid: 1005, srcappid: 2919, qrcode: key });
+      const data = response && response.data || {};
+      const status = Number(data.status || response.status || 1);
+      if (status === 4 && (data.token || data.userid)) {
+        const cookie = [data.token && ('token=' + data.token), data.userid && ('userid=' + data.userid), data.kg_mid && ('kg_mid=' + data.kg_mid), data.dfid && ('kg_dfid=' + data.dfid)].filter(Boolean).join('; ');
+        saveKugouConceptCookie(cookie);
+        kugouConceptQrSessions.delete(key);
+        const info = await getKugouLoginInfo(kugouConceptCookie);
+        sendJSON(res, { ...info, provider: 'kugou', kugouVariant: 'concept', status: 4, loggedIn: true, saved: true });
+      } else {
+        sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', status, loggedIn: false });
+      }
+    } catch (err) {
+      sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', status: 801, loggedIn: false, error: err.message });
     }
     return;
   }
@@ -5685,9 +5824,34 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pn === '/api/kugou-concept/login/cookie') {
+    try {
+      const body = await readRequestBody(req);
+      const normalized = normalizeKugouCookieInput(body.cookie || body.data || body.text || '');
+      const auth = extractKugouAuth(normalized);
+      if (!auth.loggedIn && !parseCookieString(normalized).kg_mid) {
+        sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', loggedIn: false, error: 'INVALID_KUGOU_CONCEPT_COOKIE', message: '酷狗概念版会话无效或缺少登录标识' }, 400);
+        return;
+      }
+      saveKugouConceptCookie(normalized);
+      const info = await getKugouLoginInfo(kugouConceptCookie);
+      sendJSON(res, { ...info, provider: 'kugou', kugouVariant: 'concept', saved: true });
+    } catch (err) {
+      console.error('[KugouConceptLoginCookie]', err);
+      sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', loggedIn: false, error: err.message }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/kugou/logout') {
     saveKugouCookie('');
     sendJSON(res, { provider: 'kugou', loggedIn: false, ok: true });
+    return;
+  }
+
+  if (pn === '/api/kugou-concept/logout') {
+    saveKugouConceptCookie('');
+    sendJSON(res, { provider: 'kugou', kugouVariant: 'concept', loggedIn: false, ok: true });
     return;
   }
 

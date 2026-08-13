@@ -1,5 +1,5 @@
 function loggedProviderCount() {
-  return ['netease', 'qq', 'kugou', 'qishui', 'spotify'].filter(function (key) { return hasPlatformLogin(key); }).length;
+  return ['netease', 'qq', 'kugou', 'kugouConcept', 'qishui', 'spotify'].filter(function (key) { return hasPlatformLogin(key); }).length;
 }
 function updateUserModalUi() {
   activeAccountProvider = firstLoggedProvider();
@@ -14,6 +14,7 @@ function updateUserModalUi() {
   var addNetease = document.getElementById('account-add-netease');
   var addQQ = document.getElementById('account-add-qq');
   var addKugou = document.getElementById('account-add-kugou');
+  var addKugouConcept = document.getElementById('account-add-kugouConcept');
   var addQishui = document.getElementById('account-add-qishui');
   var addSpotify = document.getElementById('account-add-spotify');
   if (chip) {
@@ -50,20 +51,22 @@ function updateUserModalUi() {
       vipEl.style.color = qqVipPending ? 'rgba(255,232,174,0.86)' : (hasProviderVip('qq', st) ? 'rgba(0,245,212,0.82)' : 'rgba(0,245,212,0.58)');
     }
   }
-  ['netease', 'qq', 'kugou', 'qishui', 'spotify', 'both'].forEach(function (key) {
+  ['netease', 'qq', 'kugou', 'kugouConcept', 'qishui', 'spotify', 'both'].forEach(function (key) {
     var btn = document.getElementById('user-provider-' + key);
     if (btn) btn.classList.toggle('active', key === 'both' ? dualAccountMode : (!dualAccountMode && activeAccountProvider === key));
   });
   if (addNetease) addNetease.style.display = hasPlatformLogin('netease') ? 'none' : '';
   if (addQQ) addQQ.textContent = hasPlatformLogin('qq') ? '查看 QQ 音乐' : '补登 QQ 音乐';
   if (addKugou) addKugou.textContent = hasPlatformLogin('kugou') ? '查看酷狗音乐' : '补登酷狗音乐';
+  if (addKugouConcept) addKugouConcept.textContent = hasPlatformLogin('kugouConcept') ? '查看酷狗概念版' : '登录酷狗概念版';
   if (addQishui) addQishui.textContent = hasPlatformLogin('qishui') ? '重新登录汽水' : '登录汽水音乐';
   if (addSpotify) addSpotify.textContent = hasPlatformLogin('spotify') ? '查看 Spotify' : '连接 Spotify';
   if (logoutBtn) logoutBtn.textContent =
     activeAccountProvider === 'qq' ? '退出 QQ 音乐' :
+    (activeAccountProvider === 'kugouConcept' ? '退出酷狗概念版' :
     (activeAccountProvider === 'kugou' ? '退出酷狗音乐' :
     (activeAccountProvider === 'qishui' ? '清除汽水登录态' :
-    (activeAccountProvider === 'spotify' ? '退出 Spotify' : '退出网易云')));
+    (activeAccountProvider === 'spotify' ? '退出 Spotify' : '退出网易云'))));
   if (hint) hint.textContent = dualAccountMode
     ? '右上角已切换为多平台并排展示。'
     : '可切换右上角展示的平台；“我两个都要”会并排显示当前已登录的平台。';
@@ -80,7 +83,7 @@ function showUserModal() {
 }
 function closeUserModal() { closeGsapModal(document.getElementById('user-modal')); }
 function setActiveAccountProvider(provider) {
-  provider = provider === 'qq' ? 'qq' : (provider === 'kugou' ? 'kugou' : (provider === 'qishui' ? 'qishui' : (provider === 'spotify' ? 'spotify' : 'netease')));
+  provider = provider === 'qq' ? 'qq' : (provider === 'kugouConcept' ? 'kugouConcept' : (provider === 'kugou' ? 'kugou' : (provider === 'qishui' ? 'qishui' : (provider === 'spotify' ? 'spotify' : 'netease'))));
   if (!hasPlatformLogin(provider)) {
     openProviderLogin(provider);
     return;
@@ -104,7 +107,7 @@ function requestDualLoginMode() {
   enableDualAccountView();
 }
 function openProviderLogin(provider) {
-  provider = provider === 'qq' ? 'qq' : (provider === 'kugou' ? 'kugou' : (provider === 'qishui' ? 'qishui' : (provider === 'spotify' ? 'spotify' : 'netease')));
+  provider = provider === 'qq' ? 'qq' : (provider === 'kugouConcept' ? 'kugouConcept' : (provider === 'kugou' ? 'kugou' : (provider === 'qishui' ? 'qishui' : (provider === 'spotify' ? 'spotify' : 'netease'))));
   closeUserModal();
   loginProvider = provider;
   showLoginModal({ provider: provider });
@@ -143,6 +146,7 @@ function resetAllProviderRendererLoginState() {
   loginStatus = { loggedIn: false, vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: '无VIP' };
   qqLoginStatus = { provider: 'qq', loggedIn: false, preview: false, nickname: 'QQ 音乐', userId: '', avatar: '', vipType: 0, vipLevel: 'none', isVip: false, isSvip: false };
   kugouLoginStatus = { provider: 'kugou', loggedIn: false, preview: false, nickname: '酷狗音乐', userId: '', avatar: '', vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, playbackKeyReady: false };
+  kugouConceptLoginStatus = { provider: 'kugou', kugouVariant: 'concept', loggedIn: false, preview: false, nickname: '酷狗概念版', userId: '', avatar: '', vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, playbackKeyReady: false };
   qishuiLoginStatus = { provider: 'qishui', loggedIn: false, configured: false, oauthConfigured: false, oauthMissing: [], preview: false, nickname: '汽水音乐', userId: '', avatar: '', vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, playbackKeyReady: false, playbackMode: 'recommend-match' };
   spotifyLoginStatus = { provider: 'spotify', loggedIn: false, configured: false, oauthConfigured: false, oauthMissing: [], preview: false, nickname: 'Spotify', userId: '', avatar: '', product: '', vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, playbackKeyReady: false, playbackMode: 'recommend-match', tokenConfigured: false, tokenFileExists: false, credentialsFileExists: false, localConfigMissing: false };
   loginStatusChecked = true;
@@ -150,6 +154,7 @@ function resetAllProviderRendererLoginState() {
   neteasePlaylists = [];
   qqPlaylists = [];
   kugouPlaylists = [];
+  kugouConceptPlaylists = [];
   qishuiPlaylists = [];
   spotifyPlaylists = [];
   userPlaylists = [];
@@ -282,6 +287,20 @@ async function logoutActiveAccount() {
     if (hasAnyPlatformLogin()) updateUserModalUi();
     else closeUserModal();
     showToast('已退出酷狗音乐');
+    return;
+  }
+  if (activeAccountProvider === 'kugouConcept') {
+    try { await apiJson('/api/kugou-concept/logout'); } catch (e) { }
+    kugouConceptLoginStatus = normalizeKugouConceptLoginStatus(null);
+    kugouConceptPlaylists = [];
+    userPlaylists = userPlaylists.filter(function (pl) { return !(pl && pl.provider === 'kugou' && pl.kugouVariant === 'concept'); });
+    playlistCatalogRevision += 1;
+    dualAccountMode = false;
+    activeAccountProvider = firstLoggedProvider();
+    renderUserBtn();
+    if (hasAnyPlatformLogin()) updateUserModalUi();
+    else closeUserModal();
+    showToast('已退出酷狗概念版');
     return;
   }
   if (activeAccountProvider === 'qq') {
