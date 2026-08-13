@@ -1,382 +1,386 @@
 // ============================================================
-// Update preview: external download page only.
-// Mineradio no longer downloads installers or applies resource patches.
+// GitHub release updates: check quietly, explain in-app, open
+// the official Release page only. No local download or patching.
 // ============================================================
+var UPDATE_IGNORED_VERSION_KEY = 'mineradio-update-ignored-version-v1';
+var UPDATE_RELEASE_ORIGIN = 'https://github.com';
+var UPDATE_RELEASE_PATH = '/Mineradio-Next/Mineradio-Next/releases';
+var updatePanelCloseTimer = null;
+
+function normalizedUpdateVersion(value) {
+  return String(value || '').trim().replace(/^v/i, '').replace(/[+].*$/, '').replace(/-.+$/, '');
+}
+
 function isSafeUpdatePageUrl(value) {
   var raw = String(value || '').trim();
   if (!raw || raw.length > 2048) return false;
   try {
-    return new URL(raw).protocol === 'https:';
+    var parsed = new URL(raw);
+    return parsed.origin === UPDATE_RELEASE_ORIGIN
+      && !parsed.port && !parsed.username && !parsed.password
+      && (parsed.pathname === UPDATE_RELEASE_PATH || parsed.pathname.indexOf(UPDATE_RELEASE_PATH + '/') === 0);
   } catch (e) {
     return false;
   }
 }
 
-function normalizeUpdateDownloadPages(values) {
-  var source = Array.isArray(values) ? values : [];
-  var seen = Object.create(null);
-  var pages = [];
-  source.forEach(function (value, index) {
-    var item = value && typeof value === 'object' ? value : { url: value };
-    var url = String(item.url || item.href || item.downloadPageUrl || item.externalUrl || '').trim();
-    if (!isSafeUpdatePageUrl(url) || seen[url]) return;
-    var label = String(item.label || item.name || ('下载线路 ' + (index + 1)))
-      .replace(/[<>|]/g, '')
-      .trim()
-      .slice(0, 24) || ('下载线路 ' + (index + 1));
-    seen[url] = true;
-    pages.push({ label: label, url: url });
-  });
-  return pages.slice(0, 6);
-}
-
-function currentUpdateDownloadPages() {
-  return normalizeUpdateDownloadPages(updatePreviewState.downloadPages);
-}
-
-function currentUpdatePageUrl(preferredIndex) {
-  var pages = currentUpdateDownloadPages();
-  var index = Number.isInteger(preferredIndex)
-    ? preferredIndex
-    : Number(updatePreviewState.selectedDownloadPageIndex || 0);
-  if (pages[index] && isSafeUpdatePageUrl(pages[index].url)) return pages[index].url;
-  if (pages[0] && isSafeUpdatePageUrl(pages[0].url)) return pages[0].url;
-  var candidates = [
-    updatePreviewState.downloadPageUrl,
-    updatePreviewState.externalUrl,
-    updatePreviewState.releaseUrl
-  ];
-  for (var i = 0; i < candidates.length; i++) {
-    if (isSafeUpdatePageUrl(candidates[i])) return String(candidates[i]).trim();
+function readIgnoredUpdateVersion() {
+  try {
+    return normalizedUpdateVersion(localStorage.getItem(UPDATE_IGNORED_VERSION_KEY));
+  } catch (e) {
+    return '';
   }
-  return '';
+}
+
+function writeIgnoredUpdateVersion(version) {
+  var normalized = normalizedUpdateVersion(version);
+  try {
+    if (normalized) localStorage.setItem(UPDATE_IGNORED_VERSION_KEY, normalized);
+    else localStorage.removeItem(UPDATE_IGNORED_VERSION_KEY);
+  } catch (e) { }
+  updatePreviewState.ignoredVersion = normalized;
+  updatePreviewState.ignored = !!normalized && normalized === normalizedUpdateVersion(updatePreviewState.version);
+}
+
+function currentUpdateReleaseUrl() {
+  return isSafeUpdatePageUrl(updatePreviewState.releaseUrl) ? updatePreviewState.releaseUrl : '';
+}
+
+function updateEntryElement() {
+  return document.getElementById('update-entry');
+}
+
+function syncUpdateEntryState() {
+  var entry = updateEntryElement();
+  if (!entry) return;
+  var available = !!updatePreviewState.updateAvailable && !updatePreviewState.ignored;
+  entry.classList.add('present');
+  entry.classList.toggle('available', available);
+  entry.classList.toggle('checking', updatePreviewState.checkStatus === 'checking');
+  entry.classList.toggle('ignored', !!updatePreviewState.updateAvailable && updatePreviewState.ignored);
+  entry.title = available
+    ? '发现 Mineradio Next ' + updatePreviewState.version
+    : (updatePreviewState.ignored ? '已忽略 ' + updatePreviewState.version + '，点击查看' : '检查更新');
+  entry.setAttribute('aria-label', entry.title);
 }
 
 function initUpdatePreview() {
-  renderUpdatePreviewPanel();
-  setUpdatePreviewVisible(false);
-  checkLatestUpdate();
+  if (updatePreviewState.initialized) return;
+  updatePreviewState.initialized = true;
+  updatePreviewState.ignoredVersion = readIgnoredUpdateVersion();
+  syncUpdateEntryState();
+  renderUpdatePreviewPanel('idle');
+  checkLatestUpdate({ manual: false });
 }
 
-function setUpdatePreviewVisible(visible) {
-  updatePreviewState.visible = !!visible;
-  var entry = document.getElementById('update-entry');
-  if (!entry) return;
-  entry.classList.toggle('available', updatePreviewState.visible);
-  if (!updatePreviewState.visible && window.gsap) {
-    window.gsap.killTweensOf(entry);
-    window.gsap.set(entry, { autoAlpha: 0, y: 0, clearProps: 'boxShadow,filter,scale' });
-    return;
+async function checkLatestUpdate(options) {
+  options = options || {};
+  if (updatePreviewState.checkStatus === 'checking') return;
+  var manual = options.manual === true;
+  updatePreviewState.manualCheck = manual;
+  updatePreviewState.checkStatus = 'checking';
+  updatePreviewState.errorReason = '';
+  syncUpdateEntryState();
+  if (manual) {
+    renderUpdatePreviewPanel('checking');
+    showUpdateModal();
   }
-  if (updatePreviewState.visible && window.gsap) {
-    window.gsap.fromTo(entry,
-      { autoAlpha: 0, y: -6, scale: 0.92, filter: 'blur(6px)' },
-      { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 0.62, delay: 0.18, ease: 'expo.out', overwrite: true }
-    );
-    setTimeout(startUpdateIconBreathing, 760);
-  }
-}
-
-async function checkLatestUpdate() {
   try {
     var data = await apiJson('/api/update/latest?t=' + Date.now());
+    if (data && data.checkFailed) throw new Error(data.reason || data.error || 'UPDATE_CHECK_FAILED');
     applyLatestUpdateInfo(data);
+    updatePreviewState.checkStatus = 'ready';
+    syncUpdateEntryState();
+    if (manual || updatePreviewState.open) {
+      renderUpdatePreviewPanel(updatePreviewState.updateAvailable ? (updatePreviewState.ignored ? 'ignored' : 'release') : 'latest');
+    }
   } catch (e) {
-    updatePreviewState.preview = false;
-    updatePreviewState.updateAvailable = false;
-    updatePreviewState.hero = '暂时无法检查更新。';
-    updatePreviewState.message = (e && e.message) || 'UPDATE_CHECK_FAILED';
-    renderUpdatePreviewPanel();
-    setUpdatePreviewVisible(false);
+    updatePreviewState.checkStatus = 'error';
+    updatePreviewState.errorReason = String(e && e.message || 'UPDATE_CHECK_FAILED');
+    syncUpdateEntryState();
+    if (manual || updatePreviewState.open) renderUpdatePreviewPanel('error');
+  } finally {
+    updatePreviewState.manualCheck = false;
   }
 }
 
 function applyLatestUpdateInfo(data) {
   data = data || {};
   var release = data.release || {};
-  updatePreviewState.currentVersion = data.currentVersion || updatePreviewState.currentVersion;
-  updatePreviewState.version = data.latestVersion || release.version || updatePreviewState.currentVersion;
+  updatePreviewState.currentVersion = normalizedUpdateVersion(data.currentVersion || updatePreviewState.currentVersion) || updatePreviewState.currentVersion;
+  updatePreviewState.version = normalizedUpdateVersion(data.latestVersion || release.version || updatePreviewState.currentVersion) || updatePreviewState.currentVersion;
   updatePreviewState.configured = !!data.configured;
   updatePreviewState.preview = !!data.preview;
   updatePreviewState.updateAvailable = !!data.updateAvailable;
-  updatePreviewState.releaseUrl = release.htmlUrl || data.htmlUrl || '';
-  updatePreviewState.externalUrl = release.externalUrl || data.externalUrl || '';
-  updatePreviewState.downloadPages = normalizeUpdateDownloadPages(
-    release.downloadPages || data.downloadPages || []
-  );
-  if (
-    isSafeUpdatePageUrl(updatePreviewState.externalUrl)
-    && !updatePreviewState.downloadPages.some(function (page) { return page.url === updatePreviewState.externalUrl; })
-  ) {
-    updatePreviewState.downloadPages.unshift({
-      label: '网盘下载',
-      url: updatePreviewState.externalUrl
-    });
-  }
-  if (updatePreviewState.selectedDownloadPageIndex >= updatePreviewState.downloadPages.length) {
-    updatePreviewState.selectedDownloadPageIndex = 0;
-  }
-  updatePreviewState.downloadPageUrl = release.downloadPageUrl
-    || data.downloadPageUrl
-    || updatePreviewState.externalUrl
-    || updatePreviewState.releaseUrl
-    || '';
-  updatePreviewState.status = 'idle';
-  updatePreviewState.errorReason = '';
-  updatePreviewState.hero = release.summary
-    || (updatePreviewState.updateAvailable ? '发现新版本，建议更新。' : '当前版本已是最新。');
-  if (Array.isArray(release.notes) && release.notes.length) {
-    updatePreviewState.notes = release.notes.slice(0, 4);
-  }
-  renderUpdatePreviewPanel();
-  setUpdatePreviewVisible(updatePreviewState.updateAvailable || updatePreviewState.preview);
+  updatePreviewState.releaseUrl = isSafeUpdatePageUrl(release.htmlUrl || data.htmlUrl) ? String(release.htmlUrl || data.htmlUrl).trim() : '';
+  updatePreviewState.hero = cleanUpdateCopy(release.summary || data.summary, 72);
+  updatePreviewState.notes = normalizeUpdateNotes(release.notes || data.notes);
+  updatePreviewState.ignoredVersion = readIgnoredUpdateVersion();
+  updatePreviewState.ignored = updatePreviewState.updateAvailable
+    && updatePreviewState.ignoredVersion === normalizedUpdateVersion(updatePreviewState.version);
 }
 
-function startUpdateIconBreathing() {
-  var entry = document.getElementById('update-entry');
-  if (!entry || !updatePreviewState.visible || !window.gsap) return;
-  var ring = entry.querySelector('.update-ring');
-  window.gsap.killTweensOf(entry, 'y,boxShadow');
-  window.gsap.set(entry, { autoAlpha: 1 });
-  if (ring) window.gsap.killTweensOf(ring);
-  window.gsap.to(entry, {
-    y: -1.4,
-    boxShadow: '0 16px 44px rgba(0,0,0,.32),0 0 24px rgba(244,210,138,.18),0 0 13px rgba(157,184,207,.06),inset 0 1px 0 rgba(255,255,255,.11)',
-    duration: 2.6,
-    repeat: -1,
-    yoyo: true,
-    ease: 'sine.inOut'
-  });
-  if (ring) {
-    window.gsap.to(ring, {
-      rotate: 18,
-      duration: 3.8,
-      repeat: -1,
-      yoyo: true,
-      ease: 'sine.inOut',
-      transformOrigin: '50% 50%'
-    });
-  }
+function cleanUpdateCopy(value, maxLength) {
+  return String(value || '')
+    .replace(/[<>]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength || 96);
 }
 
-function renderUpdatePreviewPanel() {
-  var version = document.getElementById('update-modal-version');
-  var hero = document.getElementById('update-hero-main');
-  var list = document.getElementById('update-list');
-  if (version) version.textContent = 'v' + updatePreviewState.version;
-  if (hero) hero.textContent = updatePreviewState.hero || '当前版本已是最新。';
-  if (list) {
-    var notes = Array.isArray(updatePreviewState.notes) && updatePreviewState.notes.length
-      ? updatePreviewState.notes
-      : ['更新检测已就绪'];
-    list.innerHTML = notes.map(function (text, i) {
-      return '<div class="update-item"><span class="update-item-dot" data-index="'
-        + String(i + 1).padStart(2, '0')
-        + '"></span><div class="update-item-text">'
-        + escHtml(text)
-        + '</div></div>';
-    }).join('');
-  }
-  renderUpdateDownloadSources();
-  updateUpdatePreviewProgress(0);
-  syncUpdatePreviewStateClass();
+function normalizeUpdateNotes(values) {
+  var seen = Object.create(null);
+  var heroKey = cleanUpdateCopy(updatePreviewState.hero, 72).toLowerCase();
+  return (Array.isArray(values) ? values : [])
+    .map(function (item) {
+      if (item && typeof item === 'object') {
+        return {
+          title: cleanUpdateCopy(item.title || item.name, 28),
+          detail: cleanUpdateCopy(item.detail || item.description || item.text, 64)
+        };
+      }
+      var text = cleanUpdateCopy(item, 72);
+      var split = text.match(/^(.{2,24}?)[：:]\s*(.+)$/);
+      return split ? { title: split[1], detail: split[2] } : { title: text, detail: '' };
+    })
+    .filter(function (item) {
+      var key = (item.title + '|' + item.detail).toLowerCase();
+      if (!item.title || seen[key] || (!item.detail && item.title.toLowerCase() === heroKey)) return false;
+      seen[key] = true;
+      return true;
+    })
+    .slice(0, 3);
 }
 
-function renderUpdateDownloadSources() {
-  var container = document.getElementById('update-download-sources');
-  if (!container) return;
-  var pages = currentUpdateDownloadPages();
-  container.innerHTML = '';
-  container.hidden = !updatePreviewState.updateAvailable || pages.length < 2;
-  if (container.hidden) return;
-  pages.forEach(function (page, index) {
-    var button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'update-download-source';
-    button.dataset.index = String(index);
-    button.textContent = page.label;
-    button.title = '使用' + page.label + '下载';
-    button.onclick = function () {
-      openUpdateDownloadSource(index);
-    };
-    container.appendChild(button);
-  });
-}
-
-function syncUpdatePreviewStateClass() {
-  var entry = document.getElementById('update-entry');
-  var modal = document.querySelector('#update-modal .update-modal');
-  var isOpening = updatePreviewState.status === 'opening';
-  var isOpened = updatePreviewState.status === 'opened';
-  var isError = updatePreviewState.status === 'error';
-  var downloadPages = currentUpdateDownloadPages();
-  var selectedPage = downloadPages[Number(updatePreviewState.selectedDownloadPageIndex || 0)] || downloadPages[0] || null;
-  var updateUrl = currentUpdatePageUrl();
-  if (entry) {
-    entry.classList.toggle('downloading', isOpening);
-    entry.classList.toggle('ready', isOpened);
-  }
-  if (modal) {
-    modal.classList.toggle('ready', isOpened);
-    modal.classList.toggle('error', isError);
-  }
-  var label = document.getElementById('update-btn-label');
-  if (label) {
-    if (isOpening) label.textContent = '正在打开下载页';
-    else if (isOpened) label.textContent = '下载页已打开';
-    else if (isError) label.textContent = '重试打开';
-    else if (!updatePreviewState.updateAvailable) label.textContent = '当前已是最新';
-    else if (selectedPage) label.textContent = '前往' + selectedPage.label;
-    else if (updatePreviewState.externalUrl) label.textContent = '前往网盘下载';
-    else label.textContent = '查看更新页面';
-  }
-  var btn = document.getElementById('update-primary-btn');
-  if (btn) {
-    btn.disabled = isOpening || !updatePreviewState.updateAvailable || !updateUrl;
-  }
-  var sourceButtons = document.querySelectorAll('#update-download-sources .update-download-source');
-  Array.prototype.forEach.call(sourceButtons, function (sourceButton) {
-    var index = Number(sourceButton.dataset.index || 0);
-    sourceButton.disabled = isOpening;
-    sourceButton.classList.toggle('active', index === Number(updatePreviewState.selectedDownloadPageIndex || 0));
-  });
-  var foot = document.getElementById('update-footnote');
-  if (foot) {
-    if (isOpening) foot.textContent = '正在调用系统浏览器。';
-    else if (isError) foot.textContent = '无法打开下载页：' + (updatePreviewState.errorReason || '请稍后重试');
-    else if (!updatePreviewState.updateAvailable) foot.textContent = '当前版本已是最新。';
-    else if (downloadPages.length > 1) foot.textContent = '可选择任一网盘线路；软件不会在本地下载或应用补丁。';
-    else if (updatePreviewState.externalUrl) foot.textContent = '将在浏览器打开网盘下载页；软件不会在本地下载或应用补丁。';
-    else foot.textContent = '将在浏览器打开 GitHub 更新页面；软件不会在本地下载或应用补丁。';
-  }
-}
-
-function updateUpdatePreviewProgress() {
-  updatePreviewState.progress = 0;
-  var fill = document.getElementById('update-btn-fill');
-  if (fill) fill.style.width = '0%';
-  var ring = document.getElementById('update-progress-ring');
-  if (ring) ring.style.strokeDashoffset = '55.29';
+function updateFallbackNotes() {
+  return [
+    { title: '播放体验更稳定', detail: '修复影响连续播放和来源切换的问题' },
+    { title: '界面细节更统一', detail: '改善常用操作的排版与反馈' },
+    { title: 'Windows 体验优化', detail: '修复桌面端已知问题' }
+  ];
 }
 
 function openUpdatePanel() {
-  var mask = document.getElementById('update-modal');
-  var entry = document.getElementById('update-entry');
-  if (!mask) return;
-  renderUpdatePreviewPanel();
-  if (entry && window.gsap) {
-    window.gsap.fromTo(entry, { scale: 0.93 }, { scale: 1, duration: 0.42, ease: 'back.out(1.7)', overwrite: 'auto' });
+  if (!updatePreviewState.initialized) initUpdatePreview();
+  if (updatePreviewState.checkStatus === 'checking') {
+    renderUpdatePreviewPanel('checking');
+    showUpdateModal();
+    return;
   }
+  if (updatePreviewState.checkStatus === 'idle' || updatePreviewState.checkStatus === 'error') {
+    checkLatestUpdate({ manual: true });
+    return;
+  }
+  var view = updatePreviewState.updateAvailable ? (updatePreviewState.ignored ? 'ignored' : 'release') : 'latest';
+  renderUpdatePreviewPanel(view);
+  showUpdateModal();
+}
+
+function showUpdateModal() {
+  var mask = document.getElementById('update-modal');
+  if (!mask) return;
+  if (updatePanelCloseTimer) {
+    clearTimeout(updatePanelCloseTimer);
+    updatePanelCloseTimer = null;
+  }
+  if (mask.classList.contains('show')) {
+    animateUpdatePanelContents();
+    return;
+  }
+  mask.setAttribute('aria-hidden', 'false');
   openGsapModal(mask);
   updatePreviewState.open = true;
   animateUpdatePanelContents();
 }
 
 function closeUpdatePanel() {
-  closeGsapModal(document.getElementById('update-modal'), function () {
+  if (updatePanelCloseTimer) {
+    clearTimeout(updatePanelCloseTimer);
+    updatePanelCloseTimer = null;
+  }
+  closeUpdateMoreMenu();
+  var mask = document.getElementById('update-modal');
+  closeGsapModal(mask, function () {
     updatePreviewState.open = false;
+    if (mask) mask.setAttribute('aria-hidden', 'true');
   });
 }
 
-function animateUpdatePanelContents() {
-  if (!window.gsap) return;
+function renderUpdatePreviewPanel(view) {
+  view = view || (updatePreviewState.updateAvailable ? 'release' : 'latest');
   var modal = document.querySelector('#update-modal .update-modal');
-  if (!modal) return;
-  var parts = [
-    modal.querySelector('.update-kicker'),
-    modal.querySelector('.update-version'),
-    modal.querySelector('.update-hero')
-  ].filter(Boolean);
-  var items = Array.prototype.slice.call(modal.querySelectorAll('.update-item'));
-  var sources = Array.prototype.slice.call(modal.querySelectorAll('.update-download-source'));
-  var actions = modal.querySelector('.update-actions');
-  window.gsap.fromTo(parts,
-    { autoAlpha: 0, x: -7, filter: 'blur(5px)' },
-    { autoAlpha: 1, x: 0, filter: 'blur(0px)', duration: 0.50, ease: 'power3.out', stagger: 0.045, delay: 0.10, overwrite: true }
-  );
-  window.gsap.fromTo(items,
-    { autoAlpha: 0, x: -8 },
-    { autoAlpha: 1, x: 0, duration: 0.34, ease: 'power3.out', stagger: 0.055, delay: 0.25, overwrite: true }
-  );
-  if (sources.length) {
-    window.gsap.fromTo(sources,
-      { autoAlpha: 0, y: 6 },
-      { autoAlpha: 1, y: 0, duration: 0.30, ease: 'power3.out', stagger: 0.045, delay: 0.34, overwrite: true }
-    );
+  var releaseContent = document.getElementById('update-release-content');
+  var statusContent = document.getElementById('update-status-content');
+  if (!modal || !releaseContent || !statusContent) return;
+  modal.dataset.updateView = view;
+  var releaseVisible = view === 'release';
+  releaseContent.hidden = !releaseVisible;
+  statusContent.hidden = releaseVisible;
+  if (releaseVisible) renderUpdateReleaseContent();
+  else renderUpdateStatusContent(view);
+}
+
+function renderUpdateReleaseContent() {
+  var version = document.getElementById('update-modal-version');
+  var hero = document.getElementById('update-hero-main');
+  var sub = document.getElementById('update-hero-sub');
+  var list = document.getElementById('update-list');
+  var primary = document.getElementById('update-primary-btn');
+  if (version) version.textContent = updatePreviewState.version;
+  if (hero) hero.textContent = updatePreviewState.hero || '音乐不间断，细节更顺手';
+  if (sub) sub.textContent = '这一版集中改善播放稳定性和 Windows 桌面体验';
+  var notes = updatePreviewState.notes.length ? updatePreviewState.notes : updateFallbackNotes();
+  if (list) {
+    list.innerHTML = notes.map(function (item, index) {
+      return '<article class="update-item"><span class="update-item-index">'
+        + String(index + 1).padStart(2, '0')
+        + '</span><div><strong>' + escHtml(item.title) + '</strong>'
+        + (item.detail ? '<span>' + escHtml(item.detail) + '</span>' : '')
+        + '</div></article>';
+    }).join('');
   }
-  if (actions) {
-    window.gsap.fromTo(actions,
-      { autoAlpha: 0, y: 8 },
-      { autoAlpha: 1, x: 0, y: 0, duration: 0.36, ease: 'power3.out', delay: 0.42, overwrite: true }
-    );
+  if (primary) primary.disabled = !currentUpdateReleaseUrl();
+}
+
+function renderUpdateStatusContent(view) {
+  var icon = document.getElementById('update-status-icon');
+  var title = document.getElementById('update-status-title');
+  var copy = document.getElementById('update-status-copy');
+  var primary = document.getElementById('update-status-primary');
+  var restore = document.getElementById('update-restore-btn');
+  if (!icon || !title || !copy || !primary || !restore) return;
+  restore.hidden = true;
+  primary.textContent = '知道了';
+  primary.onclick = closeUpdatePanel;
+  if (view === 'checking') {
+    icon.textContent = '';
+    icon.className = 'update-status-icon checking';
+    title.textContent = '正在检查更新';
+    copy.textContent = '正在连接 GitHub Releases';
+    primary.textContent = '关闭';
+  } else if (view === 'error') {
+    icon.textContent = '↻';
+    icon.className = 'update-status-icon error';
+    title.textContent = '暂时无法检查更新';
+    copy.textContent = '不会影响播放，恢复网络后可以重新检查';
+    primary.textContent = '重新检查';
+    primary.onclick = function () { checkLatestUpdate({ manual: true }); };
+  } else if (view === 'ignored') {
+    icon.textContent = '–';
+    icon.className = 'update-status-icon ignored';
+    title.textContent = '已忽略 ' + updatePreviewState.version;
+    copy.textContent = '更高版本发布后仍会正常提醒';
+    restore.hidden = false;
+  } else {
+    icon.textContent = '✓';
+    icon.className = 'update-status-icon';
+    title.textContent = '已经是最新版本';
+    copy.textContent = '当前使用 Mineradio Next ' + updatePreviewState.currentVersion;
   }
 }
 
-function openUpdateDownloadSource(index) {
-  var pages = currentUpdateDownloadPages();
-  if (!pages[index]) return;
-  updatePreviewState.selectedDownloadPageIndex = index;
-  syncUpdatePreviewStateClass();
-  startUpdatePreviewDownload(index);
+function remindUpdateLater() {
+  updatePreviewState.remindedLater = true;
+  closeUpdatePanel();
 }
 
-async function startUpdatePreviewDownload(preferredIndex) {
+function ignoreCurrentUpdateVersion() {
+  if (!updatePreviewState.updateAvailable) return;
+  writeIgnoredUpdateVersion(updatePreviewState.version);
+  closeUpdateMoreMenu();
+  syncUpdateEntryState();
+  renderUpdatePreviewPanel('ignored');
+  if (typeof showToast === 'function') showToast('已忽略 ' + updatePreviewState.version + '，更高版本仍会提醒');
+}
+
+function restoreIgnoredUpdateVersion() {
+  writeIgnoredUpdateVersion('');
+  syncUpdateEntryState();
+  renderUpdatePreviewPanel(updatePreviewState.updateAvailable ? 'release' : 'latest');
+  if (typeof showToast === 'function') showToast('版本提醒已恢复');
+}
+
+function toggleUpdateMoreMenu(event) {
+  if (event && event.stopPropagation) event.stopPropagation();
+  var menu = document.getElementById('update-more-menu');
+  var button = document.getElementById('update-more-btn');
+  if (!menu || !button) return;
+  var opening = menu.hidden;
+  menu.hidden = !opening;
+  button.setAttribute('aria-expanded', opening ? 'true' : 'false');
+}
+
+function closeUpdateMoreMenu() {
+  var menu = document.getElementById('update-more-menu');
+  var button = document.getElementById('update-more-btn');
+  if (menu) menu.hidden = true;
+  if (button) button.setAttribute('aria-expanded', 'false');
+}
+
+async function copyCurrentUpdateAddress() {
+  var target = currentUpdateReleaseUrl();
+  if (!target) return;
+  closeUpdateMoreMenu();
+  try {
+    await navigator.clipboard.writeText(target);
+    if (typeof showToast === 'function') showToast('更新地址已复制');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('暂时无法复制更新地址');
+  }
+}
+
+async function openCurrentUpdateRelease() {
   if (updatePreviewState.status === 'opening') return;
-  if (!updatePreviewState.updateAvailable) {
-    showToast('当前版本已是最新');
-    return;
-  }
-  if (Number.isInteger(preferredIndex)) {
-    updatePreviewState.selectedDownloadPageIndex = preferredIndex;
-  }
-  var target = currentUpdatePageUrl(preferredIndex);
+  var target = currentUpdateReleaseUrl();
   if (!target) {
-    showToast('这个版本还没有可用下载页面');
+    if (typeof showToast === 'function') showToast('这个版本还没有可用的 Release 页面');
     return;
   }
   updatePreviewState.status = 'opening';
-  updatePreviewState.errorReason = '';
-  syncUpdatePreviewStateClass();
+  var button = document.getElementById('update-primary-btn');
+  var label = document.getElementById('update-btn-label');
+  if (button) button.disabled = true;
+  if (label) label.textContent = '正在打开 GitHub';
   try {
-    if (window.desktopWindow && typeof window.desktopWindow.openUpdatePage === 'function') {
-      var result = await window.desktopWindow.openUpdatePage(target);
-      if (!result || result.ok === false) throw new Error((result && result.error) || 'OPEN_UPDATE_PAGE_FAILED');
-    } else {
-      var opened = window.open(target, '_blank', 'noopener');
-      if (!opened) throw new Error('OPEN_UPDATE_PAGE_BLOCKED');
-    }
-    updatePreviewState.status = 'opened';
-    syncUpdatePreviewStateClass();
-    pulseUpdateReady();
-    showToast(updatePreviewState.externalUrl ? '已在浏览器打开网盘下载页' : '已在浏览器打开更新页面');
-    setTimeout(function () {
-      if (updatePreviewState.status === 'opened') {
-        updatePreviewState.status = 'idle';
-        syncUpdatePreviewStateClass();
-      }
-    }, 1600);
+    var result = window.desktopWindow && typeof window.desktopWindow.openUpdatePage === 'function'
+      ? await window.desktopWindow.openUpdatePage(target)
+      : { ok: !!window.open(target, '_blank', 'noopener') };
+    if (!result || result.ok === false) throw new Error(result && result.error || 'OPEN_UPDATE_PAGE_FAILED');
+    if (label) label.textContent = 'GitHub 页面已打开';
+    if (typeof showToast === 'function') showToast('已在系统浏览器打开官方 Release 页面');
+    updatePanelCloseTimer = setTimeout(function () {
+      updatePanelCloseTimer = null;
+      closeUpdatePanel();
+    }, 520);
   } catch (e) {
-    updatePreviewState.status = 'error';
-    updatePreviewState.errorReason = (e && e.message) || 'OPEN_UPDATE_PAGE_FAILED';
-    syncUpdatePreviewStateClass();
-    showToast('无法打开更新页面');
+    if (label) label.textContent = '重试打开 GitHub';
+    if (typeof showToast === 'function') showToast('暂时无法打开 GitHub Release 页面');
+  } finally {
+    updatePreviewState.status = 'idle';
+    if (button) button.disabled = !target;
   }
 }
 
-function pulseUpdateReady() {
-  var entry = document.getElementById('update-entry');
-  var btn = document.getElementById('update-primary-btn');
-  if (!window.gsap) return;
-  if (entry) {
-    window.gsap.fromTo(entry,
-      { scale: 0.96, filter: 'brightness(1)' },
-      { scale: 1.05, filter: 'brightness(1.28)', duration: 0.26, yoyo: true, repeat: 1, ease: 'power2.out', overwrite: true }
-    );
-  }
-  if (btn) {
-    window.gsap.fromTo(btn,
-      { scale: 0.985 },
-      { scale: 1.015, duration: 0.22, yoyo: true, repeat: 1, ease: 'sine.inOut', overwrite: true }
-    );
-  }
+function animateUpdatePanelContents() {
+  if (!window.gsap || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var modal = document.querySelector('#update-modal .update-modal');
+  if (!modal) return;
+  var parts = modal.querySelectorAll('[hidden] *');
+  if (parts && parts.length) window.gsap.set(parts, { clearProps: 'all' });
+  var visible = modal.querySelectorAll(
+    '.update-release-content:not([hidden]) > *, .update-status-content:not([hidden]) > *'
+  );
+  if (!visible.length) return;
+  window.gsap.fromTo(visible,
+    { autoAlpha: 0, y: 6, filter: 'blur(3px)' },
+    { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 0.24, stagger: 0.025, ease: 'power3.out', delay: 0.03, overwrite: true }
+  );
 }
+
+document.addEventListener('click', function (event) {
+  var menu = document.getElementById('update-more-menu');
+  var button = document.getElementById('update-more-btn');
+  if (!menu || menu.hidden) return;
+  if (menu.contains(event.target) || (button && button.contains(event.target))) return;
+  closeUpdateMoreMenu();
+});

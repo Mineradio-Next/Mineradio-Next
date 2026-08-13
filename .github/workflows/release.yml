@@ -51,6 +51,9 @@ jobs:
       - name: Dependency audit
         run: npm run security:audit
 
+      - name: Verify release metadata
+        run: npm run release:verify
+
       - name: Build Windows installer
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -72,6 +75,9 @@ jobs:
             ) | Set-Content -LiteralPath dist/RELEASE_NOTES.md -Encoding utf8
           }
 
+      - name: Verify release artifacts
+        run: npm run release:verify -- --artifacts
+
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
@@ -87,7 +93,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          name: Mineradio Next ${{ github.ref_name }}
           body_path: dist/RELEASE_NOTES.md
           files: |
             dist/*-Setup.exe

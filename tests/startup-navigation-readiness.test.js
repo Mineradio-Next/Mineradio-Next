@@ -79,9 +79,14 @@ function createLoadWithRetryHarness(env = {}) {
     'process',
     'writeStartupState',
     'STARTUP_NAVIGATION_TIMEOUT_MS',
+    'STARTUP_SHOW_WATCHDOG_MS',
+    'STARTUP_FIRST_FRAME_TIMEOUT_MS',
+    'STARTUP_FIRST_FRAME_SETTLE_MS',
     'withStartupTimeout',
     'startupDelay',
     'startupErrorText',
+    'showMainWindowSafely',
+    'startupCompleted',
     `${urlMatchSource}\n${readySignalSource}\n${loadWithRetrySource}\nreturn loadMainWindowWithRetry;`
   )(
     URL,
@@ -90,9 +95,14 @@ function createLoadWithRetryHarness(env = {}) {
     processStub,
     (phase, details) => states.push({ phase, details }),
     15000,
+    20,
+    20,
+    0,
     fastStartupTimeout,
     () => Promise.resolve(),
-    error => String(error && error.message || error || 'UNKNOWN_ERROR')
+    error => String(error && error.message || error || 'UNKNOWN_ERROR'),
+    () => true,
+    false
   );
   return { loadMainWindowWithRetry, states };
 }
@@ -108,6 +118,9 @@ function createFakeWindow(onLoad) {
   const win = {
     webContents,
     isDestroyed: () => false,
+    isVisible: () => false,
+    hide() {},
+    setBackgroundColor() {},
     loadURL(targetUrl) {
       loadCalls += 1;
       return onLoad({

@@ -12,6 +12,9 @@ test('desktop update bridge opens only bounded HTTPS pages from the trusted main
   assert.match(mainText, /if \(!isTrustedMainWindowIpc\(event\)\) return \{ ok: false, error: 'UNTRUSTED_SENDER' \}/);
   assert.match(mainText, /target\.length > 2048/);
   assert.match(mainText, /parsed\.protocol !== 'https:'/);
+  assert.match(mainText, /parsed\.hostname\.toLowerCase\(\) !== 'github\.com'/);
+  assert.match(mainText, /\/Mineradio-Next\\\/Mineradio-Next\\\/releases/);
+  assert.match(mainText, /UNTRUSTED_UPDATE_URL/);
   assert.match(mainText, /await shell\.openExternal\(parsed\.href\)/);
   assert.match(preloadText, /openUpdatePage: \(url\) => ipcRenderer\.invoke\('mineradio-open-update-page', String\(url \|\| ''\)\)/);
 });

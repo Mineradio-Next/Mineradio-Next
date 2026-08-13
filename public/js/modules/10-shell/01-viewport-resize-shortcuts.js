@@ -70,6 +70,12 @@ document.addEventListener('keydown', function (e) {
       closeTrackDetailModal();
       return;
     }
+    var updateModal = document.getElementById('update-modal');
+    if (updateModal && updateModal.classList.contains('show') && typeof closeUpdatePanel === 'function') {
+      e.preventDefault();
+      closeUpdatePanel();
+      return;
+    }
     if (miniQueueOpen) { closeMiniQueue(); return; }
     if (shelfManager && shelfManager.hasOpenContent()) { safeShelfCloseContent('escape-key'); return; }
     closeLoginModal(); closeUserModal(); toggleFxPanel(false); togglePlaylistPanel(false);

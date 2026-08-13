@@ -2,6 +2,8 @@
 function openGsapModal(mask) {
   if (!mask) return;
   var panel = mask.querySelector('.modal');
+  var compactUpdateMotion = mask.id === 'update-modal';
+  var reduceUpdateMotion = compactUpdateMotion && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   mask.classList.add('show');
   if (window.gsap) {
     window.gsap.killTweensOf(mask);
@@ -9,12 +11,16 @@ function openGsapModal(mask) {
     window.gsap.set(mask, { display: 'flex', visibility: 'visible' });
     window.gsap.fromTo(mask,
       { autoAlpha: 0 },
-      { autoAlpha: 1, duration: 0.38, ease: 'power2.out', overwrite: true }
+      { autoAlpha: 1, duration: compactUpdateMotion ? 0.18 : 0.38, ease: 'power2.out', overwrite: true }
     );
     if (panel) {
       window.gsap.fromTo(panel,
-        { autoAlpha: 0, y: 26, scale: 0.965, filter: 'blur(12px)' },
-        { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 0.68, ease: 'expo.out', overwrite: true }
+        reduceUpdateMotion
+          ? { autoAlpha: 0, y: 0, scale: 1, filter: 'blur(0px)' }
+          : compactUpdateMotion
+          ? { autoAlpha: 0, y: 10, scale: 0.99, filter: 'blur(5px)' }
+          : { autoAlpha: 0, y: 26, scale: 0.965, filter: 'blur(12px)' },
+        { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: reduceUpdateMotion ? 0.16 : (compactUpdateMotion ? 0.28 : 0.68), ease: compactUpdateMotion ? 'power3.out' : 'expo.out', overwrite: true }
       );
     }
   } else {
@@ -29,6 +35,8 @@ function closeGsapModal(mask, afterClose) {
     return;
   }
   var panel = mask.querySelector('.modal');
+  var compactUpdateMotion = mask.id === 'update-modal';
+  var reduceUpdateMotion = compactUpdateMotion && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function finish() {
     mask.classList.remove('show');
     if (window.gsap) {
@@ -45,9 +53,17 @@ function closeGsapModal(mask, afterClose) {
     window.gsap.killTweensOf(mask);
     if (panel) {
       window.gsap.killTweensOf(panel);
-      window.gsap.to(panel, { autoAlpha: 0, y: 18, scale: 0.976, filter: 'blur(8px)', duration: 0.28, ease: 'power2.in', overwrite: true });
+      window.gsap.to(panel, {
+        autoAlpha: 0,
+        y: reduceUpdateMotion ? 0 : (compactUpdateMotion ? 8 : 18),
+        scale: reduceUpdateMotion ? 1 : (compactUpdateMotion ? 0.992 : 0.976),
+        filter: reduceUpdateMotion ? 'blur(0px)' : (compactUpdateMotion ? 'blur(4px)' : 'blur(8px)'),
+        duration: reduceUpdateMotion ? 0.14 : (compactUpdateMotion ? 0.18 : 0.28),
+        ease: compactUpdateMotion ? 'power2.out' : 'power2.in',
+        overwrite: true
+      });
     }
-    window.gsap.to(mask, { autoAlpha: 0, duration: 0.34, ease: 'power2.inOut', overwrite: true, onComplete: finish });
+    window.gsap.to(mask, { autoAlpha: 0, duration: reduceUpdateMotion ? 0.16 : (compactUpdateMotion ? 0.22 : 0.34), ease: compactUpdateMotion ? 'power2.out' : 'power2.inOut', overwrite: true, onComplete: finish });
   } else {
     finish();
   }

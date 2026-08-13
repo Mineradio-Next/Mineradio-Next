@@ -15,7 +15,9 @@ var fxFabAutoHide = readBooleanPreference(FX_FAB_AUTO_HIDE_STORE_KEY, false);
 var fxFabAutoHideRevealArmed = true;
 var closeBehaviorPreference = readCloseBehaviorPreference();
 var startupAutoplayPreference = readBooleanPreference(STARTUP_AUTOPLAY_STORE_KEY, false);
-var startupFastSkipPreference = readBooleanPreference(STARTUP_FAST_SKIP_STORE_KEY, false);
+var startupFastSkipPreference = new URLSearchParams(location.search).get('startupForceSplash') === '1'
+  ? false
+  : readBooleanPreference(STARTUP_FAST_SKIP_STORE_KEY, false);
 var startupResumeModePreference = readStartupResumeModePreference();
 var startupAutoplayAttempted = false;
 var startupAutoplayJobId = 0;

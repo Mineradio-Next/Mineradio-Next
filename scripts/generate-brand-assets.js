@@ -72,6 +72,48 @@ function solid(width, height, r, g, b, a = 255) {
   return png;
 }
 
+function blendPixel(png, x, y, r, g, b, alpha = 1) {
+  if (x < 0 || y < 0 || x >= png.width || y >= png.height || alpha <= 0) return;
+  const offset = (Math.floor(y) * png.width + Math.floor(x)) * 4;
+  const inverse = 1 - Math.min(1, alpha);
+  png.data[offset] = Math.round(r * alpha + png.data[offset] * inverse);
+  png.data[offset + 1] = Math.round(g * alpha + png.data[offset + 1] * inverse);
+  png.data[offset + 2] = Math.round(b * alpha + png.data[offset + 2] * inverse);
+  png.data[offset + 3] = 255;
+}
+
+function fillRect(png, x, y, width, height, color, alpha = 1) {
+  for (let py = Math.max(0, y); py < Math.min(png.height, y + height); py += 1) {
+    for (let px = Math.max(0, x); px < Math.min(png.width, x + width); px += 1) {
+      blendPixel(png, px, py, color[0], color[1], color[2], alpha);
+    }
+  }
+}
+
+function strokeCircle(png, cx, cy, radius, thickness, color, alpha = 1) {
+  const outer = radius + thickness / 2;
+  const inner = Math.max(0, radius - thickness / 2);
+  const x0 = Math.floor(cx - outer - 1);
+  const x1 = Math.ceil(cx + outer + 1);
+  const y0 = Math.floor(cy - outer - 1);
+  const y1 = Math.ceil(cy + outer + 1);
+  for (let y = y0; y <= y1; y += 1) {
+    for (let x = x0; x <= x1; x += 1) {
+      const distance = Math.hypot(x + .5 - cx, y + .5 - cy);
+      if (distance >= inner && distance <= outer) blendPixel(png, x, y, color[0], color[1], color[2], alpha);
+    }
+  }
+}
+
+function drawWaveform(png, left, centerY, heights, color) {
+  heights.forEach((height, index) => {
+    const x = left + index * 6;
+    fillRect(png, x, Math.round(centerY - height / 2), 2, height, color, .78);
+    blendPixel(png, x - 1, centerY, color[0], color[1], color[2], .18);
+    blendPixel(png, x + 2, centerY, color[0], color[1], color[2], .18);
+  });
+}
+
 function createIco(images) {
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);
@@ -121,10 +163,24 @@ function toBmp24(png) {
 }
 
 function installerArt(source) {
-  const sidebar = solid(164, 314, 7, 16, 19);
-  composite(sidebar, resize(source, 106), 29, 27);
-  const header = solid(150, 57, 7, 16, 19);
-  composite(header, resize(source, 46), 94, 5);
+  const sidebar = solid(164, 314, 16, 23, 25);
+  fillRect(sidebar, 0, 0, 164, 314, [25, 37, 40], .28);
+  fillRect(sidebar, 0, 0, 6, 314, [85, 221, 181], .92);
+  composite(sidebar, resize(source, 62), 24, 24);
+
+  strokeCircle(sidebar, 16, 280, 86, 1, [88, 201, 232], .30);
+  strokeCircle(sidebar, 16, 280, 65, 1, [85, 221, 181], .18);
+  strokeCircle(sidebar, 16, 280, 44, 1, [244, 248, 247], .08);
+  drawWaveform(sidebar, 96, 158, [25, 54, 82, 43, 104, 68, 35, 91, 48, 72], [85, 221, 181]);
+  fillRect(sidebar, 24, 112, 34, 2, [85, 221, 181], .82);
+  fillRect(sidebar, 24, 123, 62, 1, [244, 248, 247], .20);
+  fillRect(sidebar, 24, 130, 46, 1, [244, 248, 247], .12);
+  fillRect(sidebar, 24, 271, 54, 1, [244, 248, 247], .16);
+
+  const header = solid(150, 57, 16, 23, 25);
+  fillRect(header, 0, 0, 5, 57, [85, 221, 181], .92);
+  drawWaveform(header, 14, 29, [9, 19, 31, 14, 38, 24, 12, 29, 17, 22], [85, 221, 181]);
+  composite(header, resize(source, 42), 101, 7);
   return { sidebar, header };
 }
 

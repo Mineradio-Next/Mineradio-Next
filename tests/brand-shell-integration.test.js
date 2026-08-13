@@ -21,7 +21,9 @@ test('approved Mineradio Next mark stays in the titlebar while startup remains w
   assert.match(css, /\.desktop-app-title span/);
   assert.match(css, /@keyframes splash-wordmark-scan/);
   assert.match(css, /\.player-tools-panel,[^]*rgba\(14, 18, 20, \.88\)/);
-  assert.doesNotMatch(html, /splash-brand[^]*mineradio-next-icon\.svg/);
+  const splashMarkup = /<div id="splash">([\s\S]*?)<div id="hint"/.exec(html);
+  assert.ok(splashMarkup, 'startup splash markup must remain present');
+  assert.doesNotMatch(splashMarkup[1], /mineradio-next-icon\.svg/);
   assert.doesNotMatch(startup, /class="mark"|mineradio-next-mark-initial/);
   assert.match(css, /\.desktop-app-title img/);
   assert.doesNotMatch(css, /\.splash-brand-mark/);

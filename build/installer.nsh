@@ -11,10 +11,10 @@
   !define MUI_DIRECTORYPAGE_TEXTCOLOR "111217"
 !endif
 !ifndef MUI_INSTFILESPAGE_COLORS
-  !define MUI_INSTFILESPAGE_COLORS "3257F7 FFFFFF"
+  !define MUI_INSTFILESPAGE_COLORS "55DDB5 101719"
 !endif
 !ifndef MUI_FINISHPAGE_LINK_COLOR
-  !define MUI_FINISHPAGE_LINK_COLOR "3257F7"
+  !define MUI_FINISHPAGE_LINK_COLOR "168B77"
 !endif
 !ifndef MUI_HEADERIMAGE
   !define MUI_HEADERIMAGE
@@ -38,16 +38,22 @@
 !include WinMessages.nsh
 
 !ifndef MINERADIO_INSTALL_DIR_NAME
-  !define MINERADIO_INSTALL_DIR_NAME "Mineradio"
+  !define MINERADIO_INSTALL_DIR_NAME "Mineradio-Next"
 !endif
 !ifndef MINERADIO_INSTALL_DIR_NAME_LOWER
-  !define MINERADIO_INSTALL_DIR_NAME_LOWER "mineradio"
+  !define MINERADIO_INSTALL_DIR_NAME_LOWER "mineradio-next"
+!endif
+!ifndef MINERADIO_LEGACY_INSTALL_DIR_NAME
+  !define MINERADIO_LEGACY_INSTALL_DIR_NAME "Mineradio"
+!endif
+!ifndef MINERADIO_LEGACY_INSTALL_DIR_NAME_LOWER
+  !define MINERADIO_LEGACY_INSTALL_DIR_NAME_LOWER "mineradio"
 !endif
 !ifndef MINERADIO_INSTALL_MARKER
   !define MINERADIO_INSTALL_MARKER ".mineradio-install-root"
 !endif
 !ifndef MINERADIO_MARKER_APP_ID
-  !define MINERADIO_MARKER_APP_ID "com.mineradio.desktop"
+  !define MINERADIO_MARKER_APP_ID "com.mineradio.next"
 !endif
 !ifndef MINERADIO_INSTALL_BRAND
   !define MINERADIO_INSTALL_BRAND "MINERADIO"
@@ -67,25 +73,48 @@
   Var MineradioSmallFont
   Var MineradioDirectoryPage
   Var MineradioDirectoryInput
+  Var MineradioDesktopShortcutControl
+  Var MineradioDesktopShortcutEnabled
+  Var MineradioInstallOptionsControl
+  Var MineradioInstallOptionsEnabled
+  Var MineradioInstallDirInitialized
+  Var MineradioWelcomeBitmapHandle
 !endif
 
 !macro customInit
   !ifndef BUILD_UNINSTALLER
+    StrCpy $MineradioDesktopShortcutEnabled "1"
+    StrCpy $MineradioInstallOptionsEnabled "0"
+    StrCpy $MineradioInstallDirInitialized "0"
     Call MineradioUsePreferredInstallDir
-    Call MineradioDisableUnsafeOldUninstallers
     ${If} ${Silent}
+      ${GetParameters} $R0
+      ClearErrors
+      ${GetOptions} $R0 "/MINERADIO-NO-DESKTOP" $R1
+      ${IfNot} ${Errors}
+        StrCpy $MineradioDesktopShortcutEnabled "0"
+      ${EndIf}
       Call MineradioValidateInstallDir
+    ${Else}
+      Call MineradioLaunchInstallerShell
     ${EndIf}
   !endif
 !macroend
 
 !macro customInstall
+  !ifndef BUILD_UNINSTALLER
+    ${If} $MineradioDesktopShortcutEnabled != "1"
+      Delete "$newDesktopLink"
+    ${EndIf}
+  !endif
+  SetOutPath "$INSTDIR"
   FileOpen $0 "$INSTDIR\${MINERADIO_INSTALL_MARKER}" w
   ${IfNot} ${Errors}
     FileWrite $0 "Mineradio install root$\r$\n"
     FileWrite $0 "appId=${MINERADIO_MARKER_APP_ID}$\r$\n"
     FileClose $0
   ${EndIf}
+  WriteRegStr SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" InstallLocation "$INSTDIR"
 !macroend
 
 !macro customRemoveFiles
@@ -93,7 +122,7 @@
 !macroend
 
 !macro customWelcomePage
-  Page custom MineradioWelcomeShow
+  Page custom MineradioWelcomeShow MineradioWelcomeLeave
 !macroend
 
 !macro customInstallMode
@@ -238,7 +267,19 @@ Function MineradioTintCommonControls
 FunctionEnd
 
 Function MineradioUsePreferredInstallDir
+  ${If} $MineradioInstallDirInitialized == "1"
+    Return
+  ${EndIf}
+  StrCpy $MineradioInstallDirInitialized "1"
   ${GetParameters} $R0
+  ClearErrors
+  ${GetOptions} $R0 "/MINERADIO-SHELL" $R1
+  ${IfNot} ${Errors}
+    Push "$INSTDIR"
+    Call MineradioNormalizeInstallDir
+    Pop $INSTDIR
+    Return
+  ${EndIf}
   ClearErrors
   ${GetOptions} $R0 "/D=" $R1
   ${IfNot} ${Errors}
@@ -248,7 +289,7 @@ Function MineradioUsePreferredInstallDir
     Call MineradioUseRegisteredInstallDir
     Pop $R2
     ${If} $R2 != "1"
-      Call MineradioUseFirstAvailableInstallDir
+      Call MineradioUseStandardInstallDir
     ${EndIf}
   ${EndIf}
   Push "$INSTDIR"
@@ -256,134 +297,19 @@ Function MineradioUsePreferredInstallDir
   Pop $INSTDIR
 FunctionEnd
 
-Function MineradioUseFirstAvailableInstallDir
-  IfFileExists "D:\*.*" driveD 0
-  IfFileExists "E:\*.*" driveE 0
-  IfFileExists "F:\*.*" driveF 0
-  IfFileExists "G:\*.*" driveG 0
-  IfFileExists "H:\*.*" driveH 0
-  IfFileExists "I:\*.*" driveI 0
-  IfFileExists "J:\*.*" driveJ 0
-  IfFileExists "K:\*.*" driveK 0
-  IfFileExists "L:\*.*" driveL 0
-  IfFileExists "M:\*.*" driveM 0
-  IfFileExists "N:\*.*" driveN 0
-  IfFileExists "O:\*.*" driveO 0
-  IfFileExists "P:\*.*" driveP 0
-  IfFileExists "Q:\*.*" driveQ 0
-  IfFileExists "R:\*.*" driveR 0
-  IfFileExists "S:\*.*" driveS 0
-  IfFileExists "T:\*.*" driveT 0
-  IfFileExists "U:\*.*" driveU 0
-  IfFileExists "V:\*.*" driveV 0
-  IfFileExists "W:\*.*" driveW 0
-  IfFileExists "X:\*.*" driveX 0
-  IfFileExists "Y:\*.*" driveY 0
-  IfFileExists "Z:\*.*" driveZ 0
-  StrCpy $INSTDIR "C:\${MINERADIO_INSTALL_DIR_NAME}"
-  Return
-
-  driveD:
-    StrCpy $INSTDIR "D:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveE:
-    StrCpy $INSTDIR "E:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveF:
-    StrCpy $INSTDIR "F:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveG:
-    StrCpy $INSTDIR "G:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveH:
-    StrCpy $INSTDIR "H:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveI:
-    StrCpy $INSTDIR "I:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveJ:
-    StrCpy $INSTDIR "J:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveK:
-    StrCpy $INSTDIR "K:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveL:
-    StrCpy $INSTDIR "L:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveM:
-    StrCpy $INSTDIR "M:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveN:
-    StrCpy $INSTDIR "N:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveO:
-    StrCpy $INSTDIR "O:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveP:
-    StrCpy $INSTDIR "P:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveQ:
-    StrCpy $INSTDIR "Q:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveR:
-    StrCpy $INSTDIR "R:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveS:
-    StrCpy $INSTDIR "S:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveT:
-    StrCpy $INSTDIR "T:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveU:
-    StrCpy $INSTDIR "U:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveV:
-    StrCpy $INSTDIR "V:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveW:
-    StrCpy $INSTDIR "W:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveX:
-    StrCpy $INSTDIR "X:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveY:
-    StrCpy $INSTDIR "Y:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
-  driveZ:
-    StrCpy $INSTDIR "Z:\${MINERADIO_INSTALL_DIR_NAME}"
-    Return
+Function MineradioUseStandardInstallDir
+  StrCpy $INSTDIR "$LOCALAPPDATA\Programs\${MINERADIO_INSTALL_DIR_NAME}"
 FunctionEnd
 
-Function MineradioHasPreferredInstallDrive
-  IfFileExists "D:\*.*" hasPreferred 0
-  IfFileExists "E:\*.*" hasPreferred 0
-  IfFileExists "F:\*.*" hasPreferred 0
-  IfFileExists "G:\*.*" hasPreferred 0
-  IfFileExists "H:\*.*" hasPreferred 0
-  IfFileExists "I:\*.*" hasPreferred 0
-  IfFileExists "J:\*.*" hasPreferred 0
-  IfFileExists "K:\*.*" hasPreferred 0
-  IfFileExists "L:\*.*" hasPreferred 0
-  IfFileExists "M:\*.*" hasPreferred 0
-  IfFileExists "N:\*.*" hasPreferred 0
-  IfFileExists "O:\*.*" hasPreferred 0
-  IfFileExists "P:\*.*" hasPreferred 0
-  IfFileExists "Q:\*.*" hasPreferred 0
-  IfFileExists "R:\*.*" hasPreferred 0
-  IfFileExists "S:\*.*" hasPreferred 0
-  IfFileExists "T:\*.*" hasPreferred 0
-  IfFileExists "U:\*.*" hasPreferred 0
-  IfFileExists "V:\*.*" hasPreferred 0
-  IfFileExists "W:\*.*" hasPreferred 0
-  IfFileExists "X:\*.*" hasPreferred 0
-  IfFileExists "Y:\*.*" hasPreferred 0
-  IfFileExists "Z:\*.*" hasPreferred 0
-  Push "0"
-  Return
-
-  hasPreferred:
-    Push "1"
-    Return
+Function MineradioLaunchInstallerShell
+  InitPluginsDir
+  File /oname=$PLUGINSDIR\mineradio-installer-shell.ps1 "${__FILEDIR__}\installer-shell.ps1"
+  CopyFiles /SILENT "$PLUGINSDIR\mineradio-installer-shell.ps1" "$TEMP\mineradio-next-installer-shell.ps1"
+  System::Call 'kernel32::GetCurrentProcessId() i.r0'
+  HideWindow
+  Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "$TEMP\mineradio-next-installer-shell.ps1" -InstallerPath "$EXEPATH" -ParentProcessId $0'
+  SetErrorLevel 0
+  Quit
 FunctionEnd
 
 Function MineradioNormalizeInstallDir
@@ -410,10 +336,17 @@ Function MineradioNormalizeInstallDir
   StrLen $1 "$0"
   IntOp $5 $4 + 1
   StrCpy $2 "$0" $5 -$5
+  StrLen $6 "${MINERADIO_LEGACY_INSTALL_DIR_NAME}"
+  IntOp $6 $6 + 1
+  StrCpy $3 "$0" $6 -$6
   ${If} $1 < $5
   ${OrIf} $2 != "\${MINERADIO_INSTALL_DIR_NAME}"
   ${AndIf} $2 != "\${MINERADIO_INSTALL_DIR_NAME_LOWER}"
-    StrCpy $0 "$0\${MINERADIO_INSTALL_DIR_NAME}"
+    ${If} $1 < $6
+    ${OrIf} $3 != "\${MINERADIO_LEGACY_INSTALL_DIR_NAME}"
+    ${AndIf} $3 != "\${MINERADIO_LEGACY_INSTALL_DIR_NAME_LOWER}"
+      StrCpy $0 "$0\${MINERADIO_INSTALL_DIR_NAME}"
+    ${EndIf}
   ${EndIf}
   Exch $0
 FunctionEnd
@@ -439,6 +372,8 @@ Function MineradioInstallDirLooksOwned
   StrCpy $1 "0"
 
   IfFileExists "$0\${MINERADIO_INSTALL_MARKER}" 0 +2
+    StrCpy $1 "1"
+  IfFileExists "$0\resources\${MINERADIO_INSTALL_MARKER}" 0 +2
     StrCpy $1 "1"
 
   StrCpy $0 "$1"
@@ -469,6 +404,7 @@ Function MineradioExistingInstallPathCanBeAdopted
 
   IfFileExists "$2\*.*" 0 done
   IfFileExists "$2\${MINERADIO_INSTALL_MARKER}" adopt 0
+  IfFileExists "$2\resources\${MINERADIO_INSTALL_MARKER}" adopt 0
   IfFileExists "$2\${PRODUCT_FILENAME}.exe" adopt 0
   IfFileExists "$2\resources\app.asar" adopt 0
   IfFileExists "$2\resources\app\package.json" adopt 0
@@ -630,117 +566,6 @@ Function MineradioInstallDirIsEmpty
     Exch $0
 FunctionEnd
 
-Function MineradioOldInstallPathNeedsQuarantine
-  Exch $0
-  StrCpy $1 "0"
-
-  ${If} $0 == ""
-    Goto done
-  ${EndIf}
-
-  Push "$0"
-  Call MineradioTrimInstallDir
-  Pop $2
-  Push "$2"
-  Call MineradioNormalizeInstallDir
-  Pop $3
-
-  ${If} $2 != $3
-    StrCpy $1 "1"
-    Goto done
-  ${EndIf}
-
-  IfFileExists "$2\${MINERADIO_INSTALL_MARKER}" done 0
-  Push "$2"
-  Call MineradioExistingInstallPathCanBeAdopted
-  Pop $4
-  ${If} $4 == "1"
-    Goto done
-  ${EndIf}
-
-  StrCpy $1 "1"
-
-  done:
-    StrCpy $0 "$1"
-    Exch $0
-FunctionEnd
-
-Function MineradioDisableUnsafeOldUninstallers
-  StrCpy $2 "0"
-
-  ReadRegStr $0 HKCU "Software\${APP_GUID}" InstallLocation
-  Push "$0"
-  Call MineradioDeleteLegacyUninstallerFileIfMissingMarker
-  Push "$0"
-  Call MineradioOldInstallPathNeedsQuarantine
-  Pop $1
-  ${If} $1 == "1"
-    DetailPrint "Skip unsafe legacy Mineradio uninstaller: $0"
-    StrCpy $2 "1"
-  ${EndIf}
-
-  ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}" InstallLocation
-  Push "$0"
-  Call MineradioDeleteLegacyUninstallerFileIfMissingMarker
-  Push "$0"
-  Call MineradioOldInstallPathNeedsQuarantine
-  Pop $1
-  ${If} $1 == "1"
-    DetailPrint "Skip unsafe legacy Mineradio uninstaller: $0"
-    StrCpy $2 "1"
-  ${EndIf}
-
-  ${If} $2 == "1"
-    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}"
-    DeleteRegKey HKCU "Software\${APP_GUID}"
-  ${EndIf}
-
-  StrCpy $2 "0"
-
-  ReadRegStr $0 HKLM "Software\${APP_GUID}" InstallLocation
-  Push "$0"
-  Call MineradioDeleteLegacyUninstallerFileIfMissingMarker
-  Push "$0"
-  Call MineradioOldInstallPathNeedsQuarantine
-  Pop $1
-  ${If} $1 == "1"
-    DetailPrint "Skip unsafe legacy Mineradio uninstaller: $0"
-    StrCpy $2 "1"
-  ${EndIf}
-
-  ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}" InstallLocation
-  Push "$0"
-  Call MineradioDeleteLegacyUninstallerFileIfMissingMarker
-  Push "$0"
-  Call MineradioOldInstallPathNeedsQuarantine
-  Pop $1
-  ${If} $1 == "1"
-    DetailPrint "Skip unsafe legacy Mineradio uninstaller: $0"
-    StrCpy $2 "1"
-  ${EndIf}
-
-  ${If} $2 == "1"
-    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}"
-    DeleteRegKey HKLM "Software\${APP_GUID}"
-  ${EndIf}
-FunctionEnd
-
-Function MineradioDeleteLegacyUninstallerFileIfMissingMarker
-  Pop $0
-  ${If} $0 != ""
-    Push "$0"
-    Call MineradioTrimInstallDir
-    Pop $1
-    ${If} $1 != ""
-      IfFileExists "$1\${MINERADIO_INSTALL_MARKER}" done 0
-      DetailPrint "Remove legacy Mineradio uninstaller file: $1"
-      Delete "$1\Uninstall ${PRODUCT_FILENAME}.exe"
-    ${EndIf}
-  ${EndIf}
-
-  done:
-FunctionEnd
-
 Function MineradioValidateInstallDir
   Push "$INSTDIR"
   Call MineradioNormalizeInstallDir
@@ -754,31 +579,22 @@ Function MineradioValidateInstallDir
   Call MineradioExistingInstallPathCanBeAdopted
   Pop $4
 
-  StrCpy $0 "$INSTDIR" 1 0
-  StrCpy $1 "$INSTDIR" 1 1
-  ${If} $1 == ":"
-    ${If} $0 == "C"
-    ${OrIf} $0 == "c"
-      Call MineradioHasPreferredInstallDrive
-      Pop $2
-      ${If} $2 == "1"
-      ${AndIf} $3 != "1"
-      ${AndIf} $4 != "1"
-        MessageBox MB_ICONSTOP|MB_OK "检测到这台电脑还有 D-Z 盘，Mineradio 不安装到 C 盘。请改选 D 盘或其它非 C 盘的 Mineradio 文件夹。$\r$\n$\r$\n如果电脑只有 C 盘，安装器会自动放行 C:\Mineradio。"
-        Abort
-      ${EndIf}
-    ${EndIf}
-  ${EndIf}
-
   StrLen $0 "$INSTDIR"
   StrLen $2 "${MINERADIO_INSTALL_DIR_NAME}"
   IntOp $2 $2 + 1
   StrCpy $1 "$INSTDIR" $2 -$2
+  StrLen $5 "${MINERADIO_LEGACY_INSTALL_DIR_NAME}"
+  IntOp $5 $5 + 1
+  StrCpy $6 "$INSTDIR" $5 -$5
   ${If} $0 < $2
   ${OrIf} $1 != "\${MINERADIO_INSTALL_DIR_NAME}"
   ${AndIf} $1 != "\${MINERADIO_INSTALL_DIR_NAME_LOWER}"
-    MessageBox MB_ICONSTOP|MB_OK "安装目录必须是独立的 Mineradio 文件夹。请选择一个上级目录，安装器会自动创建 Mineradio 子文件夹。"
-    Abort
+    ${If} $0 < $5
+    ${OrIf} $6 != "\${MINERADIO_LEGACY_INSTALL_DIR_NAME}"
+    ${AndIf} $6 != "\${MINERADIO_LEGACY_INSTALL_DIR_NAME_LOWER}"
+      MessageBox MB_ICONSTOP|MB_OK "安装目录必须是独立的 Mineradio-Next 文件夹。请选择一个上级目录，安装器会自动创建 Mineradio-Next 子文件夹。"
+      Abort
+    ${EndIf}
   ${EndIf}
 
   IfFileExists "$INSTDIR\*.*" 0 valid
@@ -819,44 +635,91 @@ Function MineradioWelcomeShow
     Abort
   ${EndIf}
 
-  SetCtlColors $MineradioWelcomePage "111217" "FFFFFF"
-  CreateFont $MineradioHeroFont "Microsoft YaHei UI" 24 700
+  SetCtlColors $MineradioWelcomePage "111217" "F6F8F8"
+  CreateFont $MineradioHeroFont "Microsoft YaHei UI" 19 700
   CreateFont $MineradioTitleFont "Microsoft YaHei UI" 11 700
   CreateFont $MineradioBodyFont "Microsoft YaHei UI" 9 400
   CreateFont $MineradioSmallFont "Microsoft YaHei UI" 8 400
 
-  ${NSD_CreateLabel} 22u 20u 120u 10u "${MINERADIO_INSTALL_BRAND}"
+  InitPluginsDir
+  File /oname=$PLUGINSDIR\mineradio-installer-panel.bmp "${__FILEDIR__}\installerSidebar.bmp"
+  ${NSD_CreateBitmap} 0 0 104u 184u ""
+  Pop $0
+  ${NSD_SetStretchedImage} $0 "$PLUGINSDIR\mineradio-installer-panel.bmp" $MineradioWelcomeBitmapHandle
+
+  ${NSD_CreateLabel} 122u 18u 148u 10u "MINERADIO NEXT"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
-  SetCtlColors $0 "3257F7" "FFFFFF"
+  SetCtlColors $0 "168B77" "F6F8F8"
 
-  ${NSD_CreateLabel} 22u 42u 226u 30u "${MINERADIO_INSTALL_TITLE}"
+  ${NSD_CreateLabel} 122u 40u 148u 24u "安装 Mineradio Next"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioHeroFont 1
-  SetCtlColors $0 "111217" "FFFFFF"
+  SetCtlColors $0 "111217" "F6F8F8"
 
-  ${NSD_CreateLabel} 22u 78u 36u 2u ""
+  ${NSD_CreateLabel} 122u 70u 28u 2u ""
   Pop $0
-  SetCtlColors $0 "" "3257F7"
+  SetCtlColors $0 "" "55DDB5"
 
-  ${NSD_CreateLabel} 22u 96u 238u 24u "为这台电脑安装 ${PRODUCT_NAME}。默认安装到 D:\${MINERADIO_INSTALL_DIR_NAME}，下一步可以自由选择其它位置。"
+  ${NSD_CreateLabel} 122u 84u 148u 30u "Windows 桌面音乐播放器。支持多来源播放、本地曲库、歌词与桌面模式。"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioBodyFont 1
-  SetCtlColors $0 "4B5263" "FFFFFF"
+  SetCtlColors $0 "4B5263" "F6F8F8"
 
-  ${NSD_CreateLabel} 22u 130u 238u 12u "默认位置：$INSTDIR"
+  ${NSD_CreateLabel} 122u 121u 148u 18u "安装位置：$INSTDIR"
   Pop $0
-  SendMessage $0 ${WM_SETFONT} $MineradioTitleFont 1
-  SetCtlColors $0 "3257F7" "FFFFFF"
+  SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
+  SetCtlColors $0 "5D686D" "F6F8F8"
+
+  ${NSD_CreateCheckBox} 122u 146u 148u 18u "安装选项（位置与桌面快捷方式）"
+  Pop $MineradioInstallOptionsControl
+  SendMessage $MineradioInstallOptionsControl ${WM_SETFONT} $MineradioSmallFont 1
+  ${If} $MineradioInstallOptionsEnabled == "1"
+    ${NSD_Check} $MineradioInstallOptionsControl
+  ${Else}
+    ${NSD_Uncheck} $MineradioInstallOptionsControl
+  ${EndIf}
+  ${NSD_OnClick} $MineradioInstallOptionsControl MineradioWelcomeOptionsChanged
 
   !ifdef MINERADIO_INTERNAL_BETA
-    ${NSD_CreateLabel} 22u 150u 238u 28u "${MINERADIO_INSTALL_NOTICE}"
+    ${NSD_CreateLabel} 122u 166u 148u 16u "${MINERADIO_INSTALL_NOTICE}"
     Pop $0
     SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
-    SetCtlColors $0 "B42318" "FFFFFF"
+    SetCtlColors $0 "B42318" "F6F8F8"
   !endif
 
+  Call MineradioWelcomeRefreshNextButton
   nsDialogs::Show
+FunctionEnd
+
+Function MineradioWelcomeOptionsChanged
+  Pop $0
+  ${NSD_GetState} $MineradioInstallOptionsControl $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $MineradioInstallOptionsEnabled "1"
+  ${Else}
+    StrCpy $MineradioInstallOptionsEnabled "0"
+  ${EndIf}
+  Call MineradioWelcomeRefreshNextButton
+FunctionEnd
+
+Function MineradioWelcomeRefreshNextButton
+  GetDlgItem $0 $HWNDPARENT 1
+  ${If} $MineradioInstallOptionsEnabled == "1"
+    SendMessage $0 ${WM_SETTEXT} 0 "STR:下一步"
+  ${Else}
+    SendMessage $0 ${WM_SETTEXT} 0 "STR:安装"
+  ${EndIf}
+FunctionEnd
+
+Function MineradioWelcomeLeave
+  ${NSD_GetState} $MineradioInstallOptionsControl $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $MineradioInstallOptionsEnabled "1"
+  ${Else}
+    StrCpy $MineradioInstallOptionsEnabled "0"
+    Call MineradioValidateInstallDir
+  ${EndIf}
 FunctionEnd
 
 Function MineradioDirectoryBrowse
@@ -874,6 +737,10 @@ FunctionEnd
 
 Function MineradioDirectoryShow
   Call MineradioUsePreferredInstallDir
+
+  ${If} $MineradioInstallOptionsEnabled != "1"
+    Abort
+  ${EndIf}
 
   nsDialogs::Create 1018
   Pop $MineradioDirectoryPage
@@ -911,7 +778,16 @@ Function MineradioDirectoryShow
   SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
   ${NSD_OnClick} $0 MineradioDirectoryBrowse
 
-  ${NSD_CreateLabel} 22u 122u 238u 12u "默认推荐：D:\${MINERADIO_INSTALL_DIR_NAME}；选盘符会自动建文件夹。"
+  ${NSD_CreateCheckBox} 22u 122u 238u 18u "创建桌面快捷方式"
+  Pop $MineradioDesktopShortcutControl
+  SendMessage $MineradioDesktopShortcutControl ${WM_SETFONT} $MineradioSmallFont 1
+  ${If} $MineradioDesktopShortcutEnabled == "1"
+    ${NSD_Check} $MineradioDesktopShortcutControl
+  ${Else}
+    ${NSD_Uncheck} $MineradioDesktopShortcutControl
+  ${EndIf}
+
+  ${NSD_CreateLabel} 22u 150u 238u 20u "旧版用户将继续使用已识别的安装位置；账号、歌单和设置保存在独立的数据目录中。"
   Pop $0
   SendMessage $0 ${WM_SETFONT} $MineradioSmallFont 1
   SetCtlColors $0 "6B7280" "FFFFFF"
@@ -930,6 +806,12 @@ Function MineradioDirectoryLeave
   Pop $0
   StrCpy $INSTDIR "$0"
   SendMessage $MineradioDirectoryInput ${WM_SETTEXT} 0 "STR:$INSTDIR"
+  ${NSD_GetState} $MineradioDesktopShortcutControl $1
+  ${If} $1 == ${BST_CHECKED}
+    StrCpy $MineradioDesktopShortcutEnabled "1"
+  ${Else}
+    StrCpy $MineradioDesktopShortcutEnabled "0"
+  ${EndIf}
   Call MineradioValidateInstallDir
 FunctionEnd
 !endif
@@ -937,16 +819,85 @@ FunctionEnd
 !ifdef BUILD_UNINSTALLER
 !macro customUnInit
   Call un.MineradioValidateUninstallDir
+  ${IfNot} ${Silent}
+    Call un.MineradioLaunchUninstallerShell
+  ${EndIf}
 !macroend
+
+Function un.MineradioLaunchUninstallerShell
+  InitPluginsDir
+  File /oname=$PLUGINSDIR\mineradio-uninstaller-shell.ps1 "${__FILEDIR__}\installer-shell.ps1"
+  CopyFiles /SILENT "$PLUGINSDIR\mineradio-uninstaller-shell.ps1" "$TEMP\mineradio-next-uninstaller-shell.ps1"
+  System::Call 'kernel32::GetCurrentProcessId() i.r0'
+  HideWindow
+  Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "$TEMP\mineradio-next-uninstaller-shell.ps1" -InstallerPath "$INSTDIR\Uninstall ${PRODUCT_FILENAME}.exe" -InstallPath "$INSTDIR" -ParentProcessId $0 -Uninstall'
+  SetErrorLevel 0
+  Quit
+FunctionEnd
 
 Function un.MineradioInstallDirLooksOwned
   Exch $0
+  Push $1
+  Push $2
   StrCpy $1 "0"
 
-  IfFileExists "$0\${MINERADIO_INSTALL_MARKER}" 0 +2
+  Push "$0\${MINERADIO_INSTALL_MARKER}"
+  Call un.MineradioMarkerIsTrusted
+  Pop $2
+  ${If} $2 == "1"
+    StrCpy $1 "1"
+    Goto done
+  ${EndIf}
+
+  Push "$0\resources\${MINERADIO_INSTALL_MARKER}"
+  Call un.MineradioMarkerIsTrusted
+  Pop $2
+  ${If} $2 == "1"
+    StrCpy $1 "1"
+  ${EndIf}
+
+  done:
+  StrCpy $0 "$1"
+  Pop $2
+  Pop $1
+  Exch $0
+FunctionEnd
+
+Function un.MineradioMarkerIsTrusted
+  Exch $0
+  Push $1
+  Push $2
+  Push $3
+  StrCpy $1 "0"
+
+  ClearErrors
+  FileOpen $2 "$0" r
+  ${If} ${Errors}
+    Goto done
+  ${EndIf}
+
+  read:
+    ClearErrors
+    FileRead $2 $3
+    ${If} ${Errors}
+      Goto close
+    ${EndIf}
+    StrCmp $3 "appId=${MINERADIO_MARKER_APP_ID}$\r$\n" trusted
+    StrCmp $3 "appId=${MINERADIO_MARKER_APP_ID}$\n" trusted
+    StrCmp $3 "appId=${MINERADIO_MARKER_APP_ID}" trusted
+    Goto read
+
+  trusted:
     StrCpy $1 "1"
 
+  close:
+    FileClose $2
+
+  done:
   StrCpy $0 "$1"
+  Pop $3
+  Pop $2
+  Pop $1
   Exch $0
 FunctionEnd
 
@@ -974,10 +925,17 @@ Function un.MineradioNormalizeInstallDir
   StrLen $1 "$0"
   IntOp $5 $4 + 1
   StrCpy $2 "$0" $5 -$5
+  StrLen $6 "${MINERADIO_LEGACY_INSTALL_DIR_NAME}"
+  IntOp $6 $6 + 1
+  StrCpy $3 "$0" $6 -$6
   ${If} $1 < $5
   ${OrIf} $2 != "\${MINERADIO_INSTALL_DIR_NAME}"
   ${AndIf} $2 != "\${MINERADIO_INSTALL_DIR_NAME_LOWER}"
-    StrCpy $0 "$0\${MINERADIO_INSTALL_DIR_NAME}"
+    ${If} $1 < $6
+    ${OrIf} $3 != "\${MINERADIO_LEGACY_INSTALL_DIR_NAME}"
+    ${AndIf} $3 != "\${MINERADIO_LEGACY_INSTALL_DIR_NAME_LOWER}"
+      StrCpy $0 "$0\${MINERADIO_INSTALL_DIR_NAME}"
+    ${EndIf}
   ${EndIf}
   Exch $0
 FunctionEnd
@@ -1024,33 +982,6 @@ FunctionEnd
 
 Function un.MineradioRemoveInstalledFiles
   SetOutPath $TEMP
-
-  Delete "$INSTDIR\${PRODUCT_FILENAME}.exe"
-  Delete "$INSTDIR\Uninstall ${PRODUCT_FILENAME}.exe"
-  Delete "$INSTDIR\uninstallerIcon.ico"
-
-  Delete "$INSTDIR\chrome_100_percent.pak"
-  Delete "$INSTDIR\chrome_200_percent.pak"
-  Delete "$INSTDIR\d3dcompiler_47.dll"
-  Delete "$INSTDIR\dxcompiler.dll"
-  Delete "$INSTDIR\dxil.dll"
-  Delete "$INSTDIR\ffmpeg.dll"
-  Delete "$INSTDIR\icudtl.dat"
-  Delete "$INSTDIR\libEGL.dll"
-  Delete "$INSTDIR\libGLESv2.dll"
-  Delete "$INSTDIR\LICENSE.electron.txt"
-  Delete "$INSTDIR\LICENSES.chromium.html"
-  Delete "$INSTDIR\resources.pak"
-  Delete "$INSTDIR\snapshot_blob.bin"
-  Delete "$INSTDIR\v8_context_snapshot.bin"
-  Delete "$INSTDIR\vk_swiftshader.dll"
-  Delete "$INSTDIR\vk_swiftshader_icd.json"
-  Delete "$INSTDIR\vulkan-1.dll"
-
-  RMDir "$INSTDIR\locales"
-  RMDir "$INSTDIR\resources"
-  RMDir "$INSTDIR\swiftshader"
-
-  RMDir "$INSTDIR"
+  RMDir /r "$INSTDIR"
 FunctionEnd
 !endif

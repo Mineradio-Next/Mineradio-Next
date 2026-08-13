@@ -156,6 +156,11 @@ const STARTUP_SERVER_TIMEOUT_MS = 10000;
 const STARTUP_HTTP_TIMEOUT_MS = 8000;
 const STARTUP_NAVIGATION_TIMEOUT_MS = 15000;
 const STARTUP_SHOW_WATCHDOG_MS = 3500;
+const STARTUP_FIRST_FRAME_TIMEOUT_MS = 9000;
+const STARTUP_FIRST_FRAME_SETTLE_MS = 48;
+const STARTUP_SHELL_MIN_VISIBLE_MS = 720;
+const STARTUP_HANDOFF_EXIT_MS = 340;
+const STARTUP_HANDOFF_DARK_HOLD_MS = 54;
 const RENDERER_RECOVERY_WINDOW_MS = 2 * 60 * 1000;
 const RENDERER_RECOVERY_MAX_ATTEMPTS = 3;
 const FULLSCREEN_VISIBILITY_CHECK_MS = 5000;
@@ -179,7 +184,9 @@ const SPOTIFY_LOGIN_PARTITION = 'persist:mineradio-spotify-login';
 app.setName(APP_NAME);
 const STARTUP_QA_USER_DATA_PATH = (() => {
   const value = String(process.env.MINERADIO_STARTUP_QA_USER_DATA || '').trim();
-  if (process.env.MINERADIO_STARTUP_QA_HIDDEN !== '1' || !value || !path.isAbsolute(value)) return '';
+  const qaIsolated = process.env.MINERADIO_STARTUP_QA_HIDDEN === '1'
+    || process.env.MINERADIO_STARTUP_QA_VISIBLE === '1';
+  if (!qaIsolated || !value || !path.isAbsolute(value)) return '';
   return path.resolve(value);
 })();
 const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || path.join(app.getPath('appData'), APP_DATA_DIRECTORY_NAME);
@@ -817,6 +824,25 @@ function isTrustedMainWindowIpc(event) {
     return false;
   }
 }
+
+ipcMain.on('mineradio-startup-first-frame-ready', (event, payload = {}) => {
+  const win = mainWindow;
+  if (!win || win.isDestroyed() || payload.coversViewport !== true || payload.handoffReady !== true) return;
+  const signalSourceUrl = event.senderFrame && event.senderFrame.url || event.sender.getURL();
+  writeStartupState('first-frame-signal', {
+    firstFrameSignalAt: Date.now(),
+    firstFrameSignalKind: String(payload.documentKind || ''),
+    firstFrameSignalUrl: String(signalSourceUrl || ''),
+  });
+  if (!isTrustedMainWindowIpc(event) || payload.documentKind !== 'main') return;
+  const signal = win && win.__mineradioFirstFrameSignal;
+  if (!signal || signal.settled === true) return;
+  const sourceUrl = signalSourceUrl;
+  if (event.senderFrame !== win.webContents.mainFrame
+    || !startupNavigationUrlMatches(sourceUrl, signal.expectedUrl)) return;
+  signal.settled = true;
+  signal.resolve({ url: sourceUrl, splashColor: String(payload.splashColor || '') });
+});
 
 function isTrustedWallpaperEngineIpc(event) {
   return isTrustedMainWindowIpc(event);
@@ -5199,6 +5225,10 @@ ipcMain.handle('mineradio-open-update-page', async (event, value) => {
     if (!target || target.length > 2048) return { ok: false, error: 'INVALID_UPDATE_URL' };
     const parsed = new URL(target);
     if (parsed.protocol !== 'https:') return { ok: false, error: 'INVALID_UPDATE_URL' };
+    if (parsed.hostname.toLowerCase() !== 'github.com' || parsed.port || parsed.username || parsed.password
+      || !/^\/Mineradio-Next\/Mineradio-Next\/releases(?:\/|$)/i.test(parsed.pathname)) {
+      return { ok: false, error: 'UNTRUSTED_UPDATE_URL' };
+    }
     await shell.openExternal(parsed.href);
     return { ok: true };
   } catch (e) {
@@ -5733,6 +5763,177 @@ function createTrustedMainDocumentReadySignal(win, expectedUrl) {
   };
 }
 
+function createRendererFirstFrameSignal(win, expectedUrl) {
+  let resolveFrame;
+  const promise = new Promise((resolve) => { resolveFrame = resolve; });
+  const signal = {
+    expectedUrl,
+    settled: false,
+    resolve: resolveFrame,
+  };
+  win.__mineradioFirstFrameSignal = signal;
+  return {
+    promise,
+    cancel: () => {
+      if (win && win.__mineradioFirstFrameSignal === signal) {
+        win.__mineradioFirstFrameSignal = null;
+      }
+    },
+  };
+}
+
+function closeStartupShellWindow(win) {
+  const shellWindow = win && win.__mineradioStartupShellWindow;
+  if (!shellWindow || shellWindow.isDestroyed()) return;
+  win.__mineradioStartupShellWindow = null;
+  try { shellWindow.close(); } catch (_) { try { shellWindow.destroy(); } catch (_) {} }
+}
+
+async function startMainSplashAfterHandoff(win) {
+  if (!win || win.isDestroyed() || !win.webContents || win.webContents.isDestroyed()) return false;
+  try {
+    const released = await win.webContents.executeJavaScript(`
+      (() => {
+        const ok = typeof window.releaseMineradioStartupHandoff === 'function'
+          && window.releaseMineradioStartupHandoff() === true;
+        return {
+          ok,
+          pending: document.documentElement.classList.contains('startup-handoff-pending'),
+          releasedAt: Number(window.__mineradioStartupHandoffReleasedAt) || 0,
+        };
+      })()
+    `, true);
+    const ok = !!released && released.ok === true && released.pending === false && released.releasedAt > 0;
+    writeStartupState(ok ? 'main-splash-started' : 'main-splash-release-rejected', {
+      mainSplashStartedAt: Date.now(),
+      mainSplashReleaseOk: ok,
+    });
+    return ok;
+  } catch (error) {
+    writeStartupState('main-splash-release-failed', {
+      mainSplashReleaseFailedAt: Date.now(),
+      mainSplashReleaseError: String(error && error.message || error),
+    });
+    return false;
+  }
+}
+
+async function handoffStartupShellToMainWindow(win) {
+  const shellWindow = win && win.__mineradioStartupShellWindow;
+  const qaHidden = process.env.MINERADIO_STARTUP_QA_HIDDEN === '1';
+  if (!win || win.isDestroyed()) return false;
+
+  if (qaHidden || !shellWindow || shellWindow.isDestroyed()) {
+    showMainWindowSafely(win, 'renderer-first-frame');
+    closeStartupShellWindow(win);
+    await startMainSplashAfterHandoff(win);
+    return false;
+  }
+
+  // The owned startup window remains above its parent while the fully opaque
+  // main window is revealed underneath. Avoid BrowserWindow opacity changes:
+  // on Windows they can rebuild the DWM surface and expose a one-frame flash.
+  try { shellWindow.setParentWindow(win); } catch (_) {}
+  showMainWindowSafely(win, 'renderer-first-frame');
+  if (win.isDestroyed()) return false;
+  writeStartupState('startup-handoff-start', { startupHandoffStartedAt: Date.now() });
+
+  try {
+    if (!shellWindow.isDestroyed()) {
+      win.webContents.executeJavaScript(
+        "document.documentElement.classList.add('startup-handoff-leaving')",
+        true,
+      ).catch(() => {});
+      shellWindow.webContents.executeJavaScript(
+        "document.documentElement.classList.add('is-leaving')",
+        true,
+      ).catch(() => {});
+    }
+    await startupDelay(STARTUP_HANDOFF_EXIT_MS);
+  } finally {
+    closeStartupShellWindow(win);
+    await startupDelay(STARTUP_HANDOFF_DARK_HOLD_MS);
+    await startMainSplashAfterHandoff(win);
+    writeStartupState('startup-handoff-complete', { startupHandoffCompletedAt: Date.now() });
+  }
+  return true;
+}
+
+async function createStartupShellWindow(owner, bounds) {
+  const startupShell = path.join(__dirname, 'startup.html');
+  if (!fs.existsSync(startupShell)) return null;
+  const shellWindow = new BrowserWindow({
+    ...bounds,
+    show: false,
+    frame: false,
+    transparent: false,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    backgroundColor: '#010304',
+    hasShadow: true,
+    opacity: process.env.MINERADIO_STARTUP_QA_HIDDEN === '1' ? 0 : 1,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      backgroundThrottling: false,
+    },
+  });
+  owner.__mineradioStartupShellWindow = shellWindow;
+  shellWindow.once('closed', () => {
+    if (owner.__mineradioStartupShellWindow === shellWindow) owner.__mineradioStartupShellWindow = null;
+  });
+  try {
+    await shellWindow.loadFile(startupShell);
+    if (!shellWindow.isDestroyed()) shellWindow.show();
+    writeStartupState('startup-shell-visible', { startupShellVisibleAt: Date.now() });
+    return shellWindow;
+  } catch (error) {
+    console.warn('[StartupWindow] startup shell skipped:', error.message || error);
+    try { shellWindow.destroy(); } catch (_) {}
+    return null;
+  }
+}
+
+async function revealMainWindowAfterFirstFrame(win, framePromise) {
+  let frame;
+  try {
+    frame = await withStartupTimeout(
+      framePromise,
+      STARTUP_FIRST_FRAME_TIMEOUT_MS,
+      'renderer first frame',
+    );
+  } catch (error) {
+    if (!error || error.code !== 'MINERADIO_STARTUP_TIMEOUT') throw error;
+    if (!win || win.isDestroyed()) return { fallback: true };
+    try { win.setBackgroundColor('#010304'); } catch (_) {}
+    showMainWindowSafely(win, 'first-frame-watchdog');
+    closeStartupShellWindow(win);
+    writeStartupState('first-frame-watchdog', {
+      firstFrameWatchdogAt: Date.now(),
+      firstFrameError: String(error.message || error),
+    });
+    return { fallback: true };
+  }
+  if (!win || win.isDestroyed()) return frame;
+  try { win.setBackgroundColor('#010304'); } catch (_) {}
+  await startupDelay(STARTUP_FIRST_FRAME_SETTLE_MS);
+  if (!win || win.isDestroyed()) return frame;
+  await handoffStartupShellToMainWindow(win);
+  writeStartupState('main-frame-visible', {
+    mainFrameVisibleAt: Date.now(),
+    mainFrameVisibleReason: 'renderer-first-frame',
+  });
+  setTimeout(() => {
+    if (!win || win.isDestroyed()) return;
+    try { win.setBackgroundColor('#00000000'); } catch (_) {}
+  }, STARTUP_FIRST_FRAME_SETTLE_MS);
+  return frame;
+}
+
 function recoverMainWindowAfterRendererGone(win, details = {}, cleanupPromise = null) {
   if (!win || win.isDestroyed() || win !== mainWindow || appQuitting) return Promise.resolve(false);
   if (String(details.reason || '') === 'clean-exit') return Promise.resolve(false);
@@ -5793,8 +5994,10 @@ async function loadMainWindowWithRetry(win) {
   let lastError = null;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     if (!win || win.isDestroyed()) throw new Error('Main BrowserWindow was destroyed before navigation');
-    const targetUrl = `${baseUrl}/?startupAttempt=${attempt}&startupAt=${Date.now()}`;
+    const forceSplash = process.env.MINERADIO_STARTUP_QA_FORCE_SPLASH === '1' ? '&startupForceSplash=1' : '';
+    const targetUrl = `${baseUrl}/?startupAttempt=${attempt}&startupAt=${Date.now()}${forceSplash}`;
     const readySignal = createTrustedMainDocumentReadySignal(win, targetUrl);
+    const firstFrameSignal = createRendererFirstFrameSignal(win, targetUrl);
     try {
       writeStartupState('navigation-attempt', { navigationAttempt: attempt, navigationAt: Date.now(), targetUrl });
       if (attempt === 1 && process.env.MINERADIO_STARTUP_TEST_FAIL_FIRST_NAV === '1') {
@@ -5803,6 +6006,9 @@ async function loadMainWindowWithRetry(win) {
         throw injected;
       }
       if (!win.isDestroyed()) win.__mineradioTrustedMainDocumentReady = null;
+      // Keep the painted startup shell visible until Chromium commits the
+      // opaque main document. The native host remains dark throughout the swap.
+      try { win.setBackgroundColor('#010304'); } catch (_) {}
       const loadPromise = win.loadURL(targetUrl);
       const stallObservedLoadPromise = process.env.MINERADIO_STARTUP_TEST_STALL_LOAD_PROMISE === '1';
       if (stallObservedLoadPromise) loadPromise.catch(() => {});
@@ -5822,6 +6028,7 @@ async function loadMainWindowWithRetry(win) {
         navigationReadyPhase: readySignal.phase() || 'load-url',
         targetUrl,
       });
+      await revealMainWindowAfterFirstFrame(win, firstFrameSignal.promise);
       return targetUrl;
     } catch (error) {
       if (error && error.code === 'MINERADIO_STARTUP_TIMEOUT' && readySignal.isReady()) {
@@ -5841,6 +6048,7 @@ async function loadMainWindowWithRetry(win) {
       if (attempt < 2) await startupDelay(500);
     } finally {
       readySignal.cancel();
+      firstFrameSignal.cancel();
     }
   }
   const error = new Error(`loadURL failed after retry: ${startupErrorText(lastError)}`);
@@ -5873,7 +6081,9 @@ async function createWindowOnce() {
     transparent: true,
     opacity: process.env.MINERADIO_STARTUP_QA_HIDDEN === '1' ? 0 : 1,
     skipTaskbar: process.env.MINERADIO_STARTUP_QA_HIDDEN === '1',
-    backgroundColor: '#00000000',
+    // Keep Chromium's unpainted transparent surface from exposing Windows'
+    // white compositor fallback before the startup document draws its first frame.
+    backgroundColor: '#010304',
     hasShadow: true,
     autoHideMenuBar: true,
     title: APP_NAME,
@@ -5891,6 +6101,8 @@ async function createWindowOnce() {
   writeStartupState('window-created', { windowCreatedAt: Date.now() });
 
   win.__mineradioStartupShowTimer = setTimeout(() => {
+    const shellWindow = win.__mineradioStartupShellWindow;
+    if (shellWindow && !shellWindow.isDestroyed() && shellWindow.isVisible()) return;
     showMainWindowSafely(win, 'watchdog');
   }, STARTUP_SHOW_WATCHDOG_MS);
 
@@ -5915,12 +6127,6 @@ async function createWindowOnce() {
     closeWallpaperWindow('webcontents-destroyed').catch(() => {});
   });
 
-  win.webContents.on('did-finish-load', () => {
-    showMainWindowSafely(win, 'did-finish-load');
-  });
-  win.webContents.on('dom-ready', () => {
-    showMainWindowSafely(win, 'dom-ready');
-  });
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
     if (!isMainFrame || errorCode === -3) return;
     console.warn('[StartupWindow] did-fail-load:', errorCode, errorDescription, validatedURL || '');
@@ -5963,7 +6169,6 @@ async function createWindowOnce() {
     }
   });
 
-  win.once('ready-to-show', () => showMainWindowSafely(win, 'ready-to-show'));
   win.on('maximize', () => sendWindowState(win));
   win.on('unmaximize', () => sendWindowState(win));
   win.on('minimize', () => {
@@ -6053,6 +6258,7 @@ async function createWindowOnce() {
     }
   });
   win.on('closed', () => {
+    closeStartupShellWindow(win);
     mainWindowCloseFlushArmed = false;
     miniPlayerWindowState.active = false;
     miniPlayerWindowState.alwaysOnTop = false;
@@ -6120,20 +6326,14 @@ async function createWindowOnce() {
     }, 50);
   });
 
-  const startupShell = path.join(__dirname, 'startup.html');
-  if (fs.existsSync(startupShell)) {
-    win.loadFile(startupShell).catch((error) => {
-      if (!/ERR_ABORTED|ERR_FAILED/i.test(String(error && error.message || error))) {
-        console.warn('[StartupWindow] startup shell skipped:', error.message || error);
-      }
-    });
-  }
-
-  await ensureLocalServerStarted();
+  await Promise.all([
+    createStartupShellWindow(win, initialBounds),
+    ensureLocalServerStarted(),
+    startupDelay(STARTUP_SHELL_MIN_VISIBLE_MS),
+  ]);
   await loadMainWindowWithRetry(win);
   if (win.isDestroyed()) throw new Error('Main BrowserWindow was destroyed after navigation');
   startupCompleted = true;
-  showMainWindowSafely(win, 'navigation-complete');
   writeStartupState('ready', { readyAt: Date.now(), port: mainServerPort || Number(process.env.PORT) || 3000 });
   const qaExitMs = Math.max(0, Math.min(60000, Number(process.env.MINERADIO_STARTUP_QA_EXIT_MS) || 0));
   if (qaExitMs) {

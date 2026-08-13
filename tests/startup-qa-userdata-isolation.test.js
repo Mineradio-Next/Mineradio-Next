@@ -15,7 +15,7 @@ test('startup QA isolates its disposable userData away from the real profile', (
   assert.equal(packageInfo.mineradio.appUserModelId, 'com.mineradio.next');
   assert.equal(packageInfo.mineradio.dataDirectoryName, 'Mineradio');
   assert.match(mainText, /MINERADIO_STARTUP_QA_USER_DATA/);
-  assert.match(mainText, /MINERADIO_STARTUP_QA_HIDDEN !== '1'/);
+  assert.match(mainText, /MINERADIO_STARTUP_QA_HIDDEN === '1'[\s\S]*MINERADIO_STARTUP_QA_VISIBLE === '1'/);
   assert.match(mainText, /path\.isAbsolute\(value\)/);
   assert.match(mainText, /STARTUP_QA_USER_DATA_PATH \|\| path\.join\(app\.getPath\('appData'\), APP_DATA_DIRECTORY_NAME\)/);
   assert.match(mainText, /const APP_DATA_DIRECTORY_NAME = APP_METADATA\.dataDirectoryName \|\| APP_METADATA\.runtimeName \|\| 'Mineradio'/);

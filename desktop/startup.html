@@ -12,13 +12,25 @@
       display: grid;
       place-items: center;
       color: rgba(255,255,255,.92);
-      background:
-        radial-gradient(circle at 50% 42%, rgba(255,255,255,.085), transparent 31%),
-        rgba(4,5,7,.96);
+      background: #010304;
       font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
       user-select: none;
     }
-    .boot { display: grid; justify-items: center; gap: 15px; transform: translateY(-2vh); }
+    .boot {
+      display: grid;
+      justify-items: center;
+      gap: 15px;
+      opacity: 1;
+      transform: translateY(-2vh) scale(1);
+      transition:
+        opacity 320ms cubic-bezier(.4, 0, 1, 1),
+        transform 420ms cubic-bezier(.4, 0, .2, 1);
+      will-change: opacity, transform;
+    }
+    .is-leaving .boot {
+      opacity: 0;
+      transform: translateY(calc(-2vh - 5px)) scale(.992);
+    }
     .name { font-size: 26px; font-weight: 680; letter-spacing: -.035em; color: #f8f8f2; }
     .name span { color: #8fe4d2; font-size: .62em; font-weight: 520; margin-left: 7px; letter-spacing: .08em; }
     .status { color: rgba(255,255,255,.48); font-size: 12px; letter-spacing: .08em; }
@@ -36,12 +48,16 @@
       0%, 70%, 100% { opacity: .2; transform: translateY(0); }
       35% { opacity: 1; transform: translateY(-3px); }
     }
+    @media (prefers-reduced-motion: reduce) {
+      .boot { transition-duration: 120ms; transform: translateY(-2vh); }
+      .dots i { animation: none; opacity: .55; }
+    }
   </style>
 </head>
 <body>
   <main class="boot" role="status" aria-live="polite">
     <div class="name">Mineradio<span>Next</span></div>
-    <div class="status">正在启动播放器</div>
+    <div class="status">正在进入播放器</div>
     <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
   </main>
 </body>

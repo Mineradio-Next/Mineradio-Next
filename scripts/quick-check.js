@@ -1398,12 +1398,15 @@ function checkExternalUpdatePageBridgeGuard() {
   const preloadText = fs.readFileSync(path.join(appRoot, 'desktop', 'preload.js'), 'utf8');
   const serverText = fs.readFileSync(path.join(appRoot, 'server.js'), 'utf8');
   const updateUiText = fs.readFileSync(path.join(appRoot, 'public', 'js', 'modules', '08-account', '00-update-preview.js'), 'utf8');
+  const updateHtmlText = fs.readFileSync(path.join(appRoot, 'public', 'index.html'), 'utf8');
   const bridgeText = mainText + '\n' + preloadText;
   if (
     !/ipcMain\.handle\('mineradio-open-update-page', async \(event, value\) =>/.test(mainText)
     || !/isTrustedMainWindowIpc\(event\)/.test(mainText)
     || !/target\.length > 2048/.test(mainText)
     || !/parsed\.protocol !== 'https:'/.test(mainText)
+    || !/parsed\.hostname\.toLowerCase\(\) !== 'github\.com'/.test(mainText)
+    || !/UNTRUSTED_UPDATE_URL/.test(mainText)
     || !/await shell\.openExternal\(parsed\.href\)/.test(mainText)
     || !/openUpdatePage: \(url\) => ipcRenderer\.invoke\('mineradio-open-update-page'/.test(preloadText)
   ) {
@@ -1413,20 +1416,19 @@ function checkExternalUpdatePageBridgeGuard() {
     fail('desktop update bridge must not expose the removed local installer or update-cache path');
   }
   if (
-    !/mineradio-download-page/.test(serverText)
-    || !/extractReleaseDownloadPages/.test(serverText)
-    || !/downloadPages/.test(serverText)
+    !/checkFailed:\s*!!reason/.test(serverText)
     || !/error:\s*'UPDATE_EXTERNAL_ONLY'/.test(serverText)
-    || !/openUpdateDownloadSource/.test(updateUiText)
-    || !/update-download-source/.test(updateUiText)
     || !/desktopWindow\.openUpdatePage\(target\)/.test(updateUiText)
-    || !/软件不会在本地下载或应用补丁/.test(updateUiText)
+    || !/UPDATE_IGNORED_VERSION_KEY/.test(updateUiText)
+    || !/restoreIgnoredUpdateVersion/.test(updateUiText)
+    || !/前往 GitHub 更新/.test(updateHtmlText)
   ) {
-    fail('updates must resolve to an external download page and keep legacy local routes disabled');
+    fail('updates must use the official GitHub Release page with quiet failure and recoverable ignore state');
   }
   if (
     /startUpdateDownloadJob|startUpdatePatchJob|updateDownloadJobs|UPDATE_DOWNLOAD_DIR|pickPatchAsset/.test(serverText)
-    || /\/api\/update\/(?:download|patch)|openUpdateInstaller|快速补丁/.test(updateUiText)
+    || /MINERADIO_UPDATE_MIRRORS|extractReleaseDownloadPages/.test(serverText)
+    || /\/api\/update\/(?:download|patch)|openUpdateInstaller|downloadPages|download-source|快速补丁|网盘|镜像/.test(updateUiText)
   ) {
     fail('local installer download and quick-patch workers must remain removed');
   }
@@ -2548,8 +2550,17 @@ async function checkProviderAuthCookiePathGuard() {
   if (!/let mainWindowCreatePromise = null/.test(mainText) || !/let localServerStartPromise = null/.test(mainText) || !/if \(mainWindowCreatePromise\) return mainWindowCreatePromise/.test(mainText) || !/if \(localServerStartPromise\) return localServerStartPromise/.test(mainText)) {
     fail('Server and BrowserWindow startup must each have a single in-flight promise');
   }
-  if (!/STARTUP_SHOW_WATCHDOG_MS/.test(mainText) || !/function showMainWindowSafely\(win, reason\)/.test(mainText) || !/did-finish-load[\s\S]{0,160}showMainWindowSafely\(win/.test(mainText) || !/ready-to-show[\s\S]{0,120}showMainWindowSafely\(win/.test(mainText)) {
-    fail('Main window must have ready-to-show, did-finish-load, and watchdog visibility fallbacks');
+  if (!/STARTUP_SHOW_WATCHDOG_MS/.test(mainText)
+    || !/function showMainWindowSafely\(win, reason\)/.test(mainText)
+    || !/ipcMain\.on\('mineradio-startup-first-frame-ready'/.test(mainText)
+    || !/createStartupShellWindow\(win, initialBounds\)/.test(mainText)
+    || !/await revealMainWindowAfterFirstFrame\(win, firstFrameSignal\.promise\)/.test(mainText)
+    || !/showMainWindowSafely\(win, 'renderer-first-frame'\)/.test(mainText)
+    || !/showMainWindowSafely\(win, 'first-frame-watchdog'\)/.test(mainText)
+    || !/backgroundColor:\s*'#010304'/.test(mainText)
+    || /win\.once\('ready-to-show',[\s\S]{0,120}showMainWindowSafely/.test(mainText)
+    || /win\.webContents\.on\('dom-ready',[\s\S]{0,120}showMainWindowSafely/.test(mainText)) {
+    fail('Main window must wait for the trusted renderer first frame and retain an opaque watchdog fallback');
   }
   if (!/function createTrustedMainDocumentReadySignal\(win, expectedUrl\)/.test(mainText)
     || !/isTrustedMainDocumentUrl\(candidateUrl\)/.test(mainText)
@@ -2569,8 +2580,12 @@ async function checkProviderAuthCookiePathGuard() {
   if (!/if \(mainWindow === win\)[\s\S]{0,120}mainWindow = null/.test(mainText) || !/win\.on\('closed'/.test(mainText)) {
     fail('BrowserWindow event closures must only clear the same local window instance');
   }
-  if (!fs.existsSync(path.join(appRoot, 'desktop', 'startup.html')) || !/win\.loadFile\(startupShell\)/.test(mainText)) {
-    fail('A lightweight packaged startup shell must remain available while the local server is preparing');
+  if (!fs.existsSync(path.join(appRoot, 'desktop', 'startup.html'))
+    || !/async function createStartupShellWindow\(owner, bounds\)/.test(mainText)
+    || !/shellWindow\.loadFile\(startupShell\)/.test(mainText)
+    || !/writeStartupState\('startup-shell-visible'/.test(mainText)
+    || !/showMainWindowSafely\(win, 'renderer-first-frame'\);[\s\S]{0,120}closeStartupShellWindow\(win\)/.test(mainText)) {
+    fail('A lightweight independent startup shell must stay visible until the main renderer commits its first frame');
   }
   const singleInstanceBranch = mainText.indexOf('if (!gotSingleInstanceLock)');
   const startupStateCall = "writeStartupState('module-loaded'";
@@ -5592,7 +5607,7 @@ function checkFirstLaunchDefaultsAndSplashGuard() {
   if (!/PACKAGED_DEFAULT_FX_SNAPSHOT\s*=\s*Object\.freeze\(Object\.assign\(\{[\s\S]{0,180}visualPresetSchema:\s*VISUAL_PRESET_SCHEMA[\s\S]{0,120}\},\s*fxDefaults\)\)/.test(packagedText)) {
     fail('packaged first-launch snapshot must inherit the synchronized runtime defaults');
   }
-  if (!/function splashTimelineElapsed\(elapsed\)\s*\{\s*return elapsed;\s*\}/.test(splashText)
+  if (!/function splashTimelineElapsed\(elapsed\)\s*\{[\s\S]{0,220}startup-handoff-pending[\s\S]{0,220}__mineradioStartupHandoffReleasedAt[\s\S]{0,220}return elapsed;[\s\S]{0,40}\}/.test(splashText)
     || /elapsed\s*\*\s*3\.32/.test(splashText)
     || !/setTimeout\(markSplashReadyToEnter,\s*650\)/.test(splashText)
     || !/setTimeout\(markSplashReadyToEnter,\s*1500\)/.test(splashText)

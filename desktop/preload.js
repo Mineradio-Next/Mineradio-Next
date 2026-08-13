@@ -46,8 +46,68 @@ function saveVisualClip(payload) {
   });
 }
 
+function isOpaqueDarkStartupColor(value) {
+  const match = String(value || '').match(/rgba?\(\s*(\d+)\D+(\d+)\D+(\d+)(?:\D+([\d.]+))?/i);
+  if (!match) return false;
+  const red = Number(match[1]);
+  const green = Number(match[2]);
+  const blue = Number(match[3]);
+  const alpha = match[4] === undefined ? 1 : Number(match[4]);
+  return alpha >= 0.94 && Math.max(red, green, blue) <= 48;
+}
+
+let startupFirstFrameReportedUrl = '';
+
+function reportStartupFirstFrame() {
+  const documentUrl = location.href;
+  if (startupFirstFrameReportedUrl === documentUrl) return true;
+  const splash = document.getElementById('splash');
+  const handoffBridge = document.getElementById('startup-handoff-bridge');
+  const handoffPending = document.documentElement.classList.contains('startup-handoff-pending');
+  if (handoffPending && document.readyState === 'loading') return false;
+  const htmlColor = getComputedStyle(document.documentElement).backgroundColor;
+  const bodyColor = document.body ? getComputedStyle(document.body).backgroundColor : '';
+  const splashColor = splash ? getComputedStyle(splash).backgroundColor : '';
+  const splashBounds = splash ? splash.getBoundingClientRect() : null;
+  const splashCoversViewport = !!splashBounds
+    && splashBounds.width >= window.innerWidth - 1
+    && splashBounds.height >= window.innerHeight - 1;
+  const handoffBounds = handoffBridge ? handoffBridge.getBoundingClientRect() : null;
+  const handoffCoversViewport = !!handoffBounds
+    && handoffBounds.width >= window.innerWidth - 1
+    && handoffBounds.height >= window.innerHeight - 1
+    && getComputedStyle(handoffBridge).visibility === 'visible'
+    && Number(getComputedStyle(handoffBridge).opacity) >= 0.99;
+  const rootCoversViewport = window.innerWidth > 0
+    && window.innerHeight > 0
+    && isOpaqueDarkStartupColor(htmlColor);
+  const coversViewport = handoffPending ? handoffCoversViewport : (splashCoversViewport || rootCoversViewport);
+  if (!coversViewport || ![htmlColor, bodyColor, splashColor].some(isOpaqueDarkStartupColor)) return false;
+  startupFirstFrameReportedUrl = documentUrl;
+  ipcRenderer.send('mineradio-startup-first-frame-ready', {
+    coversViewport: true,
+    documentKind: 'main',
+    handoffReady: handoffPending ? handoffCoversViewport : true,
+    splashColor: splashColor || htmlColor,
+  });
+  return true;
+}
+
+function scheduleStartupFirstFrameProbe(attempt = 0) {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (reportStartupFirstFrame() || attempt >= 240) return;
+    setTimeout(() => scheduleStartupFirstFrameProbe(attempt + 1), 16);
+  }));
+}
+
+// The inline root background is intentionally before remote fonts and local
+// assets. Probe it immediately so a slow stylesheet cannot delay the native
+// window's safe first paint.
+scheduleStartupFirstFrameProbe();
+
 contextBridge.exposeInMainWorld('desktopWindow', {
   isDesktop: true,
+  reportStartupFirstFrame: () => reportStartupFirstFrame(),
   minimize: () => ipcRenderer.invoke('desktop-window-minimize'),
   restore: () => ipcRenderer.invoke('desktop-window-restore'),
   toggleMaximize: () => ipcRenderer.invoke('desktop-window-toggle-maximize'),

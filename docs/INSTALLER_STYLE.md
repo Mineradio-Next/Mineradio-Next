@@ -1,3 +1,33 @@
+# Mineradio Next installer contract
+
+## 2026-08-13 卸载壳同步规则
+
+- 交互式卸载复用安装器的 WPF 产品壳，不显示原生 NSIS 向导。
+- 卸载流程固定为“确认卸载 → 正在卸载 → 卸载完成”，沿用声场背景、排版、色彩、按钮和过渡。
+- 取消卸载不启动删除流程；删除期间禁止关闭窗口，完成后由产品壳统一展示结果。
+- 默认只移除程序文件、快捷方式和卸载注册项；`%APPDATA%\Mineradio` 中的歌单、账号和设置继续保留。
+- 静默卸载继续走目录标记校验后的 NSIS 安全删除逻辑。
+
+## 2026-08-13 正式包目录收敛规则
+
+- 正式版启用 Electron `asar`，应用源码、前端资源和生产依赖统一收进 `resources\app.asar`。
+- 安装目录不再展开 `resources\app` 的数千个零碎文件，降低安装、卸载和杀毒扫描开销。
+- 运行时产生的账号、歌单、缓存、离线音乐和日志仍写入用户数据目录，不写入 `app.asar`。
+- Wallpaper Engine、WebGL、音频解码与本地曲库必须通过打包后 EXE 的启动烟雾检查才能发布。
+- Electron/Chromium 主程序是播放器 3D、媒体和桌面能力的运行时，不能通过删除 DLL 或 license 资源伪造体积优化。
+
+## 2026-08-13 方案 2 落地规则
+
+- 安装器采用深色唱片与声轨品牌面板，操作区保持浅色和原生 Windows 控件。
+- 文案说明真实功能，不使用商业广告口号。
+- 全新安装默认使用 `$LOCALAPPDATA\Programs\Mineradio`。
+- 检测到旧版 Mineradio 时沿用已注册且可安全接管的原安装目录。
+- 欢迎页默认显示“安装”。勾选“安装选项”后显示目录与桌面快捷方式设置。
+- 安装标记写入 `com.mineradio.next`，同时继续通过旧程序文件和注册表识别可升级目录。
+- 用户数据继续保存在 `%APPDATA%\Mineradio`，不随安装目录变化。
+
+以下历史说明用于理解旧安装包兼容边界。
+
 # 2026-06-25 P0 Installer Safety Notes
 
 - Full setup adoption rule: the installer may adopt an existing registered install only when the registered path itself is a dedicated `...\Mineradio` directory and contains Mineradio files or `.mineradio-install-root`; mixed parent folders and drive roots must stay blocked/quarantined.

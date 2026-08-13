@@ -27,6 +27,10 @@ function splashEaseOutCubic(t) {
   return 1 - Math.pow(1 - t, 3);
 }
 function splashTimelineElapsed(elapsed) {
+  if (document.documentElement.classList.contains('startup-handoff-pending')) return 0;
+  if (window.__mineradioStartupHandoffReleasedAt) {
+    return Math.max(0, (performance.now() - window.__mineradioStartupHandoffReleasedAt) / 1000);
+  }
   return elapsed;
 }
 function stopSplashIntroSound() {

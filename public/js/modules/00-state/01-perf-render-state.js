@@ -57,22 +57,19 @@ var updatePreviewState = {
   visible: false,
   open: false,
   status: 'idle',
-  progress: 0,
+  checkStatus: 'idle',
+  initialized: false,
+  manualCheck: false,
+  remindedLater: false,
   currentVersion: '2.2.0',
   version: '2.2.0',
   configured: false,
   preview: false,
   updateAvailable: false,
+  ignored: false,
+  ignoredVersion: '',
   releaseUrl: '',
-  externalUrl: '',
-  downloadPageUrl: '',
-  downloadPages: [],
-  selectedDownloadPageIndex: 0,
   errorReason: '',
-  message: '',
-  hero: '当前版本已是最新。',
-  notes: [
-    '修复多行歌词与 3D 歌单架的显示层级',
-    '优化更新入口与安装包获取流程'
-  ]
+  hero: '',
+  notes: []
 };

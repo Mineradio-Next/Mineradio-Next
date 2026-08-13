@@ -16,7 +16,10 @@
     "upstream:report": "node scripts/upstream-report.js",
     "maintenance:check": "node scripts/maintenance-check.js",
     "brand:assets": "node scripts/generate-brand-assets.js",
+    "release:verify": "node scripts/verify-release-readiness.js",
     "release:checksums": "node scripts/create-release-checksums.js",
+    "qa:update-ui": "node scripts/check-update-ui-live.js",
+    "qa:update-ui:review": "node scripts/check-update-ui-live.js --review",
     "build:win": "electron-builder --win nsis --publish never",
     "build:win:dir": "electron-builder --win dir",
     "build:win:internal-beta": "electron-builder --config electron-builder.internal-beta.json --win nsis --publish never"
@@ -30,6 +33,10 @@
       "buildResources": "build"
     },
     "afterPack": "build/after-pack.js",
+    "electronLanguages": [
+      "zh-CN",
+      "en-US"
+    ],
     "files": [
       "desktop/**/*",
       "public/**/*",
@@ -55,11 +62,11 @@
       "!public/index.*.html",
       "public/index.html"
     ],
-    "asar": false,
+    "asar": true,
     "win": {
       "executableName": "Mineradio-Next",
       "icon": "build/icon.ico",
-      "signAndEditExecutable": false,
+      "signExecutable": false,
       "target": [
         {
           "target": "nsis",
@@ -73,7 +80,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Mineradio Next",
       "installerIcon": "build/icon.ico",
@@ -99,13 +106,7 @@
       "provider": "github",
       "owner": "Mineradio-Next",
       "repo": "Mineradio-Next",
-      "preview": false,
-      "preferMirrors": true,
-      "mirrors": [
-        "https://gh.llkk.cc/",
-        "https://ghfast.top/",
-        "https://gh-proxy.com/"
-      ]
+      "preview": false
     }
   },
   "dependencies": {

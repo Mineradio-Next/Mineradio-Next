@@ -27,9 +27,12 @@ test('release metadata consistently targets Mineradio Next', () => {
   assert.equal(packageInfo.scripts.check, 'node scripts/quick-check.js --full');
   assert.equal(packageInfo.scripts['check:ci'], 'node scripts/quick-check.js');
   assert.match(packageInfo.scripts['build:win'], /--publish never$/);
+  assert.equal(packageInfo.scripts['release:verify'], 'node scripts/verify-release-readiness.js');
+  assert.equal(packageInfo.build.win.signExecutable, false);
+  assert.equal(packageInfo.build.win.signAndEditExecutable, undefined);
   assert.equal(packageInfo.mineradio.update.owner, 'Mineradio-Next');
   assert.equal(packageInfo.mineradio.update.repo, 'Mineradio-Next');
-  assert.match(html, /id="update-modal-version"[^>]*>v2\.2\.0<\/div>/);
+  assert.match(html, /id="update-modal-version"[^>]*>2\.2\.0<\/div>/);
   assert.match(state, /currentVersion:\s*'2\.2\.0'/);
   assert.match(installer, /MINERADIO_INSTALL_TITLE "Mineradio Next 安装"/);
   assert.match(checksums, /Mineradio-Next-\$\{version\}-Setup\.exe/);
@@ -37,10 +40,11 @@ test('release metadata consistently targets Mineradio Next', () => {
   assert.doesNotMatch(checksums, /builder-debug/);
 });
 
-test('repository exposes guarded CI and draft release workflows', () => {
+test('repository exposes guarded CI and public release workflows', () => {
   const ci = read('.github/workflows/ci.yml');
   const release = read('.github/workflows/release.yml');
   const readme = read('README.md');
+  const releaseTemplate = read('.github/RELEASE_TEMPLATE.md');
 
   assert.match(ci, /npm ci/);
   assert.match(ci, /npm test/);
@@ -48,10 +52,82 @@ test('repository exposes guarded CI and draft release workflows', () => {
   assert.match(ci, /npm run security:audit/);
   assert.match(release, /tags:[\s\S]*"v\*"/);
   assert.match(release, /packageVersion[\s\S]*tagVersion/);
-  assert.match(release, /draft:\s*true/);
+  assert.match(release, /draft:\s*false/);
+  assert.match(release, /prerelease:\s*false/);
+  assert.match(release, /npm run release:verify -- --artifacts/);
   assert.match(release, /npm run release:checksums/);
   assert.match(release, /npm run check:ci/);
   assert.match(release, /RELEASE_NOTES_v\$packageVersion\.md/);
+  assert.match(releaseTemplate, /mineradio-update-summary:start/);
+  assert.match(releaseTemplate, /mineradio-update-highlights:start/);
   assert.match(readme, /github\.com\/Mineradio-Next\/Mineradio-Next\/releases/);
   assert.doesNotMatch(readme, /github\.com\/XxHuberrr\/Mineradio\/releases/);
+});
+
+test('installer and README preserve the Mineradio Next release experience', () => {
+  const packageInfo = JSON.parse(read('package.json'));
+  const installer = read('build/installer.nsh');
+  const installerShell = read('build/installer-shell.ps1');
+  const readme = read('README.md');
+
+  assert.equal(packageInfo.build.nsis.createDesktopShortcut, 'always');
+  assert.equal(packageInfo.build.asar, true);
+  assert.deepEqual(packageInfo.build.electronLanguages, ['zh-CN', 'en-US']);
+  assert.match(installer, /\$LOCALAPPDATA\\Programs\\\$\{MINERADIO_INSTALL_DIR_NAME\}/);
+  assert.match(installer, /MINERADIO_INSTALL_DIR_NAME "Mineradio-Next"/);
+  assert.match(installer, /MINERADIO_LEGACY_INSTALL_DIR_NAME "Mineradio"/);
+  assert.match(installer, /MineradioInstallOptionsEnabled/);
+  assert.match(installer, /MINERADIO_MARKER_APP_ID "com\.mineradio\.next"/);
+  assert.match(installer, /SetOutPath "\$INSTDIR"[\s\S]*FileOpen \$0 "\$INSTDIR\\\$\{MINERADIO_INSTALL_MARKER\}"/);
+  assert.match(installer, /resources\\\$\{MINERADIO_INSTALL_MARKER\}/);
+  assert.match(installer, /MineradioLaunchInstallerShell/);
+  assert.match(installer, /\$\{GetOptions\} \$R0 "\/MINERADIO-SHELL" \$R1/);
+  assert.match(installer, /Push "\$INSTDIR"\s+Call MineradioNormalizeInstallDir\s+Pop \$INSTDIR\s+Return/);
+  assert.match(installer, /CopyFiles \/SILENT "\$PLUGINSDIR\\mineradio-installer-shell\.ps1" "\$TEMP\\mineradio-next-installer-shell\.ps1"/);
+  assert.match(installer, /GetCurrentProcessId\(\) i\.r0/);
+  assert.match(installer, /Exec '\"\$SYSDIR\\WindowsPowerShell\\v1\.0\\powershell\.exe\"[\s\S]*-File "\$TEMP\\mineradio-next-installer-shell\.ps1"[\s\S]*-ParentProcessId \$0/);
+  assert.match(installer, /SetErrorLevel 0\s+Quit/);
+  assert.doesNotMatch(installer, /ExecWait[\s\S]{0,300}mineradio-installer-shell\.ps1/);
+  assert.doesNotMatch(installer, /Call MineradioDisableUnsafeOldUninstallers\s*\r?\n\s*\$\{If\} \$\{Silent\}/);
+  assert.match(installer, /Function un\.MineradioMarkerIsTrusted[\s\S]*appId=\$\{MINERADIO_MARKER_APP_ID\}/);
+  assert.match(installer, /Function un\.MineradioInstallDirLooksOwned\s+Exch \$0\s+Push \$1\s+Push \$2[\s\S]*Pop \$2\s+Pop \$1\s+Exch \$0\s+FunctionEnd/);
+  assert.match(installer, /Function un\.MineradioMarkerIsTrusted\s+Exch \$0\s+Push \$1\s+Push \$2\s+Push \$3[\s\S]*Pop \$3\s+Pop \$2\s+Pop \$1\s+Exch \$0\s+FunctionEnd/);
+  assert.doesNotMatch(installer, /Function un\.MineradioInstallDirLooksOwned[\s\S]*IfFileExists "\$0\\\$\{PRODUCT_FILENAME\}\.exe"/);
+  assert.match(installer, /Function un\.MineradioRemoveInstalledFiles\s+SetOutPath \$TEMP\s+RMDir \/r "\$INSTDIR"\s+FunctionEnd/);
+  assert.match(installerShell, /正在安装 Mineradio Next/);
+  assert.match(installerShell, /Mineradio installer shell validation passed/);
+  assert.match(installerShell, /\$parentInstaller\.WaitForExit\(10000\)/);
+  assert.match(installerShell, /Local\\MineradioNextInstallerShell/);
+  assert.match(installerShell, /\$script:shellExitCode = 2/);
+  assert.match(installerShell, /\$script:shellExitCode = \$script:installerProcess\.ExitCode/);
+  assert.match(installerShell, /\$window\.Add_Closing\([\s\S]*\$eventArgs\.Cancel = \$true/);
+  assert.match(installerShell, /exit \$script:shellExitCode/);
+  assert.match(installer, /Function un\.MineradioLaunchUninstallerShell/);
+  assert.match(installer, /CopyFiles \/SILENT "\$PLUGINSDIR\\mineradio-uninstaller-shell\.ps1" "\$TEMP\\mineradio-next-uninstaller-shell\.ps1"/);
+  assert.match(installer, /-InstallerPath "\$INSTDIR\\Uninstall \$\{PRODUCT_FILENAME\}\.exe" -InstallPath "\$INSTDIR" -ParentProcessId \$0 -Uninstall/);
+  assert.match(installer, /!macro customUnInit\s+Call un\.MineradioValidateUninstallDir\s+\$\{IfNot\} \$\{Silent\}\s+Call un\.MineradioLaunchUninstallerShell/);
+  assert.match(installerShell, /\[switch\]\$Uninstall/);
+  assert.match(installerShell, /'Local\\MineradioNextUninstallerShell'/);
+  assert.match(installerShell, /\$welcomeTitle\.Text = '卸载 Mineradio Next'/);
+  assert.match(installerShell, /\$welcomeNote\.Text = '歌单、账号与播放器设置将保留'/);
+  assert.match(installerShell, /\$progressTitle\.Text = '正在卸载 Mineradio Next'/);
+  assert.match(installerShell, /Mineradio uninstaller shell validation passed/);
+  assert.match(installerShell, /Arguments = '\/S \/MINERADIO-UNINSTALL-SHELL'/);
+  assert.doesNotMatch(installerShell, /2\.2\.0/);
+  assert.doesNotMatch(installerShell, /2\.2\.0|WINDOWS DESKTOP PLAYER|DESKTOP EDITION|正在部署播放器文件/);
+  assert.doesNotMatch(installer, /MineradioHasPreferredInstallDrive/);
+  assert.match(readme, /docs\/assets\/readme\/mineradio-next-overview\.png/);
+  assert.match(readme, /docs\/assets\/readme\/mineradio-next-listening\.png/);
+  assert.doesNotMatch(readme, /cinema-beat-smoke\.png/);
+  assert.match(readme, /github\.com\/Mineradio-Next\/Mineradio-Next\/releases/);
+});
+
+test('the production package keeps application files inside one asar archive', () => {
+  const packageInfo = JSON.parse(read('package.json'));
+  const installer = read('build/installer.nsh');
+
+  assert.equal(packageInfo.build.asar, true);
+  assert.equal(packageInfo.build.asarUnpack, undefined);
+  assert.match(installer, /IfFileExists "\$2\\resources\\app\.asar" adopt 0/);
+  assert.doesNotMatch(packageInfo.build.files.join('\n'), /node_modules\/electron|node_modules\/electron-builder/);
 });

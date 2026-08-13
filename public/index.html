@@ -1,14 +1,72 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="startup-handoff-pending">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mineradio Next</title>
   <meta name="referrer" content="no-referrer">
+  <style id="startup-first-frame">
+    :root { color-scheme: dark; background: #010304; }
+    html, body { width: 100%; height: 100%; margin: 0; background: #010304; overflow: hidden; }
+    #startup-handoff-bridge {
+      position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center;
+      color: rgba(255,255,255,.92); background: #010304;
+      font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif; user-select: none;
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity 460ms cubic-bezier(.22, 1, .36, 1), visibility 0s linear 460ms;
+    }
+    .startup-handoff-pending #startup-handoff-bridge {
+      opacity: 1; visibility: visible; transition: none;
+    }
+    #startup-handoff-bridge .startup-handoff-copy {
+      display: grid; justify-items: center; gap: 15px; opacity: 1;
+      transform: translateY(-2vh) scale(1);
+      transition: opacity 320ms cubic-bezier(.4, 0, 1, 1), transform 340ms cubic-bezier(.4, 0, .2, 1);
+    }
+    #startup-handoff-bridge .startup-handoff-name { font-size: 26px; font-weight: 680; letter-spacing: -.035em; color: #f8f8f2; }
+    #startup-handoff-bridge .startup-handoff-name span { color: #8fe4d2; font-size: .62em; font-weight: 520; margin-left: 7px; letter-spacing: .08em; }
+    #startup-handoff-bridge .startup-handoff-status { color: rgba(255,255,255,.48); font-size: 12px; letter-spacing: .08em; }
+    #startup-handoff-bridge .startup-handoff-dots { display: flex; gap: 7px; height: 8px; }
+    #startup-handoff-bridge .startup-handoff-dots i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.7); }
+    .startup-handoff-pending.startup-handoff-leaving #startup-handoff-bridge .startup-handoff-copy {
+      opacity: 0; transform: translateY(calc(-2vh - 5px)) scale(.992);
+    }
+    .startup-handoff-pending #splash::before,
+    .startup-handoff-pending #splash::after,
+    .startup-handoff-pending #splash-canvas,
+    .startup-handoff-pending .splash-bg-noise,
+    .startup-handoff-pending .splash-content { opacity: 0 !important; }
+    .startup-handoff-pending #splash::before,
+    .startup-handoff-pending .splash-brand-copy,
+    .startup-handoff-pending .splash-brand-copy::after { animation-play-state: paused !important; }
+  </style>
+  <script id="startup-first-frame-probe">
+    window.__mineradioStartupHandoffReleasedAt = 0;
+    window.releaseMineradioStartupHandoff = function () {
+      if (window.__mineradioStartupHandoffReleasedAt) return true;
+      window.__mineradioStartupHandoffReleasedAt = performance.now();
+      document.documentElement.classList.remove('startup-handoff-leaving');
+      document.documentElement.classList.remove('startup-handoff-pending');
+      setTimeout(() => {
+        const bridge = document.getElementById('startup-handoff-bridge');
+        if (bridge) bridge.hidden = true;
+      }, 520);
+      return true;
+    };
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (window.desktopWindow && window.desktopWindow.reportStartupFirstFrame) {
+        window.desktopWindow.reportStartupFirstFrame();
+      } else {
+        window.releaseMineradioStartupHandoff();
+      }
+    }));
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&family=UnifrakturCook:wght@700&display=swap"
-    rel="stylesheet">
+    rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <script src="vendor/three.r128.min.js"></script>
   <script src="vendor/music-tempo.min.js"></script>
   <script src="vendor/gsap.min.js"></script>
@@ -19,6 +77,13 @@
 </head>
 
 <body>
+  <div id="startup-handoff-bridge" role="status" aria-live="polite">
+    <div class="startup-handoff-copy">
+      <div class="startup-handoff-name">Mineradio<span>Next</span></div>
+      <div class="startup-handoff-status">正在进入播放器</div>
+      <div class="startup-handoff-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    </div>
+  </div>
   <div id="desktop-window-shell">
     <div id="desktop-titlebar" aria-label="window controls">
       <div class="desktop-drag-region">
@@ -1187,8 +1252,8 @@
           <div class="fx-slider"><label for="audio-ambience-amount">空间感</label><input id="audio-ambience-amount" data-listening-ambience-amount type="range" min="0" max="0.3" step="0.01"><output></output></div>
           <div class="fx-slider"><label for="audio-stereo-width">声场宽度</label><input id="audio-stereo-width" data-listening-width type="range" min="0.7" max="1.4" step="0.01"><output></output></div>
           <div class="fx-toggle-grid">
-            <div class="fx-toggle" id="t-listeningProtection" data-listening-protection-toggle title="抑制均衡与空间处理造成的瞬时削波">
-              <span>削峰保护</span><span class="dot"></span>
+            <div class="fx-toggle" id="t-listeningProtection" data-listening-protection-toggle title="压住瞬间过高的音量，减少爆音和失真">
+              <span>峰值保护</span><span class="dot"></span>
             </div>
           </div>
           <div id="listening-effects-status" class="listening-effects-status" data-listening-status role="status" aria-live="polite">播放后可应用听感调节</div>
@@ -1718,7 +1783,7 @@
               <div class="listening-effects-mini-space">
                 <div class="listening-effects-mini-space-head">
                   <span>空间听感</span>
-                  <button type="button" data-listening-protection-toggle role="switch" aria-label="削峰保护"><i></i>削峰</button>
+                  <button type="button" data-listening-protection-toggle role="switch" aria-label="峰值保护" title="压住瞬间过高的音量，减少爆音和失真"><i></i>保护</button>
                 </div>
                 <div class="listening-effects-mini-ambience" role="group" aria-label="空间环境">
                   <button type="button" data-listening-ambience="off">关闭</button>
@@ -2165,34 +2230,48 @@
       </div>
     </div>
 
-    <div id="update-modal" class="modal-mask">
-      <div class="modal update-modal">
+    <div id="update-modal" class="modal-mask" aria-hidden="true">
+      <section class="modal update-modal" role="dialog" aria-modal="true" aria-labelledby="update-modal-version">
         <div class="update-panel-inner">
-          <div class="update-panel-head">
-            <div>
-              <div class="update-kicker">MINERADIO</div>
-              <div id="update-modal-title" class="update-title">New release</div>
-              <div id="update-modal-version" class="update-version">v2.2.0</div>
+          <div id="update-release-content" class="update-release-content">
+            <header class="update-panel-head">
+              <div>
+                <div class="update-kicker">MINERADIO NEXT · 新版本</div>
+                <div id="update-modal-version" class="update-version">2.2.0</div>
+              </div>
+              <button id="update-more-btn" class="update-more-btn" type="button" onclick="toggleUpdateMoreMenu(event)"
+                aria-haspopup="menu" aria-expanded="false" aria-label="更多更新选项">
+                <span></span><span></span><span></span>
+              </button>
+              <div id="update-more-menu" class="update-more-menu" role="menu" hidden>
+                <button id="update-ignore-btn" type="button" role="menuitem" onclick="ignoreCurrentUpdateVersion()">忽略此版本</button>
+                <button type="button" role="menuitem" onclick="copyCurrentUpdateAddress()">复制更新地址</button>
+              </div>
+            </header>
+            <div class="update-hero">
+              <div id="update-hero-main" class="update-hero-main">发现新的版本动态</div>
+              <div id="update-hero-sub" class="update-hero-sub">这一版集中改善播放稳定性和桌面体验</div>
+            </div>
+            <div id="update-list" class="update-list"></div>
+            <div class="update-actions">
+              <button id="update-primary-btn" class="update-primary-btn" type="button" onclick="openCurrentUpdateRelease()">
+                <span id="update-btn-label" class="update-btn-label">前往 GitHub 更新</span>
+              </button>
+              <button class="update-secondary-btn" type="button" onclick="remindUpdateLater()">稍后提醒</button>
+            </div>
+            <div id="update-footnote" class="update-footnote"><span></span>将在系统浏览器打开官方 Release 页面</div>
+          </div>
+          <div id="update-status-content" class="update-status-content" hidden>
+            <div id="update-status-icon" class="update-status-icon" aria-hidden="true">✓</div>
+            <div id="update-status-title" class="update-status-title">已经是最新版本</div>
+            <div id="update-status-copy" class="update-status-copy">当前使用 Mineradio Next 2.2.0</div>
+            <div class="update-status-actions">
+              <button id="update-status-primary" class="update-status-primary" type="button" onclick="closeUpdatePanel()">知道了</button>
+              <button id="update-restore-btn" class="update-status-secondary" type="button" onclick="restoreIgnoredUpdateVersion()" hidden>恢复版本提醒</button>
             </div>
           </div>
-          <div class="update-hero">
-            <div id="update-hero-main" class="update-hero-main">电影镜头更稳，音源兜底更顺。</div>
-            <div id="update-hero-sub" class="update-hero-sub"></div>
-          </div>
-          <div id="update-list" class="update-list"></div>
-          <div id="update-download-sources" class="update-download-sources" hidden
-            aria-label="下载线路"></div>
-          <div class="update-actions">
-            <button id="update-primary-btn" class="update-primary-btn" type="button"
-              onclick="startUpdatePreviewDownload()">
-              <span id="update-btn-fill" class="update-btn-fill"></span>
-              <span id="update-btn-label" class="update-btn-label">查看更新页面</span>
-            </button>
-            <button class="update-secondary-btn" type="button" onclick="closeUpdatePanel()">取消</button>
-          </div>
-          <div id="update-footnote" class="update-footnote">将在浏览器打开下载页面，软件不会在本地下载或应用补丁。</div>
         </div>
-      </div>
+      </section>
     </div>
 
     <div id="toast"></div>

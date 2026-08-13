@@ -475,8 +475,6 @@ function readUpdateConfig(pkg) {
       configured: false,
       disabled: true,
       preview: false,
-      preferMirrors: false,
-      mirrors: [],
       manifest: '',
     };
   }
@@ -496,77 +494,15 @@ function readUpdateConfig(pkg) {
     configured: !!(owner && repo),
     disabled: false,
     preview: local.preview !== false,
-    preferMirrors: local.preferMirrors !== false,
-    mirrors: readUpdateMirrors(local),
     manifest: process.env.MINERADIO_UPDATE_MANIFEST
       || process.env.MINERADIO_UPDATE_MANIFEST_URL
       || process.env.MINERADIO_UPDATE_MANIFEST_FILE
       || '',
   };
 }
-function parseUpdateMirrorList(value) {
-  if (Array.isArray(value)) return value;
-  return String(value || '').split(/[\n,;]/);
-}
-function readUpdateMirrors(local) {
-  const envMirrors = process.env.MINERADIO_UPDATE_MIRRORS || process.env.MINERADIO_UPDATE_MIRROR || '';
-  const raw = envMirrors
-    ? parseUpdateMirrorList(envMirrors)
-    : parseUpdateMirrorList(local.mirrors || local.downloadMirrors || []);
-  const seen = new Set();
-  const mirrors = [];
-  raw.forEach(item => {
-    const url = String(item || '').trim();
-    if (!/^https?:\/\//i.test(url)) return;
-    const key = url.replace(/\/+$/, '').toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    mirrors.push(url);
-  });
-  return mirrors.slice(0, 6);
-}
-function buildMirrorUrl(originalUrl, mirror) {
-  const source = String(originalUrl || '').trim();
-  const base = String(mirror || '').trim();
-  if (!/^https?:\/\//i.test(source) || !/^https?:\/\//i.test(base)) return '';
-  if (base.includes('{encodedUrl}')) return base.replace(/\{encodedUrl\}/g, encodeURIComponent(source));
-  if (base.includes('{url}')) return base.replace(/\{url\}/g, source);
-  return base.replace(/\/+$/, '/') + source;
-}
-function uniqueDownloadCandidates(urls, opts) {
-  opts = opts || {};
-  const directUrls = (Array.isArray(urls) ? urls : [urls])
-    .map(url => String(url || '').trim())
-    .filter(url => /^https?:\/\//i.test(url));
-  const directSet = new Set(directUrls.map(url => url.toLowerCase()));
-  const mirrors = opts.useMirrors === false ? [] : (UPDATE_CONFIG.mirrors || []);
-  const mirrored = [];
-  directUrls.forEach(source => {
-    mirrors.forEach((mirror, index) => {
-      const url = buildMirrorUrl(source, mirror);
-      if (url) mirrored.push({
-        url,
-        label: '国内加速线路 ' + (index + 1),
-        mirrored: true,
-      });
-    });
-  });
-  const direct = directUrls.map(url => ({
-    url,
-    label: directSet.has(url.toLowerCase()) ? 'GitHub 直连' : '下载线路',
-    mirrored: false,
-  }));
-  const ordered = UPDATE_CONFIG.preferMirrors === false ? direct.concat(mirrored) : mirrored.concat(direct);
-  const seen = new Set();
-  return ordered.filter(item => {
-    const key = item.url.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
 function normalizeVersion(value) {
-  return String(value || '').trim().replace(/^v/i, '').replace(/[+].*$/, '').replace(/-.+$/, '');
+  const normalized = String(value || '').trim().replace(/^v/i, '').replace(/[+].*$/, '').replace(/-.+$/, '');
+  return /^\d+(?:\.\d+){0,3}$/.test(normalized) ? normalized : '';
 }
 function compareVersions(a, b) {
   const aa = normalizeVersion(a).split('.').map(n => parseInt(n, 10) || 0);
@@ -603,56 +539,33 @@ function extractReleaseNotes(body) {
   });
   return notes.slice(0, 4);
 }
+function extractReleasePresentation(body) {
+  const source = String(body || '');
+  const summaryMatch = source.match(/<!--\s*mineradio-update-summary:start\s*-->([\s\S]*?)<!--\s*mineradio-update-summary:end\s*-->/i);
+  const highlightsMatch = source.match(/<!--\s*mineradio-update-highlights:start\s*-->([\s\S]*?)<!--\s*mineradio-update-highlights:end\s*-->/i);
+  const summary = summaryMatch
+    ? cleanReleaseLine(summaryMatch[1].split(/\r?\n/).find(line => cleanReleaseLine(line)) || '').slice(0, 72)
+    : '';
+  const notes = highlightsMatch ? extractReleaseNotes(highlightsMatch[1]) : extractReleaseNotes(source);
+  return {
+    summary: summary || notes[0] || '',
+    notes: notes.filter(note => note !== summary).slice(0, 4),
+  };
+}
 function safeExternalUpdateUrl(value) {
   const raw = String(value || '').trim();
   if (!raw || raw.length > 2048) return '';
   try {
     const parsed = new URL(raw);
     if (parsed.protocol !== 'https:') return '';
+    if (parsed.hostname.toLowerCase() !== 'github.com' || parsed.port || parsed.username || parsed.password) return '';
+    const releaseRoot = `/${UPDATE_CONFIG.owner}/${UPDATE_CONFIG.repo}/releases`;
+    if (parsed.pathname.toLowerCase() !== releaseRoot.toLowerCase()
+      && !parsed.pathname.toLowerCase().startsWith(releaseRoot.toLowerCase() + '/')) return '';
     return parsed.toString();
   } catch (_) {
     return '';
   }
-}
-function normalizeUpdateDownloadPages(values, fallbackLabel) {
-  const source = Array.isArray(values) ? values : (values ? [values] : []);
-  const seen = new Set();
-  const pages = [];
-  source.forEach((value, index) => {
-    const item = value && typeof value === 'object' ? value : { url: value };
-    const url = safeExternalUpdateUrl(item.url || item.href || item.downloadPageUrl || item.externalUrl || '');
-    if (!url || seen.has(url)) return;
-    const label = cleanReleaseLine(item.label || item.name || fallbackLabel || `下载线路 ${index + 1}`)
-      .replace(/[<>|]/g, '')
-      .slice(0, 24)
-      .trim() || `下载线路 ${index + 1}`;
-    seen.add(url);
-    pages.push({ label, url });
-  });
-  return pages.slice(0, 6);
-}
-function extractReleaseDownloadPages(body) {
-  const raw = String(body || '');
-  const pages = [];
-  const hiddenPattern = /<!--\s*mineradio-download-page\s*:\s*(?:([^|<>\r\n]{1,32})\s*\|\s*)?(https:\/\/[^\s<>]+)\s*-->/gi;
-  let hidden = null;
-  while ((hidden = hiddenPattern.exec(raw))) {
-    pages.push({
-      label: String(hidden[1] || '').trim(),
-      url: hidden[2],
-    });
-  }
-  if (pages.length) return normalizeUpdateDownloadPages(pages);
-  const visiblePattern = /^\s*[-*]?\s*(夸克盘|百度(?:云|网盘)|蓝奏(?:云|网盘)|网盘|下载(?:地址|页面|链接)?)\s*[:：]\s*(?:\[[^\]]*]\()?(https:\/\/[^\s<>)\]]+)/gmi;
-  let visible = null;
-  while ((visible = visiblePattern.exec(raw))) {
-    pages.push({ label: visible[1], url: visible[2] });
-  }
-  return normalizeUpdateDownloadPages(pages);
-}
-function extractReleaseDownloadPage(body) {
-  const pages = extractReleaseDownloadPages(body);
-  return pages.length ? pages[0].url : '';
 }
 function normalizeManifestUpdateInfo(data) {
   data = data || {};
@@ -667,27 +580,10 @@ function normalizeManifestUpdateInfo(data) {
     || APP_VERSION
   ) || APP_VERSION;
   const htmlUrl = safeExternalUpdateUrl(release.htmlUrl || release.html_url || data.htmlUrl || '');
-  const legacyExternalUrl = safeExternalUpdateUrl(
-    release.downloadPageUrl
-    || release.externalUrl
-    || data.downloadPageUrl
-    || data.externalUrl
-    || release.downloadUrl
-    || data.downloadUrl
-    || ''
-  );
-  const downloadPages = normalizeUpdateDownloadPages(
-    release.downloadPages || data.downloadPages || [],
-    '网盘下载'
-  );
-  if (legacyExternalUrl && !downloadPages.some(page => page.url === legacyExternalUrl)) {
-    downloadPages.unshift({ label: '网盘下载', url: legacyExternalUrl });
-  }
-  const externalUrl = downloadPages.length ? downloadPages[0].url : legacyExternalUrl;
-  const downloadPageUrl = externalUrl || htmlUrl;
+  const presentation = extractReleasePresentation(release.body || data.body);
   const notes = Array.isArray(release.notes) && release.notes.length
     ? release.notes.slice(0, 4).map(cleanReleaseLine).filter(Boolean)
-    : (extractReleaseNotes(release.body || data.body).length ? extractReleaseNotes(release.body || data.body) : UPDATE_FALLBACK_NOTES);
+    : (presentation.notes.length ? presentation.notes : UPDATE_FALLBACK_NOTES);
   return {
     configured: true,
     preview: false,
@@ -700,14 +596,10 @@ function normalizeManifestUpdateInfo(data) {
       version: latestVersion,
       publishedAt: release.publishedAt || release.published_at || data.publishedAt || '',
       htmlUrl,
-      externalUrl,
-      downloadPageUrl,
-      downloadPages,
-      downloadUrl: externalUrl,
       asset: null,
       patch: null,
       patchAvailable: false,
-      summary: release.summary || data.summary || notes[0] || '发现新版本，建议更新。',
+      summary: release.summary || data.summary || presentation.summary || notes[0] || '发现新版本，建议更新',
       notes,
     },
     source: 'manifest',
@@ -813,10 +705,6 @@ function localUpdateFallback(reason, opts) {
       name: 'Mineradio v' + APP_VERSION,
       version: APP_VERSION,
       htmlUrl: '',
-      externalUrl: '',
-      downloadPageUrl: '',
-      downloadPages: [],
-      downloadUrl: '',
       asset: null,
       patch: null,
       patchAvailable: false,
@@ -824,6 +712,7 @@ function localUpdateFallback(reason, opts) {
       notes: UPDATE_FALLBACK_NOTES,
     },
     reason: reason || '',
+    checkFailed: !!reason,
   };
 }
 function updateError(code, message, cause) {
@@ -902,24 +791,6 @@ async function readStreamChunkWithTimeout(reader, timeoutMs) {
     if (timer) clearTimeout(timer);
   }
 }
-async function fetchTextFromCandidates(candidates, timeoutMs) {
-  const list = Array.isArray(candidates) && candidates.length ? candidates : [];
-  const failures = [];
-  for (let i = 0; i < list.length; i++) {
-    const candidate = list[i];
-    try {
-      const resp = await fetchWithTimeout(candidate.url, {
-        headers: { 'User-Agent': `Mineradio/${APP_VERSION}` },
-      }, timeoutMs || 6500);
-      if (!resp.ok) throw updateError('HTTP_' + resp.status, 'HTTP ' + resp.status);
-      return { text: await resp.text(), candidate };
-    } catch (err) {
-      const info = classifyUpdateError(err);
-      failures.push(candidate.label + ': ' + info.reason);
-    }
-  }
-  throw updateError('UPDATE_ALL_LINES_FAILED', failures.join('；') || 'All update lines failed');
-}
 function yamlScalar(text, key) {
   const pattern = new RegExp('^\\s*' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*:\\s*(.+?)\\s*$', 'm');
   const match = String(text || '').match(pattern);
@@ -929,7 +800,7 @@ function yamlScalar(text, key) {
 function parseLatestYmlUpdateInfo(text, reason) {
   const latestVersion = normalizeVersion(yamlScalar(text, 'version') || APP_VERSION) || APP_VERSION;
   const releaseDate = yamlScalar(text, 'releaseDate');
-  const htmlUrl = `https://github.com/${UPDATE_CONFIG.owner}/${UPDATE_CONFIG.repo}/releases/tag/v${latestVersion}`;
+  const htmlUrl = safeExternalUpdateUrl(`https://github.com/${UPDATE_CONFIG.owner}/${UPDATE_CONFIG.repo}/releases/tag/v${latestVersion}`);
   return {
     configured: true,
     preview: false,
@@ -942,15 +813,11 @@ function parseLatestYmlUpdateInfo(text, reason) {
       version: latestVersion,
       publishedAt: releaseDate,
       htmlUrl,
-      externalUrl: '',
-      downloadPageUrl: htmlUrl,
-      downloadPages: [],
-      downloadUrl: '',
       asset: null,
       patch: null,
       patchAvailable: false,
-      summary: '发现新版本，请前往发布页面获取安装包。',
-      notes: ['更新入口已改为浏览器外部下载', 'Mineradio 不再在本地下载或应用补丁'],
+      summary: '新版本已准备好，可以前往 GitHub 查看',
+      notes: UPDATE_FALLBACK_NOTES,
     },
     source: 'latest-yml',
     reason: reason || '',
@@ -959,9 +826,11 @@ function parseLatestYmlUpdateInfo(text, reason) {
 async function fetchLatestYmlUpdateInfo(reason) {
   if (!UPDATE_CONFIG.configured || UPDATE_CONFIG.provider !== 'github') throw updateError('UPDATE_REPOSITORY_NOT_CONFIGURED');
   const latestYmlUrl = `https://github.com/${encodeURIComponent(UPDATE_CONFIG.owner)}/${encodeURIComponent(UPDATE_CONFIG.repo)}/releases/latest/download/latest.yml`;
-  const candidates = uniqueDownloadCandidates(latestYmlUrl);
-  const result = await fetchTextFromCandidates(candidates, 6500);
-  return parseLatestYmlUpdateInfo(result.text, reason);
+  const response = await fetchWithTimeout(latestYmlUrl, {
+    headers: { 'User-Agent': `Mineradio/${APP_VERSION}` },
+  }, 6500);
+  if (!response.ok) throw updateError('HTTP_' + response.status, 'HTTP ' + response.status);
+  return parseLatestYmlUpdateInfo(await response.text(), reason);
 }
 async function fetchLatestUpdateInfo() {
   if (UPDATE_CONFIG.manifest) return fetchManifestUpdateInfo(UPDATE_CONFIG.manifest);
@@ -984,10 +853,8 @@ async function fetchLatestUpdateInfo() {
     const data = await resp.json();
     const latestVersion = normalizeVersion(data.tag_name || data.name || APP_VERSION) || APP_VERSION;
     const htmlUrl = safeExternalUpdateUrl(data.html_url || '');
-    const downloadPages = extractReleaseDownloadPages(data.body);
-    const externalUrl = downloadPages.length ? downloadPages[0].url : '';
-    const downloadPageUrl = externalUrl || htmlUrl;
-    const notes = extractReleaseNotes(data.body).length ? extractReleaseNotes(data.body) : UPDATE_FALLBACK_NOTES;
+    const presentation = extractReleasePresentation(data.body);
+    const notes = presentation.notes.length ? presentation.notes : UPDATE_FALLBACK_NOTES;
     return {
       configured: true,
       preview: false,
@@ -1000,14 +867,10 @@ async function fetchLatestUpdateInfo() {
         version: latestVersion,
         publishedAt: data.published_at || '',
         htmlUrl,
-        externalUrl,
-        downloadPageUrl,
-        downloadPages,
-        downloadUrl: externalUrl,
         asset: null,
         patch: null,
         patchAvailable: false,
-        summary: notes[0] || '发现新版本，建议更新。',
+        summary: presentation.summary || notes[0] || '发现新版本，建议更新',
         notes,
       },
     };
