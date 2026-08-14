@@ -63,3 +63,31 @@ The web security runtime resources under `qishui-auth-v6/` are retained
 byte-for-byte for protocol compatibility and remain the property of their
 respective rights holders. They are loaded only inside the isolated authentication
 partition for the user's own official login session.
+
+## KuGou concept-edition protocol adapters
+
+- Upstream: `MakcRe/KuGouMusicApi`
+- Reference revision: `7a60b70`
+- License: MIT
+- Port date: 2026-08-13
+
+Mineradio references the upstream request shapes for concept-edition daily
+recommendations, user songs, cloud playlists, playlist tracks, playlist writes,
+and membership lookup. The implementation is integrated into Mineradio's existing
+KuGou module with separate `kugou` and `kugouConcept` account scopes, Cookie stores,
+cache keys, error states, and UI adapters.
+
+Concept-edition playback remains represented as `provider: kugou` with
+`kugouVariant: concept`, while account mutations use the independent
+`kugouConcept` key. This prevents standard and concept-edition logins, likes, and
+playlists from sharing session state. Basic concept sessions can read the official
+user-song endpoint as a read-only "我喜欢" fallback when the cloud-list service
+requires a stronger device authorization. Daily VIP claim endpoints are not ported.
+
+Playback URL requests use the concept-edition application identity and tracker
+route, retry lower quality levels when the requested stream is unavailable, and
+classify login, membership, copyright, and temporary URL failures separately.
+Playlist writes normalize KuGou global collection IDs to the numeric list IDs
+required by the cloud-list service. Renderer account evidence and lyric-cache keys
+remain isolated from the standard KuGou account even when both editions expose the
+same song hash.

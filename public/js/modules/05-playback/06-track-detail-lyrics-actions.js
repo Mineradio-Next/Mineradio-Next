@@ -1238,6 +1238,19 @@ var SONG_ACCOUNT_ACTION_ADAPTERS = {
     playlistCreateUrl: '',
     playlistTracksUrl: '/api/kugou/playlist/tracks'
   },
+  kugouConcept: {
+    provider: 'kugouConcept',
+    label: '酷狗概念版',
+    like: true,
+    collect: true,
+    createPlaylist: false,
+    likeCheckUrl: '/api/kugou-concept/song/like/check',
+    likeCheckParam: 'hashes',
+    likeUrl: '/api/kugou-concept/song/like',
+    playlistAddUrl: '/api/kugou-concept/playlist/add-song',
+    playlistCreateUrl: '',
+    playlistTracksUrl: '/api/kugou-concept/playlist/tracks'
+  },
   spotify: {
     provider: 'spotify',
     label: 'Spotify',
@@ -1289,6 +1302,7 @@ function saveBackupSourceLikes() {
 }
 function songAccountProvider(song) {
   if (!song || song.type === 'local' || song.type === 'podcast' || song.source === 'podcast') return 'local';
+  if (song.kugouVariant === 'concept' || song.accountProvider === 'kugouConcept') return 'kugouConcept';
   if (typeof songProviderKey === 'function') return songProviderKey(song);
   if (song.provider === 'spotify' || song.source === 'spotify' || song.type === 'spotify' || song.spotifyId || song.spotifyUri) return 'spotify';
   if (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq') return 'qq';
@@ -1304,7 +1318,7 @@ function songAccountIdentityValues(song, provider) {
   song = song || {};
   provider = provider || songAccountProvider(song);
   var raw = [];
-  if (provider === 'kugou') {
+  if (provider === 'kugou' || provider === 'kugouConcept') {
     raw = [song.hash, song.audioHash, song.fileHash, song.providerSongId, song.id];
   } else if (provider === 'spotify') {
     raw = [song.spotifyId, song.providerSongId, song.id];
@@ -1318,7 +1332,7 @@ function songAccountIdentityValues(song, provider) {
   var seen = Object.create(null);
   return raw.map(function (value) {
     var normalized = String(value == null ? '' : value).trim();
-    return provider === 'kugou' ? normalized.toLowerCase() : normalized;
+    return provider === 'kugou' || provider === 'kugouConcept' ? normalized.toLowerCase() : normalized;
   }).filter(function (value) {
     if (!value || seen[value]) return false;
     seen[value] = true;
@@ -1334,24 +1348,42 @@ function songAccountStateKey(song) {
   return provider && id ? (provider + ':' + id) : '';
 }
 function playlistAccountProvider(playlist) {
+  if (playlist && playlist.kugouVariant === 'concept') return 'kugouConcept';
   var provider = String(playlist && (playlist.provider || playlist.source) || '').toLowerCase();
+  if (provider === 'kugouconcept') return 'kugouConcept';
   return /^(netease|qq|kugou|qishui|spotify)$/.test(provider) ? provider : 'netease';
 }
 function songAccountLoginStatus(provider) {
   if (provider === 'spotify') return spotifyLoginStatus || {};
   if (provider === 'qishui') return qishuiLoginStatus || {};
   if (provider === 'kugou') return kugouLoginStatus || {};
+  if (provider === 'kugouConcept') return kugouConceptLoginStatus || {};
   if (provider === 'qq') return qqLoginStatus || {};
   return loginStatus || {};
 }
+function songAccountWriteCapability(provider, action) {
+  var adapter = songAccountAdapter(provider);
+  if (!adapter) return false;
+  if (provider !== 'kugouConcept') return action === 'collect' ? !!adapter.collect : !!adapter.like;
+  var status = songAccountLoginStatus(provider);
+  var capabilities = status && status.capabilities || {};
+  if (action === 'collect' && capabilities.playlistWrite === false) return false;
+  if (action === 'like' && capabilities.likeWrite === false) return false;
+  return action === 'collect' ? !!adapter.collect : !!adapter.like;
+}
 function isSongAccountLoggedIn(provider) {
   var status = songAccountLoginStatus(provider);
-  if (provider === 'kugou') return !!(status.loggedIn && status.playbackKeyReady);
+  if (provider === 'kugou' || provider === 'kugouConcept') return !!(status.loggedIn && status.playbackKeyReady);
   if (provider === 'qishui') return !!(status.loggedIn && (status.webSession || status.cookieReady));
   return !!status.loggedIn;
 }
 function songAccountUnsupportedMessage(provider, action) {
   var adapter = songAccountAdapter(provider);
+  if (provider === 'kugouConcept' && !songAccountWriteCapability(provider, action)) {
+    return action === 'collect'
+      ? '当前酷狗概念版会话可读取歌单，但暂时不能写入'
+      : '当前酷狗概念版会话可读取红心状态，但暂时不能修改';
+  }
   if (adapter && adapter.readOnly) return adapter.label + '当前仅支持读取账号收藏，暂不支持写回';
   if (provider === 'qishui') return '汽水音乐当前会话暂不支持此账号操作';
   if (provider === 'local') return '本地文件暂不支持同步' + (action === 'collect' ? '到歌单' : '红心');
@@ -1425,7 +1457,7 @@ function syncLikeStatusForSongs(songs) {
   var requests = [];
   providers.forEach(function (provider) {
     var group = groups[provider];
-    var batchSize = provider === 'spotify' || provider === 'qishui' ? 40 : (provider === 'kugou' ? 50 : 200);
+    var batchSize = provider === 'spotify' || provider === 'qishui' ? 40 : (provider === 'kugou' || provider === 'kugouConcept' ? 50 : 200);
     for (var offset = 0; offset < group.ids.length; offset += batchSize) {
       (function (batchIds) {
         var url = group.adapter.likeCheckUrl + '?' + group.adapter.likeCheckParam + '=' + encodeURIComponent(batchIds.join(','));
@@ -1433,7 +1465,7 @@ function syncLikeStatusForSongs(songs) {
           if (token < likeStatusToken - 3 || !r || !r.liked) return;
           var responseLiked = r.liked || {};
           batchIds.forEach(function (id) {
-            var responseId = provider === 'kugou' ? String(id).toLowerCase() : String(id);
+            var responseId = provider === 'kugou' || provider === 'kugouConcept' ? String(id).toLowerCase() : String(id);
             var liked = responseLiked[responseId];
             if (liked == null) liked = responseLiked[id];
             if (liked == null) return;
@@ -1460,7 +1492,7 @@ function syncLikeStatusForSong(song) {
 }
 function isLikedPlaylistContext(id, title, meta) {
   var rawId = String(id || '');
-  var idParts = rawId.match(/^(netease|qq|kugou|qishui|spotify):(.*)$/);
+  var idParts = rawId.match(/^(netease|qq|kugou|kugouConcept|qishui|spotify):(.*)$/);
   var provider = idParts ? idParts[1] : playlistAccountProvider(meta);
   var sid = idParts ? idParts[2] : rawId;
   var text = String(title || (meta && meta.name) || '').trim();
@@ -1506,7 +1538,7 @@ async function toggleLikeSong(song) {
     return;
   }
   var adapter = songAccountAdapter(provider);
-  if (!adapter || !adapter.like || !adapter.likeUrl) {
+  if (!adapter || !adapter.like || !adapter.likeUrl || !songAccountWriteCapability(provider, 'like')) {
     showToast(songAccountUnsupportedMessage(provider, 'like'));
     return;
   }
@@ -1531,7 +1563,7 @@ async function toggleLikeSong(song) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: id, like: next, song: song })
     });
-    if (r && (r.error || r.success === false)) throw new Error(r.error || r.message || 'LIKE_FAILED');
+    if (r && (r.error || r.success === false)) throw new Error(r.message || r.error || 'LIKE_FAILED');
     likedSongMap[stateKey] = r && r.liked != null ? !!r.liked : next;
     if (typeof setFavoriteCatalogSong === 'function') setFavoriteCatalogSong(song, !!likedSongMap[stateKey], { synced: true });
     showToast(next ? '已加入红心喜欢' : '已取消红心');
@@ -1566,7 +1598,7 @@ function openCollectModal(song) {
     openGsapModal(document.getElementById('collect-modal'));
     return;
   }
-  if (!adapter || !adapter.collect || !adapter.playlistAddUrl) {
+  if (!adapter || !adapter.collect || !adapter.playlistAddUrl || !songAccountWriteCapability(provider, 'collect')) {
     showToast(songAccountUnsupportedMessage(provider, 'collect'));
     return;
   }
@@ -1626,10 +1658,14 @@ function renderCollectModal() {
     return;
   }
   var mine = userPlaylists.filter(function (pl) {
-    return playlistAccountProvider(pl) === provider && !pl.subscribed && !pl.virtual;
+    return playlistAccountProvider(pl) === provider && !pl.subscribed && !pl.virtual && !pl.readOnly;
   });
   if (!mine.length) {
-    list.innerHTML = '<div class="collect-empty">还没有可写入的歌单，可以先新建一个</div>';
+    list.innerHTML = '<div class="collect-empty">' + escHtml(
+      !songAccountWriteCapability(provider, 'collect')
+        ? songAccountUnsupportedMessage(provider, 'collect')
+        : '还没有可写入的歌单，可以先新建一个'
+    ) + '</div>';
     return;
   }
   list.innerHTML = mine.map(function (pl) {
@@ -1690,7 +1726,7 @@ async function createPlaylistFromCollect() {
 }
 function collectResultMessage(r) {
   if (!r) return '收藏失败';
-  var msg = r.error || r.message || r.msg || '';
+  var msg = r.message || r.msg || r.error || '';
   if (/LOGIN_REQUIRED|AUTH_REQUIRED/i.test(String(msg))) return '平台登录状态已失效，请重新登录';
   if (/SCOPE|PERMISSION/i.test(String(msg))) return '当前授权缺少收藏写入权限，请重新授权';
   if (/exist|重复|已存在|already/i.test(String(msg))) return '歌曲已在歌单中';
@@ -1750,7 +1786,7 @@ async function addCollectTargetToPlaylist(pid) {
     closeCollectModal();
     return;
   }
-  if (!adapter || !adapter.collect || !adapter.playlistAddUrl) {
+  if (!adapter || !adapter.collect || !adapter.playlistAddUrl || !songAccountWriteCapability(provider, 'collect')) {
     showToast(songAccountUnsupportedMessage(provider, 'collect'));
     return;
   }

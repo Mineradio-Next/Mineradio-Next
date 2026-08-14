@@ -46,6 +46,7 @@ function renderHomeTiles() {
   var title = document.getElementById('home-rail-title');
   var note = document.getElementById('home-rail-note');
   if (!row) return;
+  if (typeof sanitizeHomeDiscoverSongs === 'function') sanitizeHomeDiscoverSongs();
   var tiles = [];
   var loggedOutHome = !homeDiscoverState.loggedIn && !hasAnyPlatformLogin();
   var summary = homeListenSummary();
@@ -88,7 +89,32 @@ function renderHomeTiles() {
   row._homeTiles = tiles;
   renderHomeMosaic(tiles);
 }
+
+function isNeteaseHomeDiscoverSong(song) {
+  if (!song || song.kugouVariant === 'concept' || song.kugou_variant === 'concept') return false;
+  return song.provider === 'netease' && song.source === 'netease';
+}
+
+function normalizeNeteaseHomeDiscoverSong(song) {
+  if (!isNeteaseHomeDiscoverSong(song)) return null;
+  delete song.customCover;
+  delete song.customCoverKey;
+  return song;
+}
+
+function homeNeteaseDailySongs() {
+  return (homeDiscoverState && Array.isArray(homeDiscoverState.songs) ? homeDiscoverState.songs : [])
+    .map(normalizeNeteaseHomeDiscoverSong)
+    .filter(Boolean);
+}
+
+function sanitizeHomeDiscoverSongs() {
+  var songs = homeNeteaseDailySongs();
+  if (homeDiscoverState) homeDiscoverState.songs = songs;
+  return songs;
+}
 function renderHomeDiscover() {
+  sanitizeHomeDiscoverSongs();
   var sub = document.getElementById('home-subtitle');
   var loggedOutHome = !homeDiscoverState.loggedIn && !hasAnyPlatformLogin();
   var weatherTitle = document.getElementById('home-weather-title');
@@ -161,6 +187,7 @@ function renderHomeDiscover() {
 }
 async function loadHomeDiscover(force) {
   if (homeDiscoverState.loading) return;
+  sanitizeHomeDiscoverSongs();
   if (homeDiscoverState.loaded && !force) return;
   var token = ++homeDiscoverToken;
   homeDiscoverState.loading = true;
@@ -169,9 +196,11 @@ async function loadHomeDiscover(force) {
   try {
     var data = await apiJson('/api/discover/home?t=' + Date.now());
     if (token !== homeDiscoverToken) return;
-    homeDiscoverState.loggedIn = !!(data && data.loggedIn) || hasAnyPlatformLogin();
+    homeDiscoverState.loggedIn = !!(data && data.loggedIn);
     homeDiscoverState.mode = data && data.mode || (homeDiscoverState.loggedIn ? 'member' : 'starter');
-    homeDiscoverState.songs = homeDiscoverState.loggedIn ? (data && data.dailySongs || []).map(cloneSong) : [];
+    homeDiscoverState.songs = homeDiscoverState.loggedIn
+      ? (data && data.dailySongs || []).map(normalizeNeteaseHomeDiscoverSong).filter(Boolean)
+      : [];
     homeDiscoverState.playlists = homeDiscoverState.loggedIn ? ((data && data.playlists && data.playlists.length) ? data.playlists : userPlaylists.slice(0, 10)) : [];
     homeDiscoverState.podcasts = homeDiscoverState.loggedIn ? (data && data.podcasts || []) : [];
     homeDiscoverState.updatedAt = Number(data && data.updatedAt) || Date.now();

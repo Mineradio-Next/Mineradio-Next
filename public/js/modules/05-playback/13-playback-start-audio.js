@@ -1125,6 +1125,7 @@ async function playQueueAt(idx, opts) {
     try {
       markPlayPhase('source-url');
       var playbackProvider = normalizePlaybackProvider(songProviderKey(song));
+      var playbackAccountProvider = playbackProvider === 'kugou' && typeof songKugouVariant === 'function' && songKugouVariant(song) === 'concept' ? 'kugouConcept' : playbackProvider;
       var isQQPlayback = playbackProvider === 'qq';
       var isKugouPlayback = playbackProvider === 'kugou';
       var isQishuiPlayback = playbackProvider === 'qishui';
@@ -1173,7 +1174,8 @@ async function playQueueAt(idx, opts) {
           (typeof songRequiresVip === 'function' && songRequiresVip(Object.assign({}, song, data)))
         );
         if (typeof updateControlTrackInfo === 'function') updateControlTrackInfo(song);
-        if (isKugouPlayback && typeof applyKugouPlaybackStatusEvidence === 'function') applyKugouPlaybackStatusEvidence(data);
+        if (isKugouPlayback && playbackAccountProvider === 'kugouConcept' && typeof applyKugouConceptPlaybackStatusEvidence === 'function') applyKugouConceptPlaybackStatusEvidence(data);
+        else if (isKugouPlayback && typeof applyKugouPlaybackStatusEvidence === 'function') applyKugouPlaybackStatusEvidence(data);
         if (isQQPlayback && typeof applyQQPlaybackStatusEvidence === 'function') applyQQPlaybackStatusEvidence(data, song);
       }
       var retryPlaybackOpts = Object.assign({}, opts, { resumeAt: opts.resumeAt != null ? opts.resumeAt : restoreResumeAt });
@@ -1191,7 +1193,7 @@ async function playQueueAt(idx, opts) {
       var qualityDowngraded = !!(data && data.level && playbackQualityWasDowngraded(requestedQuality, data.level, playbackProvider));
       if (qualityDowngraded) markPlaybackQualityRuntimeCap(song, playbackProvider, data.level, 'resolved-lower');
       if (!opts.startupAutoplay && !isQQPlayback && qualityDowngraded) {
-        showSourceFallbackNotice((isKugouPlayback ? '酷狗' : (isQishuiPlayback ? '汽水' : '网易云')) + '音质自动降级', '请求 ' + playbackQualityLabel(requestedQuality, playbackProvider) + '，实际播放 ' + resolvedQualityText + '。');
+        showSourceFallbackNotice((isKugouPlayback ? (playbackAccountProvider === 'kugouConcept' ? '酷狗概念版' : '酷狗') : (isQishuiPlayback ? '汽水' : '网易云')) + '音质自动降级', '请求 ' + playbackQualityLabel(requestedQuality, playbackProvider) + '，实际播放 ' + resolvedQualityText + '。');
       } else if (!opts.startupAutoplay && opts.qualitySwitch) {
         showSourceFallbackNotice('音质已切换', '实际播放: ' + resolvedQualityText + '。');
       }
@@ -1205,7 +1207,7 @@ async function playQueueAt(idx, opts) {
         var trialLoginBtn = document.getElementById('trial-login-btn');
         if (trialLoginBtn) {
           trialLoginBtn.style.display = data.loggedIn ? 'none' : '';
-          trialLoginBtn.onclick = function () { openProviderLogin(playbackProvider); };
+          trialLoginBtn.onclick = function () { openProviderLogin(playbackAccountProvider); };
         }
         document.getElementById('trial-banner').classList.add('show');
       }

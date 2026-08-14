@@ -40,6 +40,7 @@ function lyricEndpointForSong(songOrId) {
 function persistentLyricCacheKey(song) {
   song = song || {};
   var provider = typeof songProviderKey === 'function' ? songProviderKey(song) : (song.source || song.provider || 'netease');
+  if (provider === 'kugou' && typeof songKugouVariant === 'function' && songKugouVariant(song) === 'concept') provider = 'kugouConcept';
   var id = song.id || song.mid || song.songmid || song.hash || '';
   var artist = song.artist || song.singer || song.artists || '';
   return ['lyrics-v1', provider, id, song.name || song.title || '', artist].join('|');

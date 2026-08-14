@@ -48,7 +48,7 @@ function namedFunctionSource(source, name) {
 test('daily recommendation modal consumes the full frontend dataset without an eight-song slice', () => {
   const render = namedFunctionSource(dashboardScript, 'renderHomePlatformRecommendations');
   assert.ok(render, 'expected renderHomePlatformRecommendations()');
-  assert.match(render, /var songs = Array\.isArray\(homeDiscoverState\.songs\) \? homeDiscoverState\.songs : \[\]/);
+  assert.match(render, /var songs = typeof sanitizeHomeDiscoverSongs === 'function' \? sanitizeHomeDiscoverSongs\(\) : \[\]/);
   assert.doesNotMatch(render, /homeDiscoverState\.songs\.slice\s*\(\s*0\s*,\s*8\s*\)/);
   assert.match(render, /id="home-platform-daily-grid"/);
   assert.match(render, /renderHomePlatformDailyWindow\s*\(\s*true\s*\)/);
@@ -88,7 +88,7 @@ test('virtualized daily cards preserve absolute indexes and full-queue playback'
   const playDaily = namedFunctionSource(homeActionsScript, 'playHomeDaily');
   const playSong = namedFunctionSource(homeActionsScript, 'playHomeSong');
   assert.match(playDaily, /playQueue\s*=\s*homeDiscoverState\.songs\.map\(cloneSong\)/);
-  assert.match(playSong, /playQueue\s*=\s*homeDiscoverState\.songs\.map\(cloneSong\)/);
+  assert.match(playSong, /playQueue\s*=\s*dailySongs\.map\(cloneSong\)/);
   assert.doesNotMatch(playDaily + playSong, /\.slice\s*\(/);
 });
 

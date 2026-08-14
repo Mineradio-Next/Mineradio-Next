@@ -117,7 +117,7 @@ async function refreshLoginStatus(force) {
       syncLikeStatusForSongs(playQueue.concat(playlist || []));
     } else {
       neteasePlaylists = [];
-      userPlaylists = qqPlaylists.concat(kugouPlaylists || [], qishuiPlaylists || [], spotifyPlaylists || []);
+      userPlaylists = qqPlaylists.concat(kugouPlaylists || [], kugouConceptPlaylists || [], qishuiPlaylists || [], spotifyPlaylists || []);
       playlistCatalogRevision += 1;
       myPodcastCollections = [];
       myPodcastItems = {};
@@ -346,6 +346,31 @@ function applyKugouPlaybackStatusEvidence(info) {
   renderUserBtn();
   return true;
 }
+function applyKugouConceptPlaybackStatusEvidence(info) {
+  if (!info || info.provider !== 'kugou' || info.kugouVariant !== 'concept' || !info.loggedIn) return false;
+  var existing = kugouConceptLoginStatus || {};
+  var verifiedMembership = info.membershipVerified === true &&
+    (info.membershipSource === 'kugou-concept-vip-api' || info.membershipSource === 'kugou-vip-api');
+  var safeUpdate = {
+    provider: 'kugou',
+    kugouVariant: 'concept',
+    loggedIn: true,
+    playbackKeyReady: !!(info.playbackReady || info.playbackKeyReady || existing.playbackKeyReady)
+  };
+  if (verifiedMembership) {
+    safeUpdate.vipType = Number(info.vipType || 0) || 0;
+    safeUpdate.svipType = Number(info.svipType || 0) || 0;
+    safeUpdate.vipLevel = info.vipLevel === 'svip' ? 'svip' : (info.vipLevel === 'vip' ? 'vip' : 'none');
+    safeUpdate.isVip = info.isVip === true;
+    safeUpdate.isSvip = info.isSvip === true;
+    safeUpdate.membershipVerified = true;
+    safeUpdate.membershipSource = info.membershipSource;
+  }
+  kugouConceptLoginStatus = normalizeKugouConceptLoginStatus(Object.assign({}, existing, safeUpdate));
+  kugouConceptLoginWasLoggedIn = true;
+  renderUserBtn();
+  return true;
+}
 function qqPlaybackShowsMemberAccess(info, song) {
   // A playable URL plus a song-level VIP hint proves that this request worked;
   // it does not prove the account owns a subscription.
@@ -387,13 +412,34 @@ async function refreshKugouLoginStatus() {
 async function refreshKugouConceptLoginStatus() {
   try {
     var info = await apiJson('/api/kugou-concept/login/status?t=' + Date.now());
+    var prevLogged = !!kugouConceptLoginStatus.loggedIn;
     kugouConceptLoginStatus = normalizeKugouConceptLoginStatus(info);
+    auditProviderVipState('kugouConcept', kugouConceptLoginStatus);
+    if (!kugouConceptLoginStatus.loggedIn) {
+      if (prevLogged || kugouConceptLoginWasLoggedIn) showToast(kugouConceptLoginStatus.stale ? '酷狗概念版登录已失效' : '酷狗概念版已退出登录');
+      kugouConceptPlaylists = [];
+      userPlaylists = userPlaylists.filter(function (pl) { return !(pl && (pl.provider === 'kugouConcept' || pl.kugouVariant === 'concept')); });
+      playlistCatalogRevision += 1;
+      if (homePlatformRecommendationState && homePlatformRecommendationState.feeds && homePlatformRecommendationState.feeds.kugouConcept) {
+        homePlatformRecommendationState.feeds.kugouConcept.loaded = false;
+        homePlatformRecommendationState.feeds.kugouConcept.songs = [];
+      }
+    } else if (!userPlaylists.some(function (pl) { return pl && (pl.provider === 'kugouConcept' || pl.kugouVariant === 'concept'); })) {
+      refreshUserPlaylists(true);
+      if (homePlatformRecommendationState && homePlatformRecommendationState.feeds && homePlatformRecommendationState.feeds.kugouConcept) {
+        homePlatformRecommendationState.feeds.kugouConcept.loaded = false;
+        loadHomePlatformFeedRecommendations('kugouConcept', true);
+      }
+    } else if (kugouConceptLoginStatus.stale) {
+      showToast('酷狗概念版登录状态可能已失效');
+    }
     kugouConceptLoginWasLoggedIn = !!kugouConceptLoginStatus.loggedIn;
     if (!hasPlatformLogin(activeAccountProvider)) activeAccountProvider = firstLoggedProvider();
     renderUserBtn();
     return kugouConceptLoginStatus;
   } catch (e) {
-    kugouConceptLoginStatus = normalizeKugouConceptLoginStatus(null);
+    console.warn('Kugou concept login status failed:', e);
+    kugouConceptLoginStatus = normalizeKugouConceptLoginStatus(Object.assign({}, kugouConceptLoginStatus, { stale: true }));
     renderUserBtn();
     return kugouConceptLoginStatus;
   }

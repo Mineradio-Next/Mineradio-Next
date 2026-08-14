@@ -48,9 +48,12 @@ function coverUrlWithSize(url, size) {
 function songCustomCoverKey(song) {
   if (!song) return '';
   if (song.customCoverKey) return String(song.customCoverKey);
+  if (song.provider === 'netease' || song.source === 'netease') return 'netease:' + (song.id || song.songmid || (song.name + '|' + song.artist));
   if (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq') return 'qq:' + (song.mid || song.songmid || song.id || (song.name + '|' + song.artist));
   if (song.provider === 'qishui' || song.source === 'qishui' || song.type === 'qishui') return 'qishui:' + (song.id || song.providerSongId || (song.name + '|' + song.artist));
   if (song.provider === 'kugou' || song.source === 'kugou' || song.type === 'kugou' || song.hash || song.audioHash) return 'kugou:' + (song.hash || song.fileHash || song.audioHash || song.id || (song.name + '|' + song.artist));
+  if (song.provider === 'spotify' || song.source === 'spotify') return 'spotify:' + (song.id || song.uri || song.songmid || (song.name + '|' + song.artist));
+  if (song.provider === 'backup-source' || song.source === 'backup-source') return 'backup-source:' + (song.additionalSourceCode || 'unknown') + ':' + (song.id || song.mid || (song.name + '|' + song.artist));
   if (song.localKey) return 'local:' + song.localKey;
   if (song.type === 'podcast' && song.programId) return 'podcast:' + song.programId;
   if (song.id != null && song.id !== '') return 'id:' + song.id;

@@ -3,12 +3,13 @@ var firstPlayDone = false;
 function playbackProviderLabel(song) {
   var provider = songProviderKey(song);
   if (provider === 'qq') return 'QQ 音乐';
-  if (provider === 'kugou') return '酷狗音乐';
+  if (provider === 'kugou') return typeof songKugouVariant === 'function' && songKugouVariant(song) === 'concept' ? '酷狗概念版' : '酷狗音乐';
   if (provider === 'qishui') return '汽水音乐';
   if (provider === 'spotify') return 'Spotify';
   return '网易云';
 }
 function playbackLoginProvider(song) {
+  if (songProviderKey(song) === 'kugou' && typeof songKugouVariant === 'function' && songKugouVariant(song) === 'concept') return 'kugouConcept';
   return normalizePlaybackProvider(songProviderKey(song));
 }
 function playbackRestrictionRawCategory(song, data) {

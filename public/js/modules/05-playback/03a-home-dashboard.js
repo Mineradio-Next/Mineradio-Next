@@ -29,9 +29,10 @@ var homePlatformRecommendationState = {
   previousFocus: null,
   neteaseLoading: false,
   feeds: {
-    qishui: { loading: false, loaded: false, songs: [], error: '', message: '', mode: '', source: '', fallback: false, provenance: '' },
-    kugou: { loading: false, loaded: false, songs: [], error: '', message: '', mode: '', source: '', fallback: false, provenance: '' },
-    spotify: { loading: false, loaded: false, songs: [], error: '', message: '', mode: '', source: '', fallback: false, provenance: '' },
+    qishui: { loading: false, loaded: false, requestId: 0, songs: [], error: '', message: '', mode: '', source: '', fallback: false, provenance: '' },
+    kugou: { loading: false, loaded: false, requestId: 0, songs: [], error: '', message: '', mode: '', source: '', fallback: false, provenance: '' },
+    kugouConcept: { loading: false, loaded: false, requestId: 0, songs: [], error: '', message: '', mode: '', source: '', fallback: false, provenance: '' },
+    spotify: { loading: false, loaded: false, requestId: 0, songs: [], error: '', message: '', mode: '', source: '', fallback: false, provenance: '' },
   },
 };
 
@@ -538,7 +539,10 @@ function renderHomeDashboardQuickCards() {
   var summary = typeof homeListenSummary === 'function' ? homeListenSummary() : {};
   var recent = summary && summary.recent || null;
   var current = homeDashboardCurrentSong();
-  var daily = homeDiscoverState && homeDiscoverState.songs && homeDiscoverState.songs[0] || null;
+  var dailySongs = typeof sanitizeHomeDiscoverSongs === 'function'
+    ? sanitizeHomeDiscoverSongs()
+    : [];
+  var daily = dailySongs[0] || null;
   var continueItem = current || recent;
   var localSongs = homeDashboardLocalSongs();
   var localCount = localSongs.length;
@@ -687,7 +691,8 @@ function homeDashboardNextQueueInfo() {
     var index = currentIdx >= 0 ? (currentIdx + 1) % playQueue.length : 0;
     return { song: playQueue[index], index: index, queued: true };
   }
-  var discoverSong = homeDiscoverState && homeDiscoverState.songs && homeDiscoverState.songs[0] || null;
+  var discoverSongs = typeof sanitizeHomeDiscoverSongs === 'function' ? sanitizeHomeDiscoverSongs() : [];
+  var discoverSong = discoverSongs[0] || null;
   var localSong = homeDashboardLocalSongs()[0] || null;
   return { song: discoverSong || localSong || null, index: 0, queued: false };
 }
@@ -717,7 +722,7 @@ function homeDashboardDiscoverySongs() {
     });
   }
 
-  addSongs(homeDiscoverState && homeDiscoverState.songs);
+  addSongs(typeof sanitizeHomeDiscoverSongs === 'function' ? sanitizeHomeDiscoverSongs() : []);
   addSongs(playQueue);
   if (Array.isArray(userPlaylists)) {
     userPlaylists.forEach(function (item) { addSongs(item && item.songs); });
@@ -859,6 +864,7 @@ function homePlatformRecommendationSourceLabel(source) {
     qishui: '汽水',
     qq: 'QQ 音乐',
     kugou: '酷狗音乐',
+    kugouConcept: '酷狗概念版',
     spotify: 'Spotify',
   }[source] || '当前平台';
 }
@@ -871,7 +877,9 @@ function homePlatformSourcePulseState(source) {
         ? (typeof qishuiLoginStatus !== 'undefined' ? qishuiLoginStatus : {})
         : (source === 'kugou'
           ? (typeof kugouLoginStatus !== 'undefined' ? kugouLoginStatus : {})
-          : (typeof spotifyLoginStatus !== 'undefined' ? spotifyLoginStatus : {}))));
+          : (source === 'kugouConcept'
+            ? (typeof kugouConceptLoginStatus !== 'undefined' ? kugouConceptLoginStatus : {})
+            : (typeof spotifyLoginStatus !== 'undefined' ? spotifyLoginStatus : {})))));
   if (status && status.loggedIn) {
     if (status.stale || status.reauthRequired || status.authorizationIncomplete) return { state: 'error', label: '需重新授权' };
     if (source === 'qq' && typeof qqMembershipNeedsSync === 'function' && qqMembershipNeedsSync(status)) return { state: 'configured', label: '会员待刷新' };
@@ -895,7 +903,7 @@ function homePlatformSourcePulseState(source) {
 function renderHomePlatformSourcePulse() {
   var pulse = document.getElementById('home-platform-source-pulse');
   if (!pulse) return;
-  ['netease', 'qishui', 'qq', 'kugou', 'spotify'].forEach(function (source) {
+  ['netease', 'qishui', 'qq', 'kugou', 'kugouConcept', 'spotify'].forEach(function (source) {
     var item = pulse.querySelector('[data-home-source-pulse="' + source + '"]');
     if (!item) return;
     var state = homePlatformSourcePulseState(source);
@@ -920,6 +928,13 @@ function homePlatformRecommendationFeedConfig(source) {
       cardLabel: '酷狗推荐 FM',
       readyText: '来自酷狗 FM 推荐',
       playlistName: '酷狗推荐 FM',
+    },
+    kugouConcept: {
+      endpoint: '/api/kugou-concept/recommendations?limit=12',
+      sectionTitle: '每日推荐',
+      cardLabel: '酷狗概念版推荐',
+      readyText: '来自酷狗概念版每日推荐',
+      playlistName: '酷狗概念版每日推荐',
     },
     spotify: {
       endpoint: '/api/spotify/recommendations?limit=12',
@@ -992,7 +1007,7 @@ function renderHomePlatformDailyWindow(force) {
   var list = document.getElementById('home-platform-recommend-list');
   var grid = document.getElementById('home-platform-daily-grid');
   if (!list || !grid) return;
-  var songs = Array.isArray(homeDiscoverState.songs) ? homeDiscoverState.songs : [];
+  var songs = typeof sanitizeHomeDiscoverSongs === 'function' ? sanitizeHomeDiscoverSongs() : [];
   var columns = homePlatformRecommendationGridColumns(grid);
   var range = homePlatformRecommendationDailyRange(
     songs.length,
@@ -1037,6 +1052,7 @@ function homePlatformRecommendationLoginLabel(source) {
     netease: '登录网易云',
     qishui: '登录汽水音乐',
     kugou: '登录酷狗音乐',
+    kugouConcept: '登录酷狗概念版',
     spotify: '连接 Spotify',
   }[source] || '';
 }
@@ -1074,7 +1090,7 @@ function renderHomePlatformRecommendations() {
     }
     var sections = [];
     var playlists = Array.isArray(homeDiscoverState.playlists) ? homeDiscoverState.playlists.slice(0, 6) : [];
-    var songs = Array.isArray(homeDiscoverState.songs) ? homeDiscoverState.songs : [];
+    var songs = typeof sanitizeHomeDiscoverSongs === 'function' ? sanitizeHomeDiscoverSongs() : [];
     if (playlists.length) {
       sections.push('<section><h3>推荐歌单</h3><div class="home-platform-recommend-grid">' + playlists.map(function (item, index) {
         return homePlatformRecommendationCard('netease-playlist', index, item, '网易云推荐歌单');
@@ -1178,6 +1194,8 @@ async function loadHomePlatformFeedRecommendations(source, force) {
   var feedState = homePlatformRecommendationState.feeds[source];
   if (!config || !feedState || feedState.loading) return;
   if (feedState.loaded && !force) return;
+  var requestId = (Number(feedState.requestId) || 0) + 1;
+  feedState.requestId = requestId;
   feedState.loading = true;
   feedState.error = '';
   feedState.message = '';
@@ -1185,8 +1203,14 @@ async function loadHomePlatformFeedRecommendations(source, force) {
   try {
     var separator = config.endpoint.indexOf('?') >= 0 ? '&' : '?';
     var data = await apiJson(config.endpoint + separator + 't=' + Date.now(), { timeoutMs: 14000 });
+    if (requestId !== feedState.requestId) return;
     var rawSongs = data && (data.songs || data.tracks || data.items || data.recommendations);
-    feedState.songs = (Array.isArray(rawSongs) ? rawSongs : []).map(cloneSong);
+    feedState.songs = (Array.isArray(rawSongs) ? rawSongs : []).map(cloneSong).filter(function (song) {
+      if (!song) return false;
+      if (source === 'kugouConcept') return song.kugouVariant === 'concept' && song.hash && song.playable !== false;
+      if (source === 'kugou') return songProviderKey(song) === 'kugou' && song.kugouVariant !== 'concept';
+      return songProviderKey(song) === source;
+    });
     feedState.error = data && data.error ? String(data.error) : '';
     feedState.message = data && data.message ? String(data.message) : '';
     feedState.mode = data && data.mode ? String(data.mode) : '';
@@ -1195,14 +1219,17 @@ async function loadHomePlatformFeedRecommendations(source, force) {
     feedState.provenance = data && data.provenance ? String(data.provenance) : '';
     feedState.loaded = true;
   } catch (error) {
+    if (requestId !== feedState.requestId) return;
     console.warn('[HomePlatformFeed:' + source + ']', error);
     feedState.songs = [];
     feedState.error = String(error && error.message || 'PLATFORM_FEED_FAILED');
     feedState.message = '';
     feedState.loaded = true;
   } finally {
-    feedState.loading = false;
-    renderHomePlatformRecommendations();
+    if (requestId === feedState.requestId) {
+      feedState.loading = false;
+      renderHomePlatformRecommendations();
+    }
   }
 }
 
@@ -1282,7 +1309,7 @@ function bindHomePlatformRecommendationControls() {
     closeHomePlatformRecommendations();
     if (kind === 'netease-playlist' && typeof openHomePlaylist === 'function') openHomePlaylist(index);
     else if (kind === 'netease-song' && typeof playHomeSong === 'function') playHomeSong(index);
-    else if (/^(qishui|kugou|spotify)-song$/.test(kind)) playHomePlatformFeedSong(kind.replace(/-song$/, ''), index);
+    else if (/^(qishui|kugou|kugouConcept|spotify)-song$/.test(kind)) playHomePlatformFeedSong(kind.replace(/-song$/, ''), index);
   });
   if (list) list.addEventListener('scroll', scheduleHomePlatformDailyWindowRender, { passive: true });
   window.addEventListener('resize', scheduleHomePlatformDailyWindowRender, { passive: true });
@@ -1317,8 +1344,10 @@ function openHomePlatformRecommendations(preferredSource, preferredView) {
       ? 'qishui'
       : (kugouLoginStatus && kugouLoginStatus.loggedIn
         ? 'kugou'
-        : (spotifyLoginStatus && (spotifyLoginStatus.loggedIn || spotifyLoginStatus.configured) ? 'spotify' : 'netease')));
-  var source = /^(netease|qishui|qq|kugou|spotify)$/.test(String(preferredSource || '')) ? preferredSource : defaultSource;
+        : (kugouConceptLoginStatus && kugouConceptLoginStatus.loggedIn
+          ? 'kugouConcept'
+          : (spotifyLoginStatus && (spotifyLoginStatus.loggedIn || spotifyLoginStatus.configured) ? 'spotify' : 'netease'))));
+  var source = /^(netease|qishui|qq|kugou|kugouConcept|spotify)$/.test(String(preferredSource || '')) ? preferredSource : defaultSource;
   var view = preferredView === 'rankings' || homePlatformRecommendationState.nextView === 'rankings'
     ? 'rankings'
     : 'recommendations';

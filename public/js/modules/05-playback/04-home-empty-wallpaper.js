@@ -203,6 +203,7 @@ async function playHomeDaily() {
     return;
   }
   await waitForHomeDiscoverIdle();
+  if (typeof sanitizeHomeDiscoverSongs === 'function') sanitizeHomeDiscoverSongs();
   if (!homeDiscoverState.loaded || (!homeDiscoverState.songs.length && !homeDiscoverState.loading)) {
     await loadHomeDiscover(true);
   }
@@ -249,13 +250,16 @@ function playHomeSong(index) {
   homeForcedOpen = false;
   homeSuppressed = false;
   setHomeControlsLocked(false);
-  var song = homeDiscoverState.songs[index];
+  var dailySongs = typeof sanitizeHomeDiscoverSongs === 'function'
+    ? sanitizeHomeDiscoverSongs()
+    : [];
+  var song = dailySongs[index];
   if (!song) {
     if (index > 0) playHomePrivateRadio();
     else playHomeDaily();
     return;
   }
-  playQueue = homeDiscoverState.songs.map(cloneSong);
+  playQueue = dailySongs.map(cloneSong);
   currentIdx = Math.max(0, Math.min(playQueue.length - 1, index));
   safeRenderQueuePanel('home-song-card');
   safeShelfRebuild('home-song-card', true);

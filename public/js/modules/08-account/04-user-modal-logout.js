@@ -279,7 +279,7 @@ async function logoutActiveAccount() {
     } catch (e) { }
     kugouLoginStatus = { provider: 'kugou', loggedIn: false, preview: false, nickname: '酷狗音乐', userId: '', avatar: '', vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, playbackKeyReady: false };
     kugouPlaylists = [];
-    userPlaylists = userPlaylists.filter(function (pl) { return pl.provider !== 'kugou'; });
+    userPlaylists = userPlaylists.filter(function (pl) { return !(pl.provider === 'kugou' && pl.kugouVariant !== 'concept'); });
     playlistCatalogRevision += 1;
     dualAccountMode = false;
     activeAccountProvider = firstLoggedProvider();
@@ -293,7 +293,7 @@ async function logoutActiveAccount() {
     try { await apiJson('/api/kugou-concept/logout'); } catch (e) { }
     kugouConceptLoginStatus = normalizeKugouConceptLoginStatus(null);
     kugouConceptPlaylists = [];
-    userPlaylists = userPlaylists.filter(function (pl) { return !(pl && pl.provider === 'kugou' && pl.kugouVariant === 'concept'); });
+    userPlaylists = userPlaylists.filter(function (pl) { return !(pl && (pl.provider === 'kugouConcept' || pl.kugouVariant === 'concept')); });
     playlistCatalogRevision += 1;
     dualAccountMode = false;
     activeAccountProvider = firstLoggedProvider();
@@ -336,7 +336,7 @@ async function doLogout() {
   neteasePlaylists = [];
   if (!hasPlatformLogin('netease') || loggedProviderCount() < 2) dualAccountMode = false;
   activeAccountProvider = firstLoggedProvider();
-  userPlaylists = qqPlaylists.concat(kugouPlaylists || [], qishuiPlaylists || [], spotifyPlaylists || []);
+  userPlaylists = qqPlaylists.concat(kugouPlaylists || [], kugouConceptPlaylists || [], qishuiPlaylists || [], spotifyPlaylists || []);
   playlistCatalogRevision += 1;
   myPodcastCollections = [];
   myPodcastItems = {};

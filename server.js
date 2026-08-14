@@ -68,7 +68,7 @@ const { TrackDecryptor } = require('./qishui-audio-decryptor/track-decryptor');
 const { importPlaylistLink } = require('./platform-playlist-link-import');
 const sourceHost = require('./source-host');
 const { searchBackupCatalog } = require('./backup-catalog-search');
-const { getPlatformRankings } = require('./platform-rankings');
+const { createPlatformRankingService } = require('./platform-rankings');
 const {
   normalizeNeteaseArtistAlbums,
   normalizeQQArtistAlbums,
@@ -95,6 +95,12 @@ const {
   handleKugouLikeCheck,
   handleKugouLikeToggle,
   handleKugouPlaylistAddSong,
+  handleKugouConceptRecommendations,
+  handleKugouConceptUserPlaylists,
+  handleKugouConceptPlaylistTracks,
+  handleKugouConceptLikeCheck,
+  handleKugouConceptLikeToggle,
+  handleKugouConceptPlaylistAddSong,
   getKugouLoginInfo,
   getKugouConceptLoginInfo,
   normalizeKugouCookieInput,
@@ -1743,6 +1749,9 @@ async function requestJson(targetUrl, opts, body) {
     throw err;
   }
 }
+
+const platformRankingService = createPlatformRankingService({ requestJson });
+const getPlatformRankings = platformRankingService.getRankings;
 
 function clampNumber(value, min, max, fallback) {
   if (value === null || value === undefined || value === '') return fallback;
@@ -5122,6 +5131,17 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pn === '/api/kugou-concept/recommendations') {
+    try {
+      const limit = Math.max(4, Math.min(30, parseInt(url.searchParams.get('limit') || '12', 10) || 12));
+      sendJSON(res, await handleKugouConceptRecommendations(kugouConceptCookie, limit));
+    } catch (err) {
+      console.error('[KugouConceptRecommendations]', err);
+      sendJSON(res, { provider: 'kugouConcept', source: 'kugou', kugouVariant: 'concept', error: err.message || 'KUGOU_CONCEPT_RECOMMENDATIONS_FAILED', message: '酷狗概念版推荐暂时不可用', songs: [] }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/spotify/status') {
     try {
       sendJSON(res, await handleSpotifyStatus());
@@ -5887,6 +5907,16 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pn === '/api/kugou-concept/user/playlists') {
+    try {
+      sendJSON(res, await handleKugouConceptUserPlaylists(kugouConceptCookie));
+    } catch (err) {
+      console.error('[KugouConceptPlaylists]', err);
+      sendJSON(res, { provider: 'kugouConcept', source: 'kugou', kugouVariant: 'concept', playlists: [], error: err.message || 'KUGOU_CONCEPT_PLAYLIST_FAILED', message: '酷狗概念版歌单暂时无法读取' }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/kugou/playlist/tracks') {
     try {
       const id = url.searchParams.get('id') || url.searchParams.get('global_collection_id') || '';
@@ -5897,6 +5927,20 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[KugouPlaylistTracks]', err);
       sendJSON(res, { provider: 'kugou', error: err.message, tracks: [] }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/kugou-concept/playlist/tracks') {
+    try {
+      const id = url.searchParams.get('id') || '';
+      const limit = Math.max(1, Math.min(50, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+      const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+      const paged = url.searchParams.has('limit') || url.searchParams.has('offset');
+      sendJSON(res, await handleKugouConceptPlaylistTracks(id, kugouConceptCookie, paged ? { limit, offset, paged: true } : {}));
+    } catch (err) {
+      console.error('[KugouConceptPlaylistTracks]', err);
+      sendJSON(res, { provider: 'kugouConcept', source: 'kugou', kugouVariant: 'concept', tracks: [], total: 0, error: err.message || 'KUGOU_CONCEPT_PLAYLIST_TRACKS_FAILED', message: '酷狗概念版歌单歌曲暂时无法读取' }, 500);
     }
     return;
   }
@@ -5912,6 +5956,17 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[KugouLikeCheck]', err);
       sendJSON(res, { provider: 'kugou', liked: {}, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/kugou-concept/song/like/check') {
+    try {
+      const hashes = url.searchParams.get('hashes') || '';
+      sendJSON(res, await handleKugouConceptLikeCheck({ hashes }, kugouConceptCookie));
+    } catch (err) {
+      console.error('[KugouConceptLikeCheck]', err);
+      sendJSON(res, { provider: 'kugouConcept', source: 'kugou', kugouVariant: 'concept', liked: {}, error: err.message || 'KUGOU_CONCEPT_LIKE_CHECK_FAILED' }, 500);
     }
     return;
   }
@@ -5933,6 +5988,17 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pn === '/api/kugou-concept/song/like') {
+    try {
+      const body = await readRequestBody(req);
+      sendJSON(res, await handleKugouConceptLikeToggle(body.song || body, body.like !== false, kugouConceptCookie));
+    } catch (err) {
+      console.error('[KugouConceptLike]', err);
+      sendJSON(res, { provider: 'kugouConcept', source: 'kugou', kugouVariant: 'concept', success: false, error: err.message || 'KUGOU_CONCEPT_LIKE_FAILED' }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/kugou/playlist/add-song') {
     try {
       if (!kugouCookieHasPlayback(kugouCookie)) {
@@ -5947,6 +6013,17 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[KugouPlaylistAddSong]', err);
       sendJSON(res, { provider: 'kugou', success: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/kugou-concept/playlist/add-song') {
+    try {
+      const body = await readRequestBody(req);
+      sendJSON(res, await handleKugouConceptPlaylistAddSong(body.pid || body.playlistId || '', body.song || body, kugouConceptCookie));
+    } catch (err) {
+      console.error('[KugouConceptPlaylistAddSong]', err);
+      sendJSON(res, { provider: 'kugouConcept', source: 'kugou', kugouVariant: 'concept', success: false, error: err.message || 'KUGOU_CONCEPT_PLAYLIST_ADD_FAILED' }, 500);
     }
     return;
   }

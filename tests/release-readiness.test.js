@@ -16,7 +16,7 @@ test('release metadata consistently targets Mineradio Next', () => {
   const installer = read('build/installer.nsh');
   const checksums = read('scripts/create-release-checksums.js');
 
-  assert.equal(packageInfo.version, '2.2.1');
+  assert.equal(packageInfo.version, '2.2.2');
   assert.equal(lockInfo.version, packageInfo.version);
   assert.equal(lockInfo.packages[''].version, packageInfo.version);
   assert.equal(packageInfo.productName, 'Mineradio Next');
@@ -32,8 +32,8 @@ test('release metadata consistently targets Mineradio Next', () => {
   assert.equal(packageInfo.build.win.signAndEditExecutable, undefined);
   assert.equal(packageInfo.mineradio.update.owner, 'Mineradio-Next');
   assert.equal(packageInfo.mineradio.update.repo, 'Mineradio-Next');
-  assert.match(html, /id="update-modal-version"[^>]*>2\.2\.1<\/div>/);
-  assert.match(state, /currentVersion:\s*'2\.2\.1'/);
+  assert.match(html, /id="update-modal-version"[^>]*>2\.2\.2<\/div>/);
+  assert.match(state, /currentVersion:\s*'2\.2\.2'/);
   assert.match(installer, /MINERADIO_INSTALL_TITLE "Mineradio Next 安装"/);
   assert.match(checksums, /Mineradio-Next-\$\{version\}-Setup\.exe/);
   assert.match(checksums, /'latest\.yml'/);

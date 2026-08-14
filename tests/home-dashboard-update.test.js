@@ -135,7 +135,7 @@ test('playlist import actions use a two-column toolbar instead of shrinking text
 test('dashboard selects local discovery candidates and keeps cover swaps stable', () => {
   const candidateSelector = namedFunctionSource(dashboardScript, 'homeDashboardDiscoverySongs');
   assert.ok(candidateSelector, 'expected homeDashboardDiscoverySongs()');
-  assert.match(candidateSelector, /homeDiscoverState\s*&&[\s\S]{0,180}?homeDiscoverState\.songs/);
+  assert.match(candidateSelector, /sanitizeHomeDiscoverSongs\s*\(\s*\)/);
   assert.match(candidateSelector, /homeDashboardLocalSongs\s*\(\s*\)/);
   assert.match(
     candidateSelector,

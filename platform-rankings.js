@@ -127,7 +127,10 @@ function normalizeKugouRankingSong(item) {
   const prefix = artist ? `${artist} - ` : '';
   if (prefix && fileName.startsWith(prefix)) name = fileName.slice(prefix.length);
   else if (fileName.includes(' - ')) name = fileName.split(' - ').slice(1).join(' - ');
-  const rawCover = String(item.Image || item.AlbumImage || item.cover || item.pic || '').replace('{size}', '400');
+  const rawCover = String(
+    item.Image || item.AlbumImage || item.cover || item.pic || item.album_img || item.sizable_cover || item.imgUrl ||
+    item.trans_param && item.trans_param.union_cover || ''
+  ).replace(/\{size\}/g, '400');
   return {
     provider: 'kugou',
     source: 'kugou',
@@ -150,6 +153,49 @@ function normalizeKugouRankingSong(item) {
     interval: durationText(item.timeLen || item.Duration || item.duration),
     playable: false,
   };
+}
+
+async function fetchKugouRankingSongDetail(song, options) {
+  if (!song || !song.hash) return song;
+  const target = `https://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=${encodeURIComponent(song.hash)}`;
+  const requestOptions = Object.assign({}, options, { headers: { referer: 'https://www.kugou.com/' } });
+  const detail = options && typeof options.requestJson === 'function'
+    ? await options.requestJson(target, requestOptions)
+    : await fetchJson(target, requestOptions);
+  const enriched = normalizeKugouRankingSong(Object.assign({}, detail || {}, {
+    Hash: song.hash,
+    FileName: detail && (detail.fileName || detail.FileName) || `${song.artist} - ${song.name}`,
+    author_name: detail && (detail.author_name || detail.singerName) || song.artist,
+    album_name: detail && (detail.album_name || detail.albumName) || song.album,
+    timeLen: detail && (detail.timeLength || detail.timeLen) || song.duration,
+  }));
+  return Object.assign({}, song, enriched, {
+    name: song.name,
+    artist: song.artist,
+    singer: song.singer,
+    cover: enriched.cover || song.cover || '',
+    picUrl: enriched.picUrl || song.picUrl || '',
+  });
+}
+
+async function enrichKugouRankingCovers(songs, options) {
+  const output = Array.isArray(songs) ? songs.slice() : [];
+  const concurrency = Math.max(1, Math.min(8, Number(options && options.kugouDetailConcurrency) || 6));
+  let cursor = 0;
+  async function worker() {
+    while (cursor < output.length) {
+      const index = cursor;
+      cursor += 1;
+      if (!output[index] || output[index].cover) continue;
+      try {
+        output[index] = await fetchKugouRankingSongDetail(output[index], options);
+      } catch (_) {
+        // Ranking text remains usable when an individual cover lookup fails.
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, output.length) }, worker));
+  return output;
 }
 
 function kuwoCoverUrl(value) {
@@ -291,7 +337,7 @@ async function fetchKugouRanking(limit, options) {
       songs.push(song);
     });
   }
-  return songs;
+  return enrichKugouRankingCovers(songs, options);
 }
 
 function splitTopLevelArguments(text) {
@@ -421,6 +467,7 @@ function createPlatformRankingService(options) {
   const now = typeof options.now === 'function' ? options.now : Date.now;
   const adapters = Object.assign({}, DEFAULT_RANKING_ADAPTERS, options.adapters || {});
   const fetchImpl = options.fetchImpl || globalThis.fetch;
+  const requestJson = typeof options.requestJson === 'function' ? options.requestJson : null;
   const cacheTtlMs = Number(options.cacheTtlMs) || RANKING_CACHE_TTL_MS;
   const cache = new Map();
   const inFlight = new Map();
@@ -435,7 +482,7 @@ function createPlatformRankingService(options) {
     const request = Promise.resolve().then(async () => {
       const adapter = adapters[provider];
       if (typeof adapter !== 'function') throw new Error('PLATFORM_RANKING_PROVIDER_UNSUPPORTED');
-      const songs = decorateRankingSongs(provider, await adapter(50, { fetchImpl }), 50);
+      const songs = decorateRankingSongs(provider, await adapter(50, { fetchImpl, requestJson }), 50);
       if (!songs.length) throw new Error(`${provider.toUpperCase()}_RANKING_EMPTY`);
       const value = {
         provider,
@@ -525,6 +572,7 @@ module.exports = {
   normalizeNeteaseRankingSong,
   normalizeQQRankingSong,
   normalizeKugouRankingSong,
+  enrichKugouRankingCovers,
   normalizeKuwoRankingSong,
   normalizeMiguRankingSong,
   extractKuwoRankingRows,

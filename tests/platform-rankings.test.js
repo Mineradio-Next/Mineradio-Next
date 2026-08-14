@@ -13,6 +13,7 @@ const {
   normalizeNeteaseRankingSong,
   normalizeQQRankingSong,
   normalizeKugouRankingSong,
+  enrichKugouRankingCovers,
   normalizeKuwoRankingSong,
   normalizeMiguRankingSong,
 } = require('../platform-rankings');
@@ -66,6 +67,22 @@ test('provider normalizers preserve playback identities and public provider name
   assert.equal(kugou.hash, 'KG-HASH');
   assert.equal(kugou.name, '酷狗歌曲');
 
+  const kugouAlbumCover = normalizeKugouRankingSong({
+    hash: 'KG-COVER',
+    fileName: '酷狗歌手 - 有封面的歌曲',
+    author_name: '酷狗歌手',
+    album_img: 'http://imge.kugou.com/stdmusic/{size}/cover.jpg',
+  });
+  assert.equal(kugouAlbumCover.cover, 'http://imge.kugou.com/stdmusic/400/cover.jpg');
+
+  const kugouUnionCover = normalizeKugouRankingSong({
+    hash: 'KG-UNION',
+    fileName: '酷狗歌手 - 联合封面歌曲',
+    author_name: '酷狗歌手',
+    trans_param: { union_cover: 'http://imge.kugou.com/stdmusic/{size}/union.jpg' },
+  });
+  assert.equal(kugouUnionCover.cover, 'http://imge.kugou.com/stdmusic/400/union.jpg');
+
   const kuwo = normalizeKuwoRankingSong({ id: 13, name: '酷我歌曲', artist: '酷我歌手', pic: 'a/b.jpg' });
   assert.equal(kuwo.provider, 'backup-source');
   assert.equal(kuwo.additionalSourceCode, 'kw');
@@ -82,6 +99,51 @@ test('provider normalizers preserve playback identities and public provider name
   assert.equal(migu.provider, 'backup-source');
   assert.equal(migu.additionalSourceCode, 'mg');
   assert.equal(migu.copyrightId, 'copyright-id');
+});
+
+test('Kugou rankings enrich missing album covers without dropping songs on detail failure', async () => {
+  const calls = [];
+  const songs = [
+    normalizeKugouRankingSong({ Hash: 'HASH-A', FileName: '歌手 A - 歌曲 A', author_name: '歌手 A' }),
+    normalizeKugouRankingSong({ Hash: 'HASH-B', FileName: '歌手 B - 歌曲 B', author_name: '歌手 B' }),
+  ];
+  const fetchImpl = async url => {
+    calls.push(url);
+    if (url.includes('HASH-B')) throw new Error('DETAIL_DOWN');
+    return {
+      ok: true,
+      json: async () => ({
+        hash: 'HASH-A',
+        fileName: '歌手 A - 歌曲 A',
+        author_name: '歌手 A',
+        album_img: 'http://imge.kugou.com/stdmusic/{size}/album-a.jpg',
+      }),
+    };
+  };
+  const enriched = await enrichKugouRankingCovers(songs, { fetchImpl, timeoutMs: 1000 });
+  assert.equal(calls.length, 2);
+  assert.equal(enriched.length, 2);
+  assert.equal(enriched[0].cover, 'http://imge.kugou.com/stdmusic/400/album-a.jpg');
+  assert.equal(enriched[1].cover, '');
+});
+
+test('Kugou cover enrichment can use the host request client in Electron', async () => {
+  const songs = [normalizeKugouRankingSong({ Hash: 'HOST-HASH', FileName: '歌手 - 歌曲', author_name: '歌手' })];
+  let requested = '';
+  const enriched = await enrichKugouRankingCovers(songs, {
+    fetchImpl: async () => { throw new Error('Electron fetch should not be used for detail enrichment'); },
+    requestJson: async url => {
+      requested = url;
+      return {
+        hash: 'HOST-HASH',
+        fileName: '歌手 - 歌曲',
+        author_name: '歌手',
+        album_img: 'http://imge.kugou.com/stdmusic/{size}/host.jpg',
+      };
+    },
+  });
+  assert.match(requested, /m\.kugou\.com\/app\/i\/getSongInfo\.php/);
+  assert.equal(enriched[0].cover, 'http://imge.kugou.com/stdmusic/400/host.jpg');
 });
 
 test('combined rankings round-robin providers and deduplicate equivalent recordings', () => {
@@ -172,6 +234,7 @@ test('server wiring exposes one Mineradio route with public provider names', () 
   const backend = fs.readFileSync(path.join(appRoot, 'platform-rankings.js'), 'utf8');
   const packageJson = JSON.parse(fs.readFileSync(path.join(appRoot, 'package.json'), 'utf8'));
   assert.match(server, /require\('\.\/platform-rankings'\)/);
+  assert.match(server, /createPlatformRankingService\(\{ requestJson \}\)/);
   assert.match(server, /pn === '\/api\/platform-rankings'/);
   assert.match(backend, /'netease', 'qq', 'kugou', 'kuwo', 'migu'/);
   assert.doesNotMatch(backend, /\/api\/lx-|\bLX\b|\btx\b|\bwy\b/);
